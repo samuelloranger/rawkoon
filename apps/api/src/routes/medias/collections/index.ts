@@ -1,8 +1,11 @@
 import { Hono } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import {
+  listOwnedMovieTmdbIds,
+  listRecentMovieTmdbIds,
+} from "@rawkoon/api/services/medias/ownedMovies";
 import {
   loadTmdbConfig,
   toTmdbLanguage,
@@ -22,21 +25,8 @@ export const mediasCollectionsRoutes = new Hono<Env>().get(
       const q = c.req.query() as Record<string, string | undefined>;
       const language = toTmdbLanguage(q.language || "en-US");
 
-      const ownedMovies = await prisma.libraryMedia.findMany({
-        where: { type: "movie" },
-        select: { tmdbId: true },
-      });
-      const ownedTmdb = new Set(ownedMovies.map((m) => m.tmdbId));
-
-      // Cap the TMDB details inspection to the 100 most recently added movies
-      // to avoid rate-limiting/timeouts on large libraries.
-      const recentMovies = await prisma.libraryMedia.findMany({
-        where: { type: "movie" },
-        select: { tmdbId: true },
-        orderBy: { addedAt: "desc" },
-        take: 100,
-      });
-      const tmdbIds = recentMovies.map((m) => m.tmdbId);
+      const ownedTmdb = await listOwnedMovieTmdbIds();
+      const tmdbIds = await listRecentMovieTmdbIds();
 
       const BATCH_SIZE = 15;
       const detailsMap = new Map<

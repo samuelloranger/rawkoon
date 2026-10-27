@@ -1,14 +1,15 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import { notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
+import {
+  createBlocklistEntry,
+  deleteBlocklistEntry,
+  listBlocklistEntries,
+} from "@rawkoon/api/services/medias/blocklist";
 import { formatIso } from "@rawkoon/api/utils";
-
-/** Newest blocklist entries returned to the admin blocklist screen. */
-const BLOCKLIST_LIMIT = 500;
 
 function formatEntry(e: {
   id: number;
@@ -43,16 +44,7 @@ export const mediasBlocklistRoutes = new Hono<Env>()
     async (c) => {
       const source = c.req.valid("query").source;
       try {
-        const entries = await prisma.grabBlocklist.findMany({
-          where:
-            source === "auto"
-              ? { kind: { not: null } }
-              : source === "manual"
-                ? { kind: null }
-                : {},
-          orderBy: { blockedAt: "desc" },
-          take: BLOCKLIST_LIMIT,
-        });
+        const entries = await listBlocklistEntries(source);
         return ok({ entries: entries.map(formatEntry) });
       } catch {
         return serverError("Failed to fetch blocklist");
@@ -75,15 +67,13 @@ export const mediasBlocklistRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       try {
-        const entry = await prisma.grabBlocklist.create({
-          data: {
-            releaseTitle: body.release_title,
-            torrentHash: body.torrent_hash ?? null,
-            indexer: body.indexer ?? null,
-            mediaId: body.media_id ?? null,
-            episodeId: body.episode_id ?? null,
-            reason: body.reason ?? null,
-          },
+        const entry = await createBlocklistEntry({
+          releaseTitle: body.release_title,
+          torrentHash: body.torrent_hash,
+          indexer: body.indexer,
+          mediaId: body.media_id,
+          episodeId: body.episode_id,
+          reason: body.reason,
         });
         return ok({ entry: formatEntry(entry) });
       } catch {
@@ -98,12 +88,9 @@ export const mediasBlocklistRoutes = new Hono<Env>()
     async (c) => {
       const { id } = c.req.valid("param");
       try {
-        const existing = await prisma.grabBlocklist.findUnique({
-          where: { id },
-        });
-        if (!existing) return notFound("Blocklist entry not found");
-
-        await prisma.grabBlocklist.delete({ where: { id } });
+        if (!(await deleteBlocklistEntry(id))) {
+          return notFound("Blocklist entry not found");
+        }
         return ok({ success: true });
       } catch {
         return serverError("Failed to delete blocklist entry");

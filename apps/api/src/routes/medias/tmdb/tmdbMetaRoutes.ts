@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { prisma } from "@rawkoon/api/db";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
+import { findWatchlistItemId } from "@rawkoon/api/services/medias/watchlist";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
 import {
   loadTmdbConfig,
@@ -230,18 +230,9 @@ export const tmdbMetaRoutes = new Hono<Env>()
     const region = await getGlobalTmdbRegion();
     const language = toTmdbLanguage(c.req.query("language") || "en-US");
 
-    const [tmdbConfig, watchlistItem] = await Promise.all([
+    const [tmdbConfig, watchlistId] = await Promise.all([
       loadTmdbConfig(),
-      prisma.watchlistItem.findUnique({
-        where: {
-          userId_tmdbId_mediaType: {
-            userId: c.get("user").id,
-            tmdbId,
-            mediaType,
-          },
-        },
-        select: { id: true },
-      }),
+      findWatchlistItemId(c.get("user").id, tmdbId, mediaType),
     ]);
     if (!tmdbConfig) return badRequest("TMDB is not configured");
 
@@ -260,8 +251,8 @@ export const tmdbMetaRoutes = new Hono<Env>()
     ]);
 
     return ok({
-      watchlist_status: watchlistItem !== null,
-      watchlist_id: watchlistItem?.id ?? null,
+      watchlist_status: watchlistId !== null,
+      watchlist_id: watchlistId,
       trailer,
       ratings,
       credits,

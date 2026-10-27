@@ -1,11 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
-import { prisma } from "@rawkoon/api/db";
 import { notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { queryV } from "@rawkoon/api/middleware/validate";
+import {
+  searchLibraryBooks,
+  searchLibraryMedias,
+  searchUsers,
+} from "@rawkoon/api/services/medias/quickSearch";
 
 const quickQuery = z.object({
   q: z.string().optional(),
@@ -27,70 +30,20 @@ export const searchRoutes = new Hono<Env>()
         return ok(empty);
       }
 
-      const userOrConditions: Prisma.UserWhereInput[] = [
-        { firstName: { contains: q, mode: "insensitive" } },
-        { lastName: { contains: q, mode: "insensitive" } },
-      ];
-      if (user.is_admin) {
-        userOrConditions.push({ email: { contains: q, mode: "insensitive" } });
-      }
+      const users = await searchUsers(q, limit, !!user.is_admin);
 
-      const users = await prisma.user.findMany({
-        where: { OR: userOrConditions },
-        take: limit,
-        select: { id: true, firstName: true, lastName: true, email: true },
-      });
-
-      let medias: {
-        id: number;
-        title: string;
-        type: string;
-        year: number | null;
-        status: string;
-      }[] = [];
+      let medias: Awaited<ReturnType<typeof searchLibraryMedias>> = [];
       try {
-        medias = await prisma.libraryMedia.findMany({
-          where: { title: { contains: q, mode: "insensitive" } },
-          take: limit,
-          select: {
-            id: true,
-            title: true,
-            type: true,
-            year: true,
-            status: true,
-          },
-        });
+        medias = await searchLibraryMedias(q, limit);
       } catch {
         // library table not yet available — return empty
       }
 
       // Books are gated: a movies-only install must not pay for the query and
       // must not see a section it has no pages for.
-      let books: {
-        id: number;
-        title: string;
-        authors: string[];
-        year: number | null;
-      }[] = [];
+      let books: Awaited<ReturnType<typeof searchLibraryBooks>> = [];
       try {
-        const settings = await prisma.appSettings.findUnique({
-          where: { id: 1 },
-          select: { booksEnabled: true },
-        });
-        if (settings?.booksEnabled === true) {
-          const rows = await prisma.libraryBook.findMany({
-            where: { title: { contains: q, mode: "insensitive" } },
-            take: limit,
-            orderBy: { listTitle: "asc" },
-            select: { id: true, title: true, authors: true, listYear: true },
-          });
-          books = rows.map((b) => ({
-            id: b.id,
-            title: b.title,
-            authors: b.authors,
-            year: b.listYear,
-          }));
-        }
+        books = await searchLibraryBooks(q, limit);
       } catch {
         // book tables not yet migrated — return empty
       }

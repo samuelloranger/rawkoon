@@ -1,11 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, conflict, notFound, ok } from "@rawkoon/api/errors";
 import type { RequestTitleStatusResponse } from "@rawkoon/shared/types";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
+import {
+  findTitleRequestState,
+  listMediaRequests,
+} from "@rawkoon/api/services/medias/requestQueries";
 import {
   approveRequest,
   createRequest,
@@ -20,9 +23,6 @@ function requestId(raw: string): number | null {
 }
 
 const isTruthyFlag = (v: string | undefined) => v === "1" || v === "true";
-
-/** Newest requests returned to the requests screen. */
-const REQUEST_LIST_LIMIT = 500;
 
 function mapRequest(r: {
   id: number;
@@ -97,12 +97,7 @@ export const requestRoutes = new Hono<Env>()
       user.is_admin && !isTruthyFlag(c.req.valid("query").mine)
         ? {}
         : { requestedById: user.id };
-    const rows = await prisma.mediaRequest.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: { requestedBy: { select: { id: true, name: true } } },
-      take: REQUEST_LIST_LIMIT,
-    });
+    const rows = await listMediaRequests(where);
     return ok({ requests: rows.map(mapRequest) });
   })
   // GET /api/requests/status — library + request state for one title, for clients
@@ -118,12 +113,7 @@ export const requestRoutes = new Hono<Env>()
     async (c) => {
       const { tmdb_id: tmdbId, type } = c.req.valid("query");
       const user = c.get("user");
-      const [media, request] = await Promise.all([
-        prisma.libraryMedia.findUnique({ where: { tmdbId } }),
-        prisma.mediaRequest.findUnique({
-          where: { tmdbId_type: { tmdbId, type } },
-        }),
-      ]);
+      const [media, request] = await findTitleRequestState(tmdbId, type);
       const body: RequestTitleStatusResponse = {
         library:
           media && media.type === type
