@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CustomFormat, Prisma } from "@prisma/client";
-import { prisma } from "@rawkoon/api/db";
 import {
   badRequest,
   conflict,
@@ -13,6 +12,12 @@ import {
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import {
+  createCustomFormat,
+  deleteCustomFormat,
+  listCustomFormats,
+  updateCustomFormat,
+} from "@rawkoon/api/services/customFormats/customFormatStore";
 import { validateFormatConditions } from "@rawkoon/api/utils/medias/customFormatValidation";
 
 function mapCustomFormat(f: CustomFormat) {
@@ -41,9 +46,7 @@ export const customFormatsRoutes = new Hono<Env>()
   .use("*", requireUser)
   .get("/", async () => {
     try {
-      const rows = await prisma.customFormat.findMany({
-        orderBy: { name: "asc" },
-      });
+      const rows = await listCustomFormats();
       return ok({ custom_formats: rows.map(mapCustomFormat) });
     } catch {
       return serverError("Failed to list custom formats");
@@ -55,12 +58,10 @@ export const customFormatsRoutes = new Hono<Env>()
     const v = validateFormatConditions(body.conditions);
     if (!v.ok) return badRequest(v.code);
     try {
-      const row = await prisma.customFormat.create({
-        data: {
-          name: body.name.trim(),
-          conditions: v.conditions as unknown as Prisma.InputJsonValue,
-        },
-      });
+      const row = await createCustomFormat(
+        body.name.trim(),
+        v.conditions as unknown as Prisma.InputJsonValue,
+      );
       return ok({ custom_format: mapCustomFormat(row) }, 201);
     } catch (e: unknown) {
       if (isUniqueViolation(e))
@@ -76,16 +77,15 @@ export const customFormatsRoutes = new Hono<Env>()
     const v = validateFormatConditions(body.conditions);
     if (!v.ok) return badRequest(v.code);
     try {
-      const existing = await prisma.customFormat.findUnique({ where: { id } });
-      if (!existing) return notFound("Custom format not found");
-      const row = await prisma.customFormat.update({
-        where: { id },
-        data: {
-          name: body.name.trim(),
-          conditions: v.conditions as unknown as Prisma.InputJsonValue,
-        },
-      });
-      return ok({ custom_format: mapCustomFormat(row) });
+      const result = await updateCustomFormat(
+        id,
+        body.name.trim(),
+        v.conditions as unknown as Prisma.InputJsonValue,
+      );
+      if (result.status === "not_found") {
+        return notFound("Custom format not found");
+      }
+      return ok({ custom_format: mapCustomFormat(result.row) });
     } catch (e: unknown) {
       if (isUniqueViolation(e))
         return conflict("A custom format with this name already exists");
@@ -97,19 +97,15 @@ export const customFormatsRoutes = new Hono<Env>()
     const id = parseInt(c.req.param("id"), 10);
     if (!Number.isFinite(id)) return badRequest("Invalid id");
     try {
-      const existing = await prisma.customFormat.findUnique({ where: { id } });
-      if (!existing) return notFound("Custom format not found");
-
-      const inUse = await prisma.qualityProfileCustomFormat.count({
-        where: { customFormatId: id },
-      });
-      if (inUse > 0) {
+      const result = await deleteCustomFormat(id);
+      if (result.status === "not_found") {
+        return notFound("Custom format not found");
+      }
+      if (result.status === "in_use") {
         return conflict(
           "Cannot delete custom format while quality profiles are using it",
         );
       }
-
-      await prisma.customFormat.delete({ where: { id } });
       return ok({ deleted: true });
     } catch {
       return serverError("Failed to delete custom format");
