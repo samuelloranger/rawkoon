@@ -1,10 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import {
+  deleteWatchlistItems,
+  listWatchlistItems,
+  upsertWatchlistItem,
+} from "@rawkoon/api/services/medias/watchlist";
 
 function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
   if (ymd == null || ymd === "") return null;
@@ -16,10 +20,7 @@ function parseYmdToDbDate(ymd: string | null | undefined): Date | null {
 export const mediasWatchlistRoutes = new Hono<Env>()
   .get("/", requireUser, async (c) => {
     try {
-      const items = await prisma.watchlistItem.findMany({
-        where: { userId: c.get("user").id },
-        orderBy: { addedAt: "desc" },
-      });
+      const items = await listWatchlistItems(c.get("user").id);
       return ok({
         items: items.map((item) => ({
           id: item.id,
@@ -65,31 +66,18 @@ export const mediasWatchlistRoutes = new Hono<Env>()
         const movieDate = isMovie
           ? parseYmdToDbDate(body.release_date ?? undefined)
           : null;
-        const item = await prisma.watchlistItem.upsert({
-          where: {
-            userId_tmdbId_mediaType: {
-              userId: c.get("user").id,
-              tmdbId: body.tmdb_id,
-              mediaType: body.media_type,
-            },
-          },
-          create: {
-            userId: c.get("user").id,
-            tmdbId: body.tmdb_id,
-            mediaType: body.media_type,
-            title: body.title,
-            posterUrl: body.poster_url ?? null,
-            overview: body.overview ?? null,
-            releaseYear: body.release_year ?? null,
-            voteAverage: body.vote_average ?? null,
-            movieReleaseDate: isMovie ? movieDate : null,
-            releaseReminderSentFor: null,
-          },
-          update: {
-            ...(isMovie && body.release_date !== undefined
-              ? { movieReleaseDate: movieDate, releaseReminderSentFor: null }
-              : {}),
-          },
+        const item = await upsertWatchlistItem({
+          userId: c.get("user").id,
+          tmdbId: body.tmdb_id,
+          mediaType: body.media_type,
+          title: body.title,
+          posterUrl: body.poster_url ?? null,
+          overview: body.overview ?? null,
+          releaseYear: body.release_year ?? null,
+          voteAverage: body.vote_average ?? null,
+          isMovie,
+          movieDate,
+          releaseDateProvided: body.release_date !== undefined,
         });
         return ok({ id: item.id, added: true });
       } catch {
@@ -106,9 +94,7 @@ export const mediasWatchlistRoutes = new Hono<Env>()
     if (!type) return badRequest("Missing type query param");
 
     try {
-      await prisma.watchlistItem.deleteMany({
-        where: { userId: c.get("user").id, tmdbId, mediaType: type },
-      });
+      await deleteWatchlistItems(c.get("user").id, tmdbId, type);
 
       return ok({ success: true });
     } catch {
