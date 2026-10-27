@@ -5,7 +5,7 @@ import {
   titlesAreUninformative,
 } from "@rawkoon/api/services/books/registerBookChapters";
 
-/** Titles nothing has named yet: all the same, or the "Chapter N" fallback. */
+/** Titles nothing has named yet: all the same, or the "Chapter N" fallback (container atoms that literally read "Chapter N" count too). */
 export const hasPlaceholderTitles = (titles: string[]): boolean =>
   titles.length > 1 &&
   (titlesAreUninformative(titles) ||

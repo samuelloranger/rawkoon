@@ -128,7 +128,8 @@ describe("postProcessBook chapter registration", () => {
 
     expect(result.imported).toBe(2);
     expect(state.registered).toEqual([7]);
-    expect(state.renamed).toEqual([]);
+    // An epub imported earlier can name this audiobook's placeholder chapters.
+    expect(state.renamed).toEqual([3]);
   });
 
   it("does not register chapters for an ebook", async () => {

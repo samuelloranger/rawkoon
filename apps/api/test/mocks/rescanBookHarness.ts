@@ -40,6 +40,7 @@ export async function setupRescanBookHarness() {
     deletedIds: number[];
     created: Array<Record<string, unknown>>;
     fileUpdates: Array<Record<string, unknown>>;
+    renamed: number[];
   } = {
     edition: null,
     files: [],
@@ -50,6 +51,7 @@ export async function setupRescanBookHarness() {
     deletedIds: [],
     created: [],
     fileUpdates: [],
+    renamed: [],
   };
 
   const pushEditionUpdate = (args: {
@@ -183,6 +185,17 @@ export async function setupRescanBookHarness() {
       }),
   }));
 
+  const realRename = await import(
+    "@rawkoon/api/services/books/renameChaptersFromEbook"
+  );
+  mock.module("@rawkoon/api/services/books/renameChaptersFromEbook", () => ({
+    ...realRename,
+    renameAudiobookChaptersFromEbook: (bookId: number) => {
+      state.renamed.push(bookId);
+      return Promise.resolve(false);
+    },
+  }));
+
   const realEbookMetadata = await import(
     "@rawkoon/api/utils/books/ebookMetadata"
   );
@@ -220,6 +233,7 @@ export async function setupRescanBookHarness() {
     state.deletedIds = [];
     state.created = [];
     state.fileUpdates = [];
+    state.renamed = [];
   };
   const cleanup = () => rm(root, { recursive: true, force: true });
 

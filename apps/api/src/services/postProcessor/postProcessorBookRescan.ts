@@ -275,8 +275,8 @@ export async function rescanBookEdition(editionId: number): Promise<{
     if (registration.offlineReady) shouldEmitBookUpdate = true;
   }
 
+  // New files on either edition may complete the pair the epub naming needs.
   if (
-    kind === "ebook" &&
     registered > 0 &&
     (await renameAudiobookChaptersFromEbook(edition.bookId))
   ) {
