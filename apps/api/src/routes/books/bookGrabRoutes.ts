@@ -4,7 +4,6 @@ import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import {
   badRequest,
   conflict,
@@ -12,6 +11,7 @@ import {
   ok,
   serverError,
 } from "@rawkoon/api/errors";
+import { findBookEditionId } from "@rawkoon/api/services/books/bookEditionLookup";
 import {
   grabBookRelease,
   searchAndGrabBook,
@@ -36,15 +36,11 @@ export const bookGrabRoutes = new Hono<Env>()
     paramV(editionParams),
     async (c) => {
       const params = c.req.valid("param");
-      const edition = await prisma.bookEdition.findUnique({
-        where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-        select: { id: true },
-      });
-      if (!edition) return notFound("Edition not found");
+      const editionId = await findBookEditionId(params.id, params.kind);
+      if (editionId === null) return notFound("Edition not found");
 
-      const { releases, indexerWarnings, error } = await searchBookReleases(
-        edition.id,
-      );
+      const { releases, indexerWarnings, error } =
+        await searchBookReleases(editionId);
       if (error) return badRequest(error);
 
       return ok({ releases, indexer_warnings: indexerWarnings });
@@ -67,11 +63,8 @@ export const bookGrabRoutes = new Hono<Env>()
       try {
         const params = c.req.valid("param");
         const body = c.req.valid("json");
-        const edition = await prisma.bookEdition.findUnique({
-          where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-          select: { id: true },
-        });
-        if (!edition) return notFound("Edition not found");
+        const editionId = await findBookEditionId(params.id, params.kind);
+        if (editionId === null) return notFound("Edition not found");
 
         const url = body.download_url?.trim() || body.magnet_url?.trim();
         if (!url) {
@@ -79,7 +72,7 @@ export const bookGrabRoutes = new Hono<Env>()
         }
 
         const result = await grabBookRelease({
-          editionId: edition.id,
+          editionId: editionId,
           downloadUrl: url,
           releaseTitle: body.release_title,
           indexer: body.indexer ?? null,
@@ -105,13 +98,10 @@ export const bookGrabRoutes = new Hono<Env>()
     async (c) => {
       try {
         const params = c.req.valid("param");
-        const edition = await prisma.bookEdition.findUnique({
-          where: { bookId_kind: { bookId: params.id, kind: params.kind } },
-          select: { id: true },
-        });
-        if (!edition) return notFound("Edition not found");
+        const editionId = await findBookEditionId(params.id, params.kind);
+        if (editionId === null) return notFound("Edition not found");
 
-        const result = await searchAndGrabBook(edition.id, "manual_search");
+        const result = await searchAndGrabBook(editionId, "manual_search");
         if (!result.grabbed) return conflict(result.reason);
         return ok({ grabbed: true, release_title: result.releaseTitle });
       } catch (err) {
