@@ -1,4 +1,4 @@
-import type { LibraryMediaStatus } from "@rawkoon/shared/types";
+import type { AiringState, LibraryMediaStatus } from "@rawkoon/shared/types";
 import type { MediaPosterCardStatus } from "@/components/MediaPosterCard";
 
 type LibraryStatusTone = "ok" | "progress" | "attention" | "meta" | "neutral";
@@ -38,11 +38,38 @@ const NEUTRAL = {
   badgeClass: "bg-neutral-700 text-neutral-300",
 } as const;
 
+type AiringLabel = Exclude<AiringState, "ended">;
+
+/** What a title is labelled as: a downloaded show that is still airing reads as its airing state. */
+export function displayLibraryStatus(
+  status: LibraryMediaStatus,
+  airingState: AiringState | null | undefined,
+): LibraryMediaStatus | AiringLabel;
+export function displayLibraryStatus(
+  status: string,
+  airingState: AiringState | null | undefined,
+): string;
+export function displayLibraryStatus(
+  status: string,
+  airingState: AiringState | null | undefined,
+): string {
+  if (
+    status === "downloaded" &&
+    (airingState === "returning" ||
+      airingState === "in_production" ||
+      airingState === "planned")
+  ) {
+    return airingState;
+  }
+  return status;
+}
+
 export function libraryStatusPresentation(
   status: LibraryMediaStatus,
+  airingState?: AiringState | null,
 ): LibraryStatusPresentation {
   const label = (s: string) => `medias.library.itemStatus.${s}`;
-  switch (status) {
+  switch (displayLibraryStatus(status, airingState)) {
     case "downloaded":
       return {
         cardStatus: "downloaded",

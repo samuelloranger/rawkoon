@@ -95,7 +95,10 @@ export function TmdbResultCard({
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {inLibrary ? (
-              <LibraryStatusChip status={item.library_status} />
+              <LibraryStatusChip
+                status={item.library_status}
+                airingState={item.library_airing_state}
+              />
             ) : !item.can_add ? (
               <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-300">
                 {t("medias.tmdb.notConfigured")}

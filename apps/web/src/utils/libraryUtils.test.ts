@@ -18,6 +18,7 @@ function makeMedia(overrides: Partial<LibraryMedia>): LibraryMedia {
     sort_title: null,
     year: 2020,
     status: "wanted",
+    airing_state: null,
     monitored: true,
     poster_url: null,
     backdrop_url: null,

@@ -20,6 +20,8 @@ import {
   User,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { AiringState } from "@rawkoon/shared/types";
+import { displayLibraryStatus } from "@/utils/libraryStatusPresentation";
 import { useQuickSearch } from "@/lib/search/useSearch";
 import { navItems, resolveNavPath } from "@/lib/routing/navigation";
 import { usePrefetchAllRoutes } from "@/lib/routing/usePrefetchAllRoutes";
@@ -166,8 +168,13 @@ export function QuickActionPalette({
 
     const { medias = [], books = [], users = [] } = searchQuery.data;
 
-    const libraryStatusLabel = (status: string) =>
-      t(`medias.library.itemStatus.${status}`, { defaultValue: status });
+    const libraryStatusLabel = (
+      status: string,
+      airingState: AiringState | null,
+    ) => {
+      const shown = displayLibraryStatus(status, airingState);
+      return t(`medias.library.itemStatus.${shown}`, { defaultValue: shown });
+    };
 
     const mediaActions: QuickAction[] = medias.map((item) => ({
       id: `media-${item.id}`,
@@ -177,7 +184,7 @@ export function QuickActionPalette({
           ? t("medias.filterMovies")
           : t("medias.filterSeries"),
         item.year ?? "",
-        libraryStatusLabel(item.status),
+        libraryStatusLabel(item.status, item.airing_state),
       ]
         .filter(Boolean)
         .join(" • "),

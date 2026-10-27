@@ -41,7 +41,7 @@ export function LibraryItemActions({
   onUpgradeSearch,
 }: Props) {
   const { t } = useTranslation("common");
-  const kind = headerActionKind(item.status, isAdmin);
+  const kind = headerActionKind(item.status, isAdmin, item.airing_state);
   if (kind === "missing")
     return <MissingActions item={item} onChooseRelease={onChooseRelease} />;
   if (kind === "downloading") return <DownloadProgress item={item} />;

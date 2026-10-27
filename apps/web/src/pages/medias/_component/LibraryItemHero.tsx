@@ -75,7 +75,7 @@ export function LibraryItemHero({
   const voteAverage = detailsData?.vote_average ?? null;
   const rtScore = ratingsData?.rotten_tomatoes ?? null;
   const tmdbUrl = `https://www.themoviedb.org/${mediaType}/${item.tmdb_id}`;
-  const p = libraryStatusPresentation(item.status);
+  const p = libraryStatusPresentation(item.status, item.airing_state);
   const statusLabel = useStatusLabel(item, p.labelKey);
   const statusLine = isAdmin
     ? statusLineParts(item, t, i18n.language).join(" · ")
