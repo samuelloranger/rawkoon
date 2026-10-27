@@ -4,8 +4,14 @@ import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, paramV, queryV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok } from "@rawkoon/api/errors";
+import { bookQualityProfileIdExists } from "@rawkoon/api/services/books/bookQualityProfileStore";
+import {
+  findAuthorMonitorState,
+  listAuthors,
+  searchAuthorsByName,
+  updateAuthorMonitoring,
+} from "@rawkoon/api/services/books/authorStore";
 import type { Author, BookEditionKind } from "@rawkoon/shared/types";
 
 const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
@@ -42,21 +48,6 @@ const mapAuthor = (row: AuthorRow): Author => ({
   book_count: row._count?.bookLinks ?? 0,
 });
 
-const authorSelect = {
-  id: true,
-  googleAuthorName: true,
-  sortName: true,
-  imageUrl: true,
-  bio: true,
-  monitored: true,
-  monitorFrom: true,
-  monitorEditionKinds: true,
-  monitorLanguages: true,
-  bookQualityProfileId: true,
-  lastCheckedAt: true,
-  _count: { select: { bookLinks: true } },
-} as const;
-
 /**
  * Authors and author monitoring.
  *   GET   /api/authors          — every author in the library, monitored first
@@ -68,11 +59,7 @@ const authorSelect = {
  */
 export const authorRoutes = new Hono<Env>()
   .get("/", requireUser, async () => {
-    const authors = await prisma.author.findMany({
-      select: authorSelect,
-      // Monitored first — the list's job is to show what is being watched.
-      orderBy: [{ monitored: "desc" }, { sortName: "asc" }],
-    });
+    const authors = await listAuthors();
     return ok({ authors: authors.map(mapAuthor) });
   })
 
@@ -83,12 +70,7 @@ export const authorRoutes = new Hono<Env>()
     async (c) => {
       const q = c.req.valid("query").q?.trim();
       if (!q) return ok({ authors: [] });
-      const authors = await prisma.author.findMany({
-        where: { googleAuthorName: { contains: q, mode: "insensitive" } },
-        select: authorSelect,
-        orderBy: [{ monitored: "desc" }, { sortName: "asc" }],
-        take: 50,
-      });
+      const authors = await searchAuthorsByName(q);
       return ok({ authors: authors.map(mapAuthor) });
     },
   )
@@ -112,10 +94,7 @@ export const authorRoutes = new Hono<Env>()
 
       const params = c.req.valid("param");
       const body = c.req.valid("json");
-      const author = await prisma.author.findUnique({
-        where: { id: params.id },
-        select: { id: true, monitored: true, monitorFrom: true },
-      });
+      const author = await findAuthorMonitorState(params.id);
       if (!author) return notFound("Author not found");
 
       if (body.monitor_edition_kinds) {
@@ -143,11 +122,8 @@ export const authorRoutes = new Hono<Env>()
       }
 
       if (body.book_quality_profile_id != null) {
-        const profile = await prisma.bookQualityProfile.findUnique({
-          where: { id: body.book_quality_profile_id },
-          select: { id: true },
-        });
-        if (!profile) return notFound("Book quality profile not found");
+        if (!(await bookQualityProfileIdExists(body.book_quality_profile_id)))
+          return notFound("Book quality profile not found");
       }
 
       let monitorFrom: Date | null | undefined;
@@ -167,22 +143,12 @@ export const authorRoutes = new Hono<Env>()
         monitorFrom = author.monitorFrom ?? new Date();
       }
 
-      const updated = await prisma.author.update({
-        where: { id: author.id },
-        data: {
-          ...(body.monitored !== undefined
-            ? { monitored: body.monitored }
-            : {}),
-          ...(monitorFrom !== undefined ? { monitorFrom } : {}),
-          ...(body.monitor_edition_kinds !== undefined
-            ? { monitorEditionKinds: body.monitor_edition_kinds }
-            : {}),
-          ...(monitorLanguages !== undefined ? { monitorLanguages } : {}),
-          ...(body.book_quality_profile_id !== undefined
-            ? { bookQualityProfileId: body.book_quality_profile_id }
-            : {}),
-        },
-        select: authorSelect,
+      const updated = await updateAuthorMonitoring(author.id, {
+        monitored: body.monitored,
+        monitorFrom,
+        monitorEditionKinds: body.monitor_edition_kinds,
+        monitorLanguages,
+        bookQualityProfileId: body.book_quality_profile_id,
       });
 
       return ok({ author: mapAuthor(updated) });

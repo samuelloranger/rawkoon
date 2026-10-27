@@ -4,9 +4,12 @@ import { z } from "zod";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
-import { prisma } from "@rawkoon/api/db";
 import { badRequest, notFound, ok } from "@rawkoon/api/errors";
 import { normalizeSourceOrder } from "@rawkoon/shared/utils";
+import {
+  getStoredMetadataSourceOrder,
+  saveMetadataSourceOrder,
+} from "@rawkoon/api/services/books/metadataSourceOrder";
 import { refreshBookMetadata } from "@rawkoon/api/services/books/refreshBookMetadata";
 import { serializePerBook } from "@rawkoon/api/services/books/refreshQueue";
 
@@ -29,12 +32,8 @@ export const bookMetadataRoutes = new Hono<Env>()
    * for its literal /search route.
    */
   .get("/metadata-sources", requireUser, async () => {
-    const settings = await prisma.mediaSettings.findUnique({
-      where: { id: 1 },
-      select: { bookMetadataSourceOrder: true },
-    });
     return ok({
-      order: normalizeSourceOrder(settings?.bookMetadataSourceOrder),
+      order: normalizeSourceOrder(await getStoredMetadataSourceOrder()),
     });
   })
 
@@ -68,10 +67,7 @@ export const bookMetadataAdminRoutes = new Hono<Env>().put(
     // Absence from the array is the disable switch, so an unusable array falls
     // back to the default order rather than disabling every source.
     const order = normalizeSourceOrder(c.req.valid("json").order);
-    await prisma.mediaSettings.update({
-      where: { id: 1 },
-      data: { bookMetadataSourceOrder: order },
-    });
+    await saveMetadataSourceOrder(order);
     return ok({ order });
   },
 );
