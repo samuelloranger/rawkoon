@@ -2,10 +2,8 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
 import {
-  libraryStatusSql,
-  libraryStatusWhere,
+  airingStateWhere,
   notAiringSql,
-  presentedStatusSql,
 } from "@rawkoon/api/services/library/libraryStatusFilter";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
 import {
@@ -21,10 +19,12 @@ import {
   DEFAULT_TITLE_LANGUAGE,
   type TitleLanguage,
 } from "@rawkoon/shared/constants";
+import type { AiringState } from "@rawkoon/shared/types";
 
 export type LibraryListParams = {
   type?: string;
   status?: string;
+  airing?: AiringState;
   q?: string;
   language?: string;
   page?: number;
@@ -61,48 +61,21 @@ async function hydrateInOrder(ids: number[]) {
     .filter((r): r is (typeof rows)[number] => r !== undefined);
 }
 
-/** One page of ids ordered by the status clients read, then id in the same direction. */
-async function statusSortedIds(input: {
-  type?: string;
-  status?: string;
-  q?: string;
-  fileLanguage?: string;
-  sortDir: "asc" | "desc";
-  take: number;
-  skip: number;
-}): Promise<number[]> {
-  const conditions: Prisma.Sql[] = [];
-  if (input.type) conditions.push(Prisma.sql`m."type" = ${input.type}`);
-  if (input.status) conditions.push(libraryStatusSql("m.", input.status));
-  if (input.q) conditions.push(Prisma.sql`m."title" ILIKE ${`%${input.q}%`}`);
-  if (input.fileLanguage) {
-    conditions.push(
-      Prisma.sql`EXISTS (SELECT 1 FROM media_files f WHERE f.media_id = m."id" AND ${input.fileLanguage} = ANY(f.language_tags))`,
-    );
-  }
-  const where = conditions.length
-    ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
-    : Prisma.empty;
-  const dir = Prisma.raw(input.sortDir === "asc" ? "ASC" : "DESC");
-  const rows = await prisma.$queryRaw<{ id: number }[]>(
-    Prisma.sql`SELECT m."id" FROM library_media m ${where} ORDER BY ${presentedStatusSql("m.")} ${dir}, m."id" ${dir} LIMIT ${input.take} OFFSET ${input.skip}`,
-  );
-  return rows.map((r) => r.id);
-}
-
 /**
  * Library rows for one list request, plus how the route must map them:
  * `mapTitleLanguage` is passed to the mapper, `resortLanguage` is set when the
  * rows must be re-sorted by the localized title.
  */
 export async function queryLibraryList(params: LibraryListParams) {
-  const { type, status, q, language, page, limit, sort_by, sort_dir } = params;
+  const { type, status, airing, q, language, page, limit, sort_by, sort_dir } =
+    params;
   const { titleLanguage } = params;
   const titleFilter = q
     ? { title: { contains: q, mode: "insensitive" as const } }
     : {};
   const sharedWhere: Prisma.LibraryMediaWhereInput = {
-    ...(status ? { AND: [libraryStatusWhere(status)] } : {}),
+    ...(status ? { status } : {}),
+    ...(airing ? { AND: [airingStateWhere(airing)] } : {}),
     ...titleFilter,
     ...(language && language.length > 0
       ? { files: { some: { languageTags: { has: language } } } }
@@ -119,6 +92,7 @@ export async function queryLibraryList(params: LibraryListParams) {
           buildLocalizedCountQuery({
             language: titleLanguage,
             status,
+            airing,
             q,
             fileLanguage: language,
           }),
@@ -155,22 +129,7 @@ export async function queryLibraryList(params: LibraryListParams) {
     const skip = (Math.max(1, page ?? 1) - 1) * take;
 
     // Every sort pages in the database (skip/take or LIMIT/OFFSET).
-    if (titleLanguage === DEFAULT_TITLE_LANGUAGE && sortBy === "status") {
-      // Clients read airing shows as returning/in_production/planned, which the stored column alone can't order by.
-      const ids = await statusSortedIds({
-        type,
-        status,
-        q,
-        fileLanguage: language,
-        sortDir,
-        take: take + 1,
-        skip,
-      });
-      const sliced = slicePage(ids, take);
-      has_more = sliced.has_more;
-      rows = await hydrateInOrder(sliced.items);
-      mapTitleLanguage = undefined;
-    } else if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
+    if (titleLanguage === DEFAULT_TITLE_LANGUAGE) {
       // English keeps the pure-Prisma path: persisted columns, skip/take.
       const found = await prisma.libraryMedia.findMany({
         where: typedWhere,
@@ -191,6 +150,7 @@ export async function queryLibraryList(params: LibraryListParams) {
           language: titleLanguage,
           type,
           status,
+          airing,
           q,
           fileLanguage: language,
           sortBy,

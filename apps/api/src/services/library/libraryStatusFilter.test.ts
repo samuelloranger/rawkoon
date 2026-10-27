@@ -1,92 +1,63 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  libraryStatusSql,
-  libraryStatusWhere,
+  airingStateSql,
+  airingStateWhere,
+  downloadedNotAiringWhere,
   notAiringSql,
-  presentedStatusSql,
+  notAiringWhere,
 } from "./libraryStatusFilter";
 
 const text = (s: { strings: readonly string[] }) => s.strings.join("?");
 
-describe("libraryStatusWhere", () => {
-  it.each([
-    ["returning", "Returning Series"],
-    ["in_production", "In Production"],
-    ["planned", "Planned"],
-  ])("%s means a downloaded show whose TMDB status is %s", (status, tmdb) => {
-    expect(libraryStatusWhere(status)).toEqual({
-      status: "downloaded",
-      type: "show",
-      tmdbStatus: tmdb,
-    });
-  });
-
-  it("narrows downloaded to rows that are not airing, nulls included", () => {
-    expect(libraryStatusWhere("downloaded")).toEqual({
-      AND: [
-        { status: "downloaded" },
+describe("notAiringWhere", () => {
+  it("keeps movies, null TMDB statuses and finished shows", () => {
+    expect(notAiringWhere).toEqual({
+      OR: [
+        { type: { not: "show" } },
+        { tmdbStatus: null },
         {
-          OR: [
-            { type: { not: "show" } },
-            { tmdbStatus: null },
-            {
-              tmdbStatus: {
-                notIn: ["Returning Series", "In Production", "Planned"],
-              },
-            },
-          ],
+          tmdbStatus: {
+            notIn: ["Returning Series", "In Production", "Planned"],
+          },
         },
       ],
     });
   });
 
-  it.each(["wanted", "downloading", "upgrading", "skipped", "bogus"])(
-    "filters %s on the stored column",
-    (status) => {
-      expect(libraryStatusWhere(status)).toEqual({ status });
-    },
-  );
-});
-
-describe("libraryStatusSql", () => {
-  it("matches a composite value on status, type and TMDB status", () => {
-    const q = libraryStatusSql("m.", "returning");
-    expect(text(q)).toContain('m."status"');
-    expect(text(q)).toContain('m."type"');
-    expect(text(q)).toContain('m."tmdb_status"');
-    expect(q.values).toEqual(["downloaded", "Returning Series"]);
-  });
-
-  it("excludes airing shows for plain downloaded and keeps null TMDB status", () => {
-    const q = libraryStatusSql("m.", "downloaded");
-    expect(text(q)).toContain('m."tmdb_status" IS NULL');
-    expect(text(q)).toContain("NOT IN");
-    expect(q.values).toEqual([
-      "downloaded",
-      "Returning Series",
-      "In Production",
-      "Planned",
-    ]);
-  });
-
-  it("compares other statuses directly", () => {
-    const q = libraryStatusSql("m.", "wanted");
-    expect(text(q)).toBe('m."status" = ?');
-    expect(q.values).toEqual(["wanted"]);
+  it("narrows downloaded to titles that are not airing", () => {
+    expect(downloadedNotAiringWhere).toEqual({
+      AND: [{ status: "downloaded" }, notAiringWhere],
+    });
   });
 });
 
-describe("notAiringSql and presentedStatusSql", () => {
-  it("omit the prefix when no alias is given", () => {
-    expect(text(notAiringSql())).toContain('"tmdb_status" IS NULL');
-    expect(text(notAiringSql())).not.toContain("m.");
+describe("airingStateWhere", () => {
+  it.each([
+    ["returning", ["Returning Series"]],
+    ["in_production", ["In Production"]],
+    ["planned", ["Planned"]],
+    ["ended", ["Ended", "Canceled"]],
+  ] as const)("%s means a show whose TMDB status is in %p", (state, tmdb) => {
+    expect(airingStateWhere(state)).toEqual({
+      type: "show",
+      tmdbStatus: { in: [...tmdb] },
+    });
+  });
+});
+
+describe("SQL twins", () => {
+  it("airingStateSql matches shows on the TMDB statuses", () => {
+    const q = airingStateSql("m.", "ended");
+    expect(text(q)).toContain(`m."type" = 'show'`);
+    expect(text(q)).toContain('m."tmdb_status" IN');
+    expect(q.values).toEqual(["Ended", "Canceled"]);
   });
 
-  it("orders by the wire value, folding airing shows out of downloaded", () => {
-    const sql = text(presentedStatusSql("m."));
-    expect(sql).toContain("'returning'");
-    expect(sql).toContain("'in_production'");
-    expect(sql).toContain("'planned'");
+  it("notAiringSql keeps a null TMDB status and omits the prefix without an alias", () => {
+    const q = notAiringSql();
+    expect(text(q)).toContain('"tmdb_status" IS NULL');
+    expect(text(q)).not.toContain("m.");
+    expect(q.values).toEqual(["Returning Series", "In Production", "Planned"]);
   });
 });

@@ -1,3 +1,4 @@
+import type { AiringState } from "./library";
 import type { BlocklistKind } from "./seeding";
 
 export interface MediaItem {
@@ -37,6 +38,8 @@ export interface TmdbMediaSearchItem {
   library_id?: number | null;
   /** Status of the library row (wanted, downloading, downloaded, ...) when the title is already in the library. */
   library_status?: string | null;
+  /** Airing label of the library row when it is a show. */
+  library_airing_state?: AiringState | null;
 }
 
 export interface TmdbMediaSearchResponse {

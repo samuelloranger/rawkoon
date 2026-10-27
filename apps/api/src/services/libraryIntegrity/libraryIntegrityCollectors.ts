@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import type { LibraryHealthIssue } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
-import { libraryStatusWhere } from "@rawkoon/api/services/library/libraryStatusFilter";
+import { downloadedNotAiringWhere } from "@rawkoon/api/services/library/libraryStatusFilter";
 import { collectEpisodeNumberMismatches } from "@rawkoon/api/services/libraryIntegrity/libraryIntegrityEpisodeCollectors";
 
 const STALE_TMDB_STATUS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,7 +27,7 @@ async function collectDownloadedMediaWithoutFiles(): Promise<
     const rows = await prisma.libraryMedia.findMany({
       take: DB_PAGE_SIZE,
       ...(cursor ? { cursor, skip: 1 } : {}),
-      where: libraryStatusWhere("downloaded"),
+      where: downloadedNotAiringWhere,
       select: {
         id: true,
         tmdbId: true,

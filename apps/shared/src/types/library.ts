@@ -1,15 +1,16 @@
 import type { IndexerManagerType, LanguageFallbackSummary } from "./media";
 import type { DownloadSeedState } from "./seeding";
 
+/** Acquisition lifecycle only; whether a show is still airing is `AiringState`. */
 export type LibraryMediaStatus =
   | "wanted"
   | "downloading"
   | "downloaded"
   | "skipped"
-  | "returning"
-  | "in_production"
-  | "planned"
   | "upgrading";
+
+/** Derived from the TMDB status; null for a movie or an unrecognised status. */
+export type AiringState = "returning" | "in_production" | "planned" | "ended";
 
 export interface LibraryAudioTrack {
   index: number;
@@ -78,6 +79,7 @@ export interface LibraryMedia {
   sort_title: string | null;
   year: number | null;
   status: LibraryMediaStatus;
+  airing_state: AiringState | null;
   monitored: boolean;
   poster_url: string | null;
   /** Override-only; there is no stored backdrop column. */
@@ -459,6 +461,7 @@ export type LibraryStatsResolution =
 interface LibraryStatusTypeCount {
   type: "movie" | "show";
   status: string;
+  airing_state: AiringState | null;
   count: number;
 }
 

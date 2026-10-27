@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@rawkoon/api/db";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
 
 export function searchUsers(q: string, limit: number, includeEmail: boolean) {
   const or: Prisma.UserWhereInput[] = [
@@ -32,7 +32,7 @@ export async function searchLibraryMedias(q: string, limit: number) {
   });
   return rows.map(({ tmdbStatus, ...row }) => ({
     ...row,
-    status: presentLibraryStatus({ ...row, tmdbStatus }),
+    airing_state: airingStateOf({ type: row.type, tmdbStatus }),
   }));
 }
 

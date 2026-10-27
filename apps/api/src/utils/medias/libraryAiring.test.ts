@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  isAiring,
-  parseLibraryStatusInput,
-  presentLibraryStatus,
-} from "./libraryAiring";
+import { airingStateOf, isAiring, isAiringShow } from "./libraryAiring";
 
 describe("isAiring", () => {
   it.each([
@@ -24,98 +20,46 @@ describe("isAiring", () => {
   });
 });
 
-describe("presentLibraryStatus", () => {
+describe("isAiringShow", () => {
+  it("is true only for a show with an airing TMDB status", () => {
+    expect(isAiringShow({ type: "show", tmdbStatus: "Returning Series" })).toBe(
+      true,
+    );
+    expect(isAiringShow({ type: "show", tmdbStatus: "Ended" })).toBe(false);
+    expect(isAiringShow({ type: "show", tmdbStatus: null })).toBe(false);
+    expect(
+      isAiringShow({ type: "movie", tmdbStatus: "Returning Series" }),
+    ).toBe(false);
+  });
+});
+
+describe("airingStateOf", () => {
   it.each([
     ["Returning Series", "returning"],
     ["In Production", "in_production"],
     ["Planned", "planned"],
-  ])("shows a downloaded show as %s when TMDB says %s", (tmdb, legacy) => {
+    ["Ended", "ended"],
+    ["Canceled", "ended"],
+  ])("maps TMDB %s to %s for a show", (tmdbStatus, expected) => {
+    expect(airingStateOf({ type: "show", tmdbStatus }) as string | null).toBe(
+      expected,
+    );
+  });
+
+  it.each<string | null | undefined>([
+    null,
+    undefined,
+    "Pilot",
+    "returning",
+    "toString",
+    "",
+  ])("is null for a show with TMDB status %p", (tmdbStatus) => {
+    expect(airingStateOf({ type: "show", tmdbStatus })).toBeNull();
+  });
+
+  it("is null for a movie, whatever its TMDB status", () => {
     expect(
-      presentLibraryStatus({
-        status: "downloaded",
-        type: "show",
-        tmdbStatus: tmdb,
-      }),
-    ).toBe(legacy);
-  });
-
-  it.each([null, "Ended", "Canceled", "Pilot", "toString"])(
-    "keeps a downloaded show downloaded when tmdbStatus is %p",
-    (tmdbStatus) => {
-      expect(
-        presentLibraryStatus({
-          status: "downloaded",
-          type: "show",
-          tmdbStatus,
-        }),
-      ).toBe("downloaded");
-    },
-  );
-
-  it.each(["wanted", "downloading", "upgrading", "skipped"])(
-    "never rewrites the acquisition status %s of an airing show",
-    (status) => {
-      expect(
-        presentLibraryStatus({
-          status,
-          type: "show",
-          tmdbStatus: "Returning Series",
-        }),
-      ).toBe(status);
-    },
-  );
-
-  it("never rewrites a movie, whatever its tmdbStatus", () => {
-    expect(
-      presentLibraryStatus({
-        status: "downloaded",
-        type: "movie",
-        tmdbStatus: "Returning Series",
-      }),
-    ).toBe("downloaded");
-  });
-
-  it("passes an already-composite stored value through", () => {
-    expect(
-      presentLibraryStatus({
-        status: "returning",
-        type: "show",
-        tmdbStatus: "Returning Series",
-      }),
-    ).toBe("returning");
-  });
-});
-
-describe("parseLibraryStatusInput", () => {
-  it("maps a composite value to downloaded plus the raw TMDB status", () => {
-    expect(parseLibraryStatusInput("returning")).toEqual({
-      status: "downloaded",
-      airing: "yes",
-      tmdbStatus: "Returning Series",
-    });
-    expect(parseLibraryStatusInput("in_production")).toEqual({
-      status: "downloaded",
-      airing: "yes",
-      tmdbStatus: "In Production",
-    });
-    expect(parseLibraryStatusInput("planned")).toEqual({
-      status: "downloaded",
-      airing: "yes",
-      tmdbStatus: "Planned",
-    });
-  });
-
-  it("narrows plain downloaded to not airing", () => {
-    expect(parseLibraryStatusInput("downloaded")).toEqual({
-      status: "downloaded",
-      airing: "no",
-    });
-  });
-
-  it("leaves other statuses alone", () => {
-    expect(parseLibraryStatusInput("wanted")).toEqual({
-      status: "wanted",
-      airing: "any",
-    });
+      airingStateOf({ type: "movie", tmdbStatus: "Returning Series" }),
+    ).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
+import { isAiringShow } from "@rawkoon/api/utils/medias/libraryAiring";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import {
   getAdminNotificationTargets,
@@ -73,7 +73,7 @@ export async function notifyRequestAvailable(
     where: { id: libraryMediaId },
     select: { status: true, type: true, tmdbStatus: true },
   });
-  if (!media || presentLibraryStatus(media) !== "downloaded") return;
+  if (!media || media.status !== "downloaded" || isAiringShow(media)) return;
 
   await finalizeRequestAvailable(req, {
     libraryMediaId: req.libraryMediaId,

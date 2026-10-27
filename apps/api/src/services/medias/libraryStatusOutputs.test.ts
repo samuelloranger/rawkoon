@@ -38,31 +38,37 @@ const { libraryEntriesForTmdbItems, loadAllLibraryTmdbIds, libraryKey } =
   await import("./tmdbLibraryLookup");
 const { searchLibraryMedias } = await import("./quickSearch");
 
-describe("library status as clients read it", () => {
-  it("shows a downloaded airing show as its composite status in TMDB search badges", async () => {
+describe("library status and airing state outputs", () => {
+  it("adds the airing state beside the stored status on TMDB search badges", async () => {
     const map = await libraryEntriesForTmdbItems([
       { tmdb_id: 10, media_type: "tv" },
     ]);
     expect(map.get(libraryKey(10, "show"))).toEqual({
       id: 1,
-      status: "returning",
+      status: "downloaded",
+      airingState: "returning",
     });
-    expect(map.get(libraryKey(11, "show"))?.status).toBe("downloaded");
-    expect(map.get(libraryKey(12, "movie"))?.status).toBe("wanted");
+    expect(map.get(libraryKey(11, "show"))?.airingState).toBe("ended");
+    expect(map.get(libraryKey(12, "movie"))).toEqual({
+      id: 3,
+      status: "wanted",
+      airingState: null,
+    });
   });
 
   it("does the same for the discover deck lookup", async () => {
     const { libraryByKey } = await loadAllLibraryTmdbIds();
-    expect(libraryByKey.get(libraryKey(10, "show"))?.status).toBe("returning");
-    expect(libraryByKey.get(libraryKey(11, "show"))?.status).toBe("downloaded");
+    expect(libraryByKey.get(libraryKey(10, "show"))?.airingState).toBe(
+      "returning",
+    );
   });
 
-  it("does the same for quick search and omits the TMDB status", async () => {
+  it("returns the stored status and the airing state from quick search, without the raw TMDB status", async () => {
     const result = await searchLibraryMedias("a", 10);
-    expect(result.map((r) => r.status)).toEqual([
-      "returning",
-      "downloaded",
-      "wanted",
+    expect(result.map((r) => [r.status, r.airing_state])).toEqual([
+      ["downloaded", "returning"],
+      ["downloaded", "ended"],
+      ["wanted", null],
     ]);
     expect(result[0]).not.toHaveProperty("tmdbStatus");
   });

@@ -24,6 +24,7 @@ import { adminView, mapLibraryMedia } from "./libraryHelpers";
 const listQuery = z.object({
   type: z.string().optional(),
   status: z.string().optional(),
+  airing: z.enum(["returning", "in_production", "planned", "ended"]).optional(),
   q: z.string().optional(),
   language: z.string().optional(),
   page: z.coerce.number().optional(),

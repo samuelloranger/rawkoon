@@ -1,7 +1,8 @@
 import { statfs } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
+import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
+import type { AiringState } from "@rawkoon/shared/types";
 import { buildLibraryStatsResponse } from "@rawkoon/api/routes/library/libraryStats";
 
 /**
@@ -28,25 +29,41 @@ async function readDiskUsage(): Promise<{
   }
 }
 
-/** Counts per type and the status clients read, with airing folded back out of the stored status. */
-function foldPresentedStatuses(
+/** Counts per type, stored status and airing state. */
+function foldAiringStates(
   rows: {
     type: string;
     status: string;
     tmdbStatus: string | null;
     _count: number;
   }[],
-): { type: string; status: string; count: number }[] {
+): {
+  type: string;
+  status: string;
+  airing_state: AiringState | null;
+  count: number;
+}[] {
   const folded = new Map<
     string,
-    { type: string; status: string; count: number }
+    {
+      type: string;
+      status: string;
+      airing_state: AiringState | null;
+      count: number;
+    }
   >();
   for (const r of rows) {
-    const status = presentLibraryStatus(r);
-    const key = `${r.type}\u0000${status}`;
+    const airing_state = airingStateOf(r);
+    const key = `${r.type}\u0000${r.status}\u0000${airing_state}`;
     const entry = folded.get(key);
     if (entry) entry.count += r._count;
-    else folded.set(key, { type: r.type, status, count: r._count });
+    else
+      folded.set(key, {
+        type: r.type,
+        status: r.status,
+        airing_state,
+        count: r._count,
+      });
   }
   return [...folded.values()];
 }
@@ -78,7 +95,7 @@ export async function getLibraryStatsWithDisk(): Promise<
   ]);
 
   const stats = buildLibraryStatsResponse({
-    byTypeStatus: foldPresentedStatuses(typeStatusRows),
+    byTypeStatus: foldAiringStates(typeStatusRows),
     byTmdbStatus: tmdbStatusRows.map((r) => ({
       tmdb_status: r.tmdbStatus,
       count: r._count,

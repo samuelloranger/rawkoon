@@ -1,3 +1,4 @@
+import type { AiringState } from "./library";
 interface QuickSearchTorrent {
   id: string;
   name: string;
@@ -12,6 +13,7 @@ interface QuickSearchMedia {
   type: string; // "movie" | "show"
   year: number | null;
   status: string; // "wanted" | "downloading" | "downloaded" | "skipped"
+  airing_state: AiringState | null;
 }
 
 interface QuickSearchBook {

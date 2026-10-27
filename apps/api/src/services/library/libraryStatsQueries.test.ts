@@ -45,25 +45,25 @@ mock.module("@rawkoon/api/db", () => ({
 const { getLibraryStatsWithDisk } = await import("./libraryStatsQueries");
 
 describe("getLibraryStatsWithDisk", () => {
-  it("reports the status clients read, not the stored one", async () => {
+  it("groups by stored status and airing state", async () => {
     const stats = await getLibraryStatsWithDisk();
     const byKey = Object.fromEntries(
       stats.counts_by_status_type.map((r) => [
-        `${r.type}:${r.status}`,
+        `${r.type}:${r.status}:${r.airing_state}`,
         r.count,
       ]),
     );
     expect(byKey).toEqual({
-      "movie:downloaded": 4,
-      "movie:wanted": 2,
-      "show:downloaded": 3,
-      "show:returning": 5,
-      "show:in_production": 1,
-      "show:wanted": 6,
+      "movie:downloaded:null": 4,
+      "movie:wanted:null": 2,
+      "show:downloaded:ended": 3,
+      "show:downloaded:returning": 5,
+      "show:downloaded:in_production": 1,
+      "show:wanted:returning": 6,
     });
   });
 
-  it("keeps airing shows out of the downloaded total, as before", async () => {
+  it("keeps airing shows out of the downloaded total", async () => {
     const stats = await getLibraryStatsWithDisk();
     expect(stats.downloaded).toBe(7);
     expect(stats.wanted).toBe(8);

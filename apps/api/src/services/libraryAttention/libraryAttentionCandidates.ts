@@ -1,6 +1,5 @@
 import { REPLACED_FAIL_REASON } from "@rawkoon/api/services/replacedDownload";
 import { prisma } from "@rawkoon/api/db";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
 import {
   LIBRARY_ATTENTION_ISSUE_LOOKBACK_DAYS,
   LIBRARY_ATTENTION_MAX_ITEMS,
@@ -35,7 +34,6 @@ type DhRow = {
     title: string;
     type: string;
     status: string;
-    tmdbStatus: string | null;
   } | null;
   episode: {
     id: number;
@@ -67,7 +65,7 @@ function dhScopeFromRow(dh: DhRow): {
         media_id: dh.media.id,
         media_title: dh.media.title,
         media_type: "movie",
-        library_status: presentLibraryStatus(dh.media),
+        library_status: dh.media.status,
       };
     }
     if (dh.episodeId != null && dh.episode) {
@@ -97,7 +95,7 @@ function dhScopeFromRow(dh: DhRow): {
       media_id: dh.media.id,
       media_title: dh.media.title,
       media_type: "show",
-      library_status: presentLibraryStatus(dh.media),
+      library_status: dh.media.status,
     };
   }
   if (dh.episode?.media) {
@@ -122,7 +120,6 @@ const dhInclude = {
       title: true,
       type: true,
       status: true,
-      tmdbStatus: true,
     },
   },
   episode: {

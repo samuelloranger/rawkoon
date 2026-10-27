@@ -1,4 +1,4 @@
-import type { SearchSkippedReason } from "./library";
+import type { AiringState, SearchSkippedReason } from "./library";
 
 export type MediaRequestStatus =
   | "pending"
@@ -36,6 +36,7 @@ export interface RequestTitleStatusResponse {
   library: {
     id: number;
     status: string;
+    airing_state: AiringState | null;
     episode_count: number | null;
     downloaded_episode_count: number | null;
   } | null;

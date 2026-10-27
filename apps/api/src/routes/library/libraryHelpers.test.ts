@@ -115,18 +115,28 @@ describe("mapLibraryMedia poster override", () => {
 });
 
 describe("mapLibraryMedia status", () => {
-  it("emits the legacy composite value for a downloaded airing show", () => {
+  it("keeps the stored acquisition status and adds the airing state", () => {
     const airing = {
       ...base,
       type: "show",
       status: "downloaded",
       tmdbStatus: "Returning Series",
     };
-    expect(mapLibraryMedia(airing).status).toBe("returning");
+    const out = mapLibraryMedia(airing);
+    expect(out.status).toBe("downloaded");
+    expect(out.airing_state).toBe("returning");
   });
 
-  it("emits the stored status for a finished show", () => {
-    const ended = { ...base, type: "show", tmdbStatus: "Ended" };
-    expect(mapLibraryMedia(ended).status).toBe("downloaded");
+  it("reports a finished show as ended", () => {
+    const ended = { ...base, type: "show", tmdbStatus: "Canceled" };
+    expect(mapLibraryMedia(ended).airing_state).toBe("ended");
+  });
+
+  it("has no airing state for a movie or an unknown TMDB status", () => {
+    expect(mapLibraryMedia(base).airing_state).toBeNull();
+    expect(
+      mapLibraryMedia({ ...base, type: "show", tmdbStatus: "Pilot" })
+        .airing_state,
+    ).toBeNull();
   });
 });

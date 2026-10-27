@@ -33,9 +33,6 @@ mock.module("@rawkoon/api/utils/medias/libraryHelpers", () => ({
   upsertLibraryShowEpisodesFromTmdb: mock(async () => {}),
 }));
 
-const { presentLibraryStatus } = await import(
-  "@rawkoon/api/utils/medias/libraryAiring"
-);
 const { syncLibraryShowEpisodes } = await import(
   "@rawkoon/api/services/libraryTmdbRefresh"
 );
@@ -72,13 +69,6 @@ describe("syncLibraryShowEpisodes status reconciliation", () => {
     await syncLibraryShowEpisodes(675);
     expect(statusWritten()).toBeUndefined();
     expect(tmdbStatusWritten()).toBe("Returning Series");
-    expect(
-      presentLibraryStatus({
-        status: mediaRow.status,
-        type: "show",
-        tmdbStatus: tmdbStatusWritten(),
-      }),
-    ).toBe("returning");
   });
 
   it("heals a show latched on 'downloading' with no show-level grab in flight", async () => {

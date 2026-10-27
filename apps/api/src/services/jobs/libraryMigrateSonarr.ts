@@ -1,6 +1,6 @@
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
-import { presentLibraryStatus } from "@rawkoon/api/utils/medias/libraryAiring";
+import { isAiring } from "@rawkoon/api/utils/medias/libraryAiring";
 import {
   scanMediaInfo,
   remapPath,
@@ -119,8 +119,8 @@ export async function migrateFromSonarr(
             posterUrl: poster,
             status: existing
               ? existing.status === "wanted" ||
-                presentLibraryStatus({ ...existing, type: "show" }) ===
-                  "downloaded"
+                (existing.status === "downloaded" &&
+                  !isAiring(existing.tmdbStatus))
                 ? hasAnyFile
                   ? "downloaded"
                   : "wanted"
