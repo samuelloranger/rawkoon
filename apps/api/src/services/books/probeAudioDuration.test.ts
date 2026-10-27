@@ -38,9 +38,12 @@ beforeAll(async () => {
         "9",
         chapter,
       ],
-      { stdout: "ignore", stderr: "ignore" },
+      { stdout: "ignore", stderr: "pipe" },
     );
-    if ((await proc.exited) !== 0) throw new Error("ffmpeg fixture failed");
+    if ((await proc.exited) !== 0) {
+      const reason = await new Response(proc.stderr).text();
+      throw new Error(`ffmpeg fixture failed: ${reason.trim()}`);
+    }
   }
 });
 
