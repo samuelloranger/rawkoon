@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { nowUtc } from "@rawkoon/api/utils";
+import {
+  findIntegrationRow,
+  upsertIntegrationRow,
+} from "@rawkoon/api/services/integrations/integrationSettings";
 import {
   isValidHttpUrl,
   normalizeUrl,
@@ -18,9 +20,7 @@ import { jsonV } from "@rawkoon/api/middleware/validate";
 export const jellyfinIntegrationRoutes = new Hono<Env>()
   .get("/jellyfin", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "jellyfin" },
-      });
+      const integration = await findIntegrationRow("jellyfin");
 
       const config = normalizeJellyfinConfig(integration?.config);
       return ok({
@@ -52,9 +52,7 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       const websiteUrl = normalizeUrl(body.website_url);
-      const existingIntegration = await prisma.integration.findFirst({
-        where: { type: "jellyfin" },
-      });
+      const existingIntegration = await findIntegrationRow("jellyfin");
       const existingConfig = normalizeJellyfinConfig(
         existingIntegration?.config,
       );
@@ -87,21 +85,10 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
-        const integration = await prisma.integration.upsert({
-          where: { type: "jellyfin" },
-          update: {
-            enabled,
-            config: storedConfig,
-            updatedAt: now,
-          },
-          create: {
-            type: "jellyfin",
-            enabled,
-            config: storedConfig,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "jellyfin",
+          enabled,
+          config: storedConfig,
         });
 
         // Drop the 60s TTL cache so library-refresh reads the new URL/key immediately.

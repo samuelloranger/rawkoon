@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
-import { nowUtc } from "@rawkoon/api/utils";
+import { upsertIntegrationRow } from "@rawkoon/api/services/integrations/integrationSettings";
 import {
   AUDNEXUS_DEFAULT_BASE_URL,
   AUDNEXUS_DEFAULT_REGION,
@@ -77,17 +76,10 @@ export const audnexusIntegrationRoutes = new Hono<Env>()
       const enabled = body.enabled ?? true;
 
       try {
-        const now = nowUtc();
-        const integration = await prisma.integration.upsert({
-          where: { type: "audnexus" },
-          update: { enabled, config: { ...config }, updatedAt: now },
-          create: {
-            type: "audnexus",
-            enabled,
-            config: { ...config },
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "audnexus",
+          enabled,
+          config: { ...config },
         });
         invalidateIntegrationConfigCache("audnexus");
 

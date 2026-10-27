@@ -1,12 +1,18 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
+import {
+  createOidcProvider,
+  deleteOidcProvider,
+  findOidcProviderById,
+  findOidcProviderBySlug,
+  listOidcProviders,
+  updateOidcProvider,
+} from "@rawkoon/api/services/oidc/oidcProviders";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { refreshOidcProviders } from "@rawkoon/api/lib/auth";
-import { nowUtc } from "@rawkoon/api/utils";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 
 const SLUG_RE = /^[a-z0-9-]+$/;
@@ -19,9 +25,7 @@ function sanitizeSlug(raw: string) {
 export const oidcIntegrationRoutes = new Hono<Env>()
   .get("/", async () => {
     try {
-      const providers = await prisma.oidcProvider.findMany({
-        orderBy: { createdAt: "asc" },
-      });
+      const providers = await listOidcProviders();
       return ok({
         providers: providers.map((p) => ({
           id: p.id,
@@ -71,27 +75,20 @@ export const oidcIntegrationRoutes = new Hono<Env>()
         return badRequest("client_id and client_secret are required");
       }
 
-      const existing = await prisma.oidcProvider.findUnique({
-        where: { slug },
-      });
+      const existing = await findOidcProviderBySlug(slug);
       if (existing) {
         return badRequest(`A provider with slug "${slug}" already exists`);
       }
 
       try {
-        const now = nowUtc();
-        const provider = await prisma.oidcProvider.create({
-          data: {
-            slug,
-            name: body.name.trim(),
-            discoveryUrl,
-            clientId,
-            clientSecret: encrypt(clientSecret),
-            enabled: body.enabled ?? true,
-            iconUrl: body.icon_url?.trim() || null,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const provider = await createOidcProvider({
+          slug,
+          name: body.name.trim(),
+          discoveryUrl,
+          clientId,
+          clientSecret: encrypt(clientSecret),
+          enabled: body.enabled ?? true,
+          iconUrl: body.icon_url?.trim() || null,
         });
 
         refreshOidcProviders();
@@ -134,9 +131,7 @@ export const oidcIntegrationRoutes = new Hono<Env>()
     async (c) => {
       const id = c.req.param("id");
       const body = c.req.valid("json");
-      const existing = await prisma.oidcProvider.findUnique({
-        where: { id },
-      });
+      const existing = await findOidcProviderById(id);
       if (!existing) return notFound("OIDC provider not found");
 
       const discoveryUrl = body.discovery_url?.trim() ?? existing.discoveryUrl;
@@ -152,19 +147,15 @@ export const oidcIntegrationRoutes = new Hono<Env>()
         : existing.clientSecret;
 
       try {
-        const updated = await prisma.oidcProvider.update({
-          where: { id },
-          data: {
-            name: body.name?.trim() ?? existing.name,
-            discoveryUrl,
-            clientId: body.client_id?.trim() ?? existing.clientId,
-            clientSecret,
-            enabled: body.enabled ?? existing.enabled,
-            ...(body.icon_url !== undefined
-              ? { iconUrl: body.icon_url?.trim() || null }
-              : {}),
-            updatedAt: nowUtc(),
-          },
+        const updated = await updateOidcProvider(id, {
+          name: body.name?.trim() ?? existing.name,
+          discoveryUrl,
+          clientId: body.client_id?.trim() ?? existing.clientId,
+          clientSecret,
+          enabled: body.enabled ?? existing.enabled,
+          ...(body.icon_url !== undefined
+            ? { iconUrl: body.icon_url?.trim() || null }
+            : {}),
         });
 
         refreshOidcProviders();
@@ -194,13 +185,11 @@ export const oidcIntegrationRoutes = new Hono<Env>()
   )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
-    const existing = await prisma.oidcProvider.findUnique({
-      where: { id },
-    });
+    const existing = await findOidcProviderById(id);
     if (!existing) return notFound("OIDC provider not found");
 
     try {
-      await prisma.oidcProvider.delete({ where: { id } });
+      await deleteOidcProvider(id);
       refreshOidcProviders();
 
       await logActivity({

@@ -1,11 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
 import {
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache,
 } from "@rawkoon/api/services/integrationConfigCache";
-import { nowUtc } from "@rawkoon/api/utils";
+import { upsertIntegrationRow } from "@rawkoon/api/services/integrations/integrationSettings";
 import { normalizeFanartConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { encrypt } from "@rawkoon/api/services/crypto";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
@@ -55,18 +54,11 @@ export const fanartIntegrationRoutes = new Hono<Env>()
       }
 
       try {
-        const now = nowUtc();
         const configPayload = { api_key: encrypt(apiKey) };
-        const integration = await prisma.integration.upsert({
-          where: { type: "fanart" },
-          update: { enabled, config: configPayload, updatedAt: now },
-          create: {
-            type: "fanart",
-            enabled,
-            config: configPayload,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "fanart",
+          enabled,
+          config: configPayload,
         });
         await invalidateIntegrationConfigCache("fanart");
 

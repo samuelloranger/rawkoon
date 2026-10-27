@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { prisma } from "@rawkoon/api/db";
-import { nowUtc } from "@rawkoon/api/utils";
+import {
+  findIntegrationRow,
+  upsertIntegrationRow,
+} from "@rawkoon/api/services/integrations/integrationSettings";
 import { isValidHttpUrl } from "@rawkoon/api/utils/integrations/utils";
 import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
@@ -87,9 +89,7 @@ const pricesOf = (
 export const aiProviderIntegrationRoutes = new Hono<Env>()
   .get("/ai-provider", async () => {
     try {
-      const integration = await prisma.integration.findFirst({
-        where: { type: "ai-provider" },
-      });
+      const integration = await findIntegrationRow("ai-provider");
       const config = normalizeAiProviderConfig(integration?.config);
       return ok({
         integration: {
@@ -180,21 +180,10 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
       };
 
       try {
-        const now = nowUtc();
-        const integration = await prisma.integration.upsert({
-          where: { type: "ai-provider" },
-          update: {
-            enabled: body.enabled ?? true,
-            config: providerConfig,
-            updatedAt: now,
-          },
-          create: {
-            type: "ai-provider",
-            enabled: body.enabled ?? true,
-            config: providerConfig,
-            createdAt: now,
-            updatedAt: now,
-          },
+        const integration = await upsertIntegrationRow({
+          type: "ai-provider",
+          enabled: body.enabled ?? true,
+          config: providerConfig,
         });
 
         invalidateIntegrationConfigCache("ai-provider");
