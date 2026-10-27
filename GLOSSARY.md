@@ -35,7 +35,7 @@ _Avoid_: Target quality
 ## Acquisition lifecycle
 
 **Library status**:
-Where a library item, episode or edition stands in being acquired: Wanted, Downloading, Downloaded, Upgrading or Skipped. It says nothing about whether a show is still airing.
+Where a library item, episode or edition stands in being acquired: Wanted, Downloading, Downloaded, Upgrading or Skipped. A show that is still airing is shown as Returning, In production or Planned instead of Downloaded, which combines its library status with its airing state.
 _Avoid_: State, airing status
 
 **Wanted**:
@@ -47,8 +47,8 @@ A release has been grabbed and its download has not finished.
 _Avoid_: In progress, active
 
 **Downloaded**:
-At least one file is in the library for the title.
-_Avoid_: Available (that is a request state), complete (that is a show-level notion)
+The download finished and its file is placed, or about to be placed, in the library. For a show it describes the show-wide download, not its episodes: a show can read Wanted while every episode is Downloaded.
+_Avoid_: Available (that is a request state), complete
 
 **Upgrading**:
 A better release has been grabbed while the current file is still in place.
@@ -63,12 +63,8 @@ An on/off choice that lets Rawkoon search for a title automatically. It is indep
 _Avoid_: Tracked, watched, followed (followed is for authors)
 
 **Airing state**:
-Whether a show is still producing episodes: Returning, In production, Planned or Ended. It comes from the catalog and is separate from the Library status.
+Whether a show is still producing episodes: Returning, In production, Planned, or ended (which includes canceled). It comes from the catalog.
 _Avoid_: Show status, series status
-
-**Complete show**:
-A show that has ended airing and has every episode downloaded. Only then is the show's request Available.
-_Avoid_: Finished (ambiguous with a finished download), fully downloaded
 
 **Search attempt**:
 One automatic search that found nothing usable. Repeated attempts end in Skipped; a held release or a refusal for low disk space does not count.
@@ -85,7 +81,7 @@ A specific downloadable version of a title offered by an indexer, such as a part
 _Avoid_: Torrent, candidate
 
 **Season pack**:
-A release that contains a whole season of a show. It is searched when every aired episode of the season is Wanted, and its files are matched to episodes when placed.
+A release that contains a whole season of a show. It is searched when every monitored episode of the season has aired and is still Wanted, and its files are matched to episodes when placed.
 _Avoid_: Season torrent, batch
 
 **Target**:
@@ -147,7 +143,7 @@ A one-time transfer of an existing Radarr or Sonarr library into Rawkoon.
 _Avoid_: Import library, sync
 
 **Link Jellyfin users**:
-Creating Rawkoon accounts from the users of a connected Jellyfin server.
+Tying a Rawkoon account to a Jellyfin user, either for an existing account or by creating accounts already linked from a connected server's users (disabled users are skipped).
 _Avoid_: Import users
 
 **Seeding**:
@@ -169,7 +165,7 @@ A request waiting for an administrator.
 _Avoid_: Open, submitted
 
 **Approved**:
-An administrator accepted the request and the title is in the library. For a show it stays Approved until the show is a Complete show.
+An administrator accepted the request and the title is in the library. A show's request stays Approved until a show-wide or season-pack download of it finishes while the show is no longer airing; episodes downloaded one at a time never make it Available on their own.
 _Avoid_: Accepted, granted
 
 **Denied**:
@@ -177,7 +173,7 @@ An administrator declined the request, optionally with a reason. Asking again re
 _Avoid_: Rejected, declined
 
 **Available**:
-The requested title has been delivered: a movie when its file is placed, a show when it is complete, a book when its first edition is placed.
+The requested title has been delivered: a movie when its download finishes, a show as described under Approved, a book when its first edition is placed.
 _Avoid_: Fulfilled, done, downloaded
 
 ## Books playback
@@ -196,5 +192,5 @@ _Avoid_: Token, signed URL
 - A **Library item** has a **Quality profile**; a show has **Episodes**, a book has **Editions**.
 - A **Target** is searched when it is **Wanted** and **Monitored**; the search yields **Releases** that the profile accepts or rejects.
 - A **Grab** of a **Release** creates one **Download** for a **Target**; a **Hold** postpones the grab.
-- A **Download outcome** moves the **Library status** and, once **Post-process**ed, may make the **Request** **Available**.
-- A show's **Library status** and **Airing state** vary independently; a **Complete show** needs both Downloaded episodes and an Ended airing state.
+- A **Download outcome** moves the **Library status** and may make a movie or show **Request** **Available**; for a book, **Post-process** does.
+- A show's **Library status** and **Airing state** vary independently; a show request becomes **Available** only when a show-wide download finishes after the show has stopped airing.

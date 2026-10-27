@@ -226,9 +226,10 @@ shows and on the volume for books. A new ask for a title that is not in the
 library, whose request is not pending, reopens the existing request: it goes
 back to pending under the new requester with its decision, reason and creation
 time reset, and administrators are notified again. A pending request refuses a
-second ask. A title in the library cannot be requested. Reopening an
-administrator's request approves it on the spot with the default quality
-profile.
+second ask. A title in the library cannot be requested. When an administrator
+reopens a movie or show request and a default quality profile is set, it is
+approved on the spot; otherwise it stays pending and administrators are
+notified. Book requests never approve themselves.
 
 ### Consequences
 
