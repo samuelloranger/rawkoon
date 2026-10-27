@@ -3,7 +3,7 @@ export type {
   IndexerSearchParams,
   NormalizedRelease,
   NormalizedIndexer,
-  GrabResult,
+  ReleaseTokenResolution,
 } from "./types";
 export { ProwlarrAdapter } from "./prowlarrAdapter";
 export { JackettAdapter } from "./jackettAdapter";

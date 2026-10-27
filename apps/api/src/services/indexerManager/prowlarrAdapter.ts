@@ -4,7 +4,7 @@ import type {
   IndexerWarning,
   NormalizedRelease,
   NormalizedIndexer,
-  GrabResult,
+  ReleaseTokenResolution,
   SearchResult,
 } from "./types";
 import { parsePublishDate } from "./publishDate";
@@ -219,7 +219,7 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
     return indexers;
   }
 
-  async grabRelease(token: string): Promise<GrabResult> {
+  async grabRelease(token: string): Promise<ReleaseTokenResolution> {
     const payload = takePayload(token);
     if (!payload) {
       return { success: false, error: "Release token expired or not found" };

@@ -1,17 +1,11 @@
 import { prisma } from "@rawkoon/api/db";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import { sendReleaseToClient } from "@rawkoon/api/services/downloadClient/sendRelease";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { infoHashFromMagnet } from "@rawkoon/api/utils/medias/prowlarrSearchUtils";
-import { MAX_TORRENT_FILE_BYTES } from "@rawkoon/api/constants/libraryGrab";
-import {
-  fetchHttpWithSafeRedirects,
-  isServerTorrentFetchUrlAllowed,
-  MagnetRedirectError,
-} from "@rawkoon/api/utils/medias/safeTorrentFetchUrl";
+import { isServerTorrentFetchUrlAllowed } from "@rawkoon/api/utils/medias/safeTorrentFetchUrl";
 import {
   checkBlocklist,
-  infoHashFromTorrentBuffer,
-  prowlarrHeadersForTorrentUrl,
   qbCategoryForLibraryType,
   qualityJsonValue,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
@@ -137,7 +131,7 @@ export async function grabRelease(opts: {
       skipUrlCheck: opts.urlChecked,
     });
     if ("refusal" in pre) return pre.refusal;
-    const { downloadUrl, releaseTitle, isMagnet, active } = pre;
+    const { downloadUrl, releaseTitle, active } = pre;
     const { adapter } = active;
 
     const category = qbCategoryForLibraryType(media.type);
@@ -229,97 +223,27 @@ export async function grabRelease(opts: {
       return { grabbed: false, reason };
     };
 
-    let torrentHash: string | null = isMagnet
-      ? infoHashFromMagnet(downloadUrl)
-      : null;
-
-    if (isMagnet) {
-      try {
-        const added = await adapter.addTorrent({
-          magnetOrUrl: downloadUrl,
-          category,
-          tag,
-          savePath: active.savePath,
+    const sent = await sendReleaseToClient(adapter, {
+      downloadUrl,
+      category,
+      tag,
+      savePath: active.savePath,
+    });
+    if (!sent.ok) {
+      if (sent.stage === "fetch") {
+        await prisma.downloadHistory.update({
+          where: { id: dhRow.id },
+          data: { failed: true, failReason: sent.message },
         });
-        if (added.hash) torrentHash = added.hash;
-      } catch (error) {
-        return await failAdd(error, torrentHash, "Magnet add failed");
+        return { grabbed: false, reason: "Could not download .torrent file" };
       }
-    } else {
-      // Try to fetch the .torrent file. Some indexers redirect to a magnet instead.
-      let fetchedFile: File | null = null;
-      let magnetFallback: string | null = null;
-
-      try {
-        const headers: Record<string, string> = {
-          ...(await prowlarrHeadersForTorrentUrl(downloadUrl)),
-        };
-        const torrentRes = await fetchHttpWithSafeRedirects(downloadUrl, {
-          headers,
-          signal: AbortSignal.timeout(60_000),
-        });
-        if (!torrentRes.ok) {
-          throw new Error(`HTTP ${torrentRes.status}`);
-        }
-        const cl = torrentRes.headers.get("content-length");
-        if (cl) {
-          const n = Number(cl);
-          if (Number.isFinite(n) && n > MAX_TORRENT_FILE_BYTES) {
-            throw new Error("Torrent file too large");
-          }
-        }
-        const buf = await torrentRes.arrayBuffer();
-        if (buf.byteLength > MAX_TORRENT_FILE_BYTES) {
-          throw new Error("Torrent file too large");
-        }
-        torrentHash = infoHashFromTorrentBuffer(buf);
-        fetchedFile = new File([buf], "release.torrent", {
-          type: "application/x-bittorrent",
-        });
-      } catch (e) {
-        if (e instanceof MagnetRedirectError) {
-          magnetFallback = e.magnetUrl;
-        } else {
-          await prisma.downloadHistory.update({
-            where: { id: dhRow.id },
-            data: {
-              failed: true,
-              failReason:
-                e instanceof Error ? e.message : "Torrent download failed",
-            },
-          });
-          return { grabbed: false, reason: "Could not download .torrent file" };
-        }
-      }
-
-      if (magnetFallback) {
-        torrentHash = infoHashFromMagnet(magnetFallback);
-        try {
-          const added = await adapter.addTorrent({
-            magnetOrUrl: magnetFallback,
-            category,
-            tag,
-            savePath: active.savePath,
-          });
-          if (added.hash) torrentHash = added.hash;
-        } catch (error) {
-          return await failAdd(error, torrentHash, "Magnet add failed");
-        }
-      } else if (fetchedFile) {
-        try {
-          const added = await adapter.addTorrent({
-            fileBuffer: new Uint8Array(await fetchedFile.arrayBuffer()),
-            fileName: fetchedFile.name,
-            category,
-            tag,
-            savePath: active.savePath,
-          });
-          if (added.hash) torrentHash = added.hash;
-        } catch (error) {
-          return await failAdd(error, torrentHash, "Torrent add failed");
-        }
-      }
+      return await failAdd(
+        sent.error,
+        sent.hash,
+        sent.via === "magnet" ? "Magnet add failed" : "Torrent add failed",
+      );
     }
+    const torrentHash = sent.hash;
 
     await prisma.downloadHistory.update({
       where: { id: dhRow.id },
