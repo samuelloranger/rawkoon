@@ -15,7 +15,7 @@ import { findBlockedFile } from "@rawkoon/api/services/seeding/seedPolicy";
  * should keep waiting.
  *
  * This module owns polling cadence and stall/max-age policy only. The
- * transitions themselves belong to services/downloadOutcome.ts.
+ * transitions themselves belong to services/downloads/downloadOutcome.ts.
  */
 
 /** The subset of the download outcome module this loop drives. */
