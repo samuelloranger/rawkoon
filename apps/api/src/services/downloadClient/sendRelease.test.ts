@@ -62,6 +62,14 @@ describe("sendReleaseToClient", () => {
     expect(res).toEqual({ ok: true, hash: "d".repeat(40) });
   });
 
+  it("keeps the parsed hash when the client reports an empty one", async () => {
+    const res = await sendReleaseToClient(
+      adapter(async () => ({ hash: "" })),
+      { ...base, downloadUrl: magnet },
+    );
+    expect(res).toEqual({ ok: true, hash: HASH });
+  });
+
   it("reports an add refusal with the raw error and the known hash", async () => {
     const boom = new Error("409 conflict");
     const res = await sendReleaseToClient(
@@ -100,6 +108,50 @@ describe("sendReleaseToClient", () => {
     );
     expect(res).toEqual({ ok: true, hash: HASH });
     expect(adds[0]?.magnetOrUrl).toBe(magnet);
+  });
+
+  it("reports a refused .torrent add as coming from the file", async () => {
+    net.fetch = async () => new Response("d4:infod4:name1:xee");
+    const res = await sendReleaseToClient(
+      adapter(async () => {
+        throw new Error("rejected");
+      }),
+      { ...base, downloadUrl: "https://idx.example/a.torrent" },
+    );
+    expect(res).toMatchObject({ ok: false, stage: "add", via: "file" });
+  });
+
+  it("reports a refused redirect add as coming from the magnet", async () => {
+    net.fetch = async () => {
+      throw new MagnetRedirectError(magnet);
+    };
+    const res = await sendReleaseToClient(
+      adapter(async () => {
+        throw new Error("rejected");
+      }),
+      { ...base, downloadUrl: "https://idx.example/a.torrent" },
+    );
+    expect(res).toMatchObject({
+      ok: false,
+      stage: "add",
+      via: "magnet",
+      hash: HASH,
+    });
+  });
+
+  it("refuses an oversized .torrent before the client sees it", async () => {
+    net.fetch = async () =>
+      new Response("x", { headers: { "content-length": String(1e12) } });
+    const res = await sendReleaseToClient(
+      adapter(async () => ({ hash: null })),
+      { ...base, downloadUrl: "https://idx.example/a.torrent" },
+    );
+    expect(res).toEqual({
+      ok: false,
+      stage: "fetch",
+      message: "Torrent file too large",
+    });
+    expect(adds).toEqual([]);
   });
 
   it("reports a failed fetch without touching the client", async () => {

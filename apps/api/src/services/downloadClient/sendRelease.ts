@@ -52,7 +52,7 @@ export async function sendReleaseToClient(
         tag,
         savePath,
       });
-      return { ok: true, hash: added.hash ?? fallbackHash };
+      return { ok: true, hash: added.hash || fallbackHash };
     } catch (error) {
       return {
         ok: false,
@@ -102,7 +102,7 @@ export async function sendReleaseToClient(
       tag,
       savePath,
     });
-    return { ok: true, hash: added.hash ?? fallbackHash };
+    return { ok: true, hash: added.hash || fallbackHash };
   } catch (error) {
     return { ok: false, stage: "add", error, via: "file", hash: fallbackHash };
   }
