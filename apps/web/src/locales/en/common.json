@@ -2365,7 +2365,7 @@
       "seed": {
         "seeding": "Seeding",
         "seedingDetail": "ratio {{ratio}}, {{time}} seeded",
-        "released": "Released",
+        "released": "Stopped seeding",
         "blocklisted": "Blocklisted",
         "reason": {
           "target_met": "target met",

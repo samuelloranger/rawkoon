@@ -2365,7 +2365,7 @@
       "seed": {
         "seeding": "En partage",
         "seedingDetail": "ratio {{ratio}}, {{time}} de partage",
-        "released": "Libéré",
+        "released": "Partage arrêté",
         "blocklisted": "Bloqué",
         "reason": {
           "target_met": "objectif atteint",
