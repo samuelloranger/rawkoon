@@ -173,6 +173,9 @@ export const queryKeys = {
     apiKeys: () => [...queryKeys.admin.all, "api-keys"] as const,
     scheduledJobs: () => [...queryKeys.admin.all, "scheduled-jobs"] as const,
     libraryHealth: () => [...queryKeys.admin.all, "library-health"] as const,
+    // Under libraryHealth, so refreshing the run refreshes the ignored list too.
+    libraryHealthIgnores: () =>
+      [...queryKeys.admin.libraryHealth(), "ignores"] as const,
     testEmailTemplates: () =>
       [...queryKeys.admin.all, "test-email-templates"] as const,
     queueJobs: (queue: string, status?: string) =>
