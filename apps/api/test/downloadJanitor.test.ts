@@ -165,6 +165,7 @@ describe("rejectRelease", () => {
       11,
       "blocked file type: a.exe",
       false,
+      dh.id,
     );
   });
 
@@ -179,6 +180,7 @@ describe("rejectRelease", () => {
       11,
       "stalled - no progress",
       true,
+      dh.id,
     );
   });
 });

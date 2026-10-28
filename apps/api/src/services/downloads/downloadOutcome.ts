@@ -195,6 +195,7 @@ export async function failDownload(
     try {
       await effects.downloadFailed({
         mediaId: dh.mediaId,
+        downloadHistoryId: dh.id,
         episodeId: dh.episodeId,
         reason,
       });

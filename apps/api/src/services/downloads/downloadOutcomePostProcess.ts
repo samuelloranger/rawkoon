@@ -228,6 +228,7 @@ export async function finishPostProcess(
         }
         await effects.mediaDownloaded({
           mediaId,
+          downloadHistoryId,
           episodeId,
           season,
           episodeCount: packEpisodeCount,
@@ -236,7 +237,7 @@ export async function finishPostProcess(
       }
     }
     if (bookEditionId != null && !result.skipped) {
-      await effects.bookDownloaded(bookEditionId, isUpgrade);
+      await effects.bookDownloaded(bookEditionId, isUpgrade, downloadHistoryId);
     }
     if (dh?.torrentHash) {
       await effects

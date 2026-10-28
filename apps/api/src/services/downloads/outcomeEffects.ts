@@ -21,6 +21,7 @@ export interface OutcomeEffects {
   /** A grab failed before import; tell admins. May throw. */
   downloadFailed(p: {
     mediaId: number;
+    downloadHistoryId: number;
     episodeId: number | null;
     reason: string;
   }): Promise<void>;
@@ -34,13 +35,18 @@ export interface OutcomeEffects {
   /** A fresh import finished; tell admins. */
   mediaDownloaded(p: {
     mediaId: number;
+    downloadHistoryId: number;
     episodeId: number | null | undefined;
     season: number | null | undefined;
     episodeCount: number | undefined;
     isUpgrade: boolean;
   }): Promise<void>;
   /** A book import finished; tell admins. */
-  bookDownloaded(bookEditionId: number, isUpgrade: boolean): Promise<void>;
+  bookDownloaded(
+    bookEditionId: number,
+    isUpgrade: boolean,
+    downloadHistoryId: number,
+  ): Promise<void>;
   /** An import failed in a retryable way; tell admins (book or media flavour by row target). */
   importFailed(p: {
     downloadHistoryId: number;
@@ -116,11 +122,15 @@ export const productionOutcomeEffects: OutcomeEffects = {
     );
     await notifyAdminsMediaDownloaded(p);
   },
-  bookDownloaded: async (bookEditionId, isUpgrade) => {
+  bookDownloaded: async (bookEditionId, isUpgrade, downloadHistoryId) => {
     const { notifyAdminsBookDownloaded } = await import(
       "@rawkoon/api/workers/notifyBookEvents"
     );
-    await notifyAdminsBookDownloaded(bookEditionId, isUpgrade);
+    await notifyAdminsBookDownloaded(
+      bookEditionId,
+      isUpgrade,
+      downloadHistoryId,
+    );
   },
   importFailed: async (p) => {
     if (p.bookEditionId != null) {
@@ -131,6 +141,7 @@ export const productionOutcomeEffects: OutcomeEffects = {
         p.bookEditionId,
         p.reason,
         p.isUpgrade,
+        p.downloadHistoryId,
       );
       return;
     }

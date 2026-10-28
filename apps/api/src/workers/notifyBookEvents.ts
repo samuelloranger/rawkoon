@@ -1,6 +1,7 @@
 import { prisma } from "@rawkoon/api/db";
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { buildNotificationUrl } from "@rawkoon/shared/utils";
+import { downloadLifecycleKey } from "@rawkoon/api/services/notification/notificationLifecycle";
 import {
   notificationCopy,
   truncateReleaseTitle,
@@ -67,6 +68,9 @@ async function notifyAdmins(opts: {
     | "book_failed"
     | "book_search_skipped"
     | "book_author_releases";
+  /** The grab this notice belongs to; its stages share one notification. */
+  downloadHistoryId?: number | null;
+  push?: boolean;
   logTag: string;
 }): Promise<void> {
   const admins = await getAdminNotificationTargets();
@@ -81,7 +85,13 @@ async function notifyAdmins(opts: {
         msg.url,
         opts.metadata,
         opts.imageUrl ?? undefined,
-        { preferenceKey: opts.preferenceKey },
+        {
+          preferenceKey: opts.preferenceKey,
+          push: opts.push,
+          ...(opts.downloadHistoryId != null
+            ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+            : {}),
+        },
       );
     } catch (e) {
       console.warn(`[${opts.logTag}] Failed for user ${admin.id}:`, e);
@@ -93,6 +103,7 @@ export async function notifyAdminsBookGrabbed(
   editionId: number,
   releaseTitle: string,
   isUpgrade = false,
+  downloadHistoryId: number | null = null,
 ): Promise<void> {
   const ctx = await editionContext(editionId);
   if (!ctx) return;
@@ -116,8 +127,12 @@ export async function notifyAdminsBookGrabbed(
       is_upgrade: isUpgrade,
       subject: ctx.title,
       detail: release,
+      release,
     },
     preferenceKey: "book_grabbed",
+    // A grab shows in the app; only the download it leads to reaches devices.
+    push: false,
+    downloadHistoryId,
     logTag: "notifyAdminsBookGrabbed",
   });
 }
@@ -125,6 +140,7 @@ export async function notifyAdminsBookGrabbed(
 export async function notifyAdminsBookDownloaded(
   editionId: number,
   isUpgrade = false,
+  downloadHistoryId: number | null = null,
 ): Promise<void> {
   const ctx = await editionContext(editionId);
   if (!ctx) return;
@@ -150,6 +166,7 @@ export async function notifyAdminsBookDownloaded(
       subject: ctx.title,
     },
     preferenceKey: "book_downloaded",
+    downloadHistoryId,
     logTag: "notifyAdminsBookDownloaded",
   });
 }
@@ -158,6 +175,7 @@ export async function notifyAdminsBookImportFailed(
   editionId: number,
   reason: string,
   isUpgrade = false,
+  downloadHistoryId: number | null = null,
 ): Promise<void> {
   const ctx = await editionContext(editionId);
   if (!ctx) return;
@@ -188,6 +206,7 @@ export async function notifyAdminsBookImportFailed(
       detail: reason,
     },
     preferenceKey: "book_failed",
+    downloadHistoryId,
     logTag: "notifyAdminsBookImportFailed",
   });
 }

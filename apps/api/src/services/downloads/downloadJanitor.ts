@@ -44,6 +44,7 @@ export interface JanitorDeps {
     editionId: number,
     reason: string,
     isUpgrade: boolean,
+    downloadHistoryId: number,
   ) => Promise<void>;
 }
 
@@ -75,11 +76,21 @@ const defaultDeps: JanitorDeps = {
       data: { seedReleaseReason: kind },
     });
   },
-  notifyBookRejected: async (editionId, reason, isUpgrade) => {
+  notifyBookRejected: async (
+    editionId,
+    reason,
+    isUpgrade,
+    downloadHistoryId,
+  ) => {
     const { notifyAdminsBookImportFailed } = await import(
       "@rawkoon/api/workers/notifyBookEvents"
     );
-    await notifyAdminsBookImportFailed(editionId, reason, isUpgrade);
+    await notifyAdminsBookImportFailed(
+      editionId,
+      reason,
+      isUpgrade,
+      downloadHistoryId,
+    );
   },
 };
 
@@ -95,7 +106,12 @@ export async function rejectRelease(
   // failDownload only notifies for media rows.
   if (dh.bookEditionId != null) {
     await deps
-      .notifyBookRejected(dh.bookEditionId, reason, dh.isUpgrade ?? false)
+      .notifyBookRejected(
+        dh.bookEditionId,
+        reason,
+        dh.isUpgrade ?? false,
+        dh.id,
+      )
       .catch((e) => console.warn("[downloadJanitor] book notice failed:", e));
   }
   await deps.createBlocklist({

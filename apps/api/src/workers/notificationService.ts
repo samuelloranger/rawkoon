@@ -16,6 +16,10 @@ import {
 } from "@rawkoon/api/services/notification/notificationPreferences";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 import { mergeGroupedMetadata } from "@rawkoon/api/services/notification/groupedNotificationMetadata";
+import {
+  mergeLifecycleMetadata,
+  planLifecycleWrite,
+} from "@rawkoon/api/services/notification/notificationLifecycle";
 
 interface NotificationMetadata {
   [key: string]: unknown;
@@ -24,6 +28,13 @@ interface NotificationMetadata {
 export type CreateNotificationOptions = {
   /** Merge into an unread notification of the same type within the window. */
   groupKey?: string;
+  /**
+   * One notification for one piece of work (a grab): each later stage rewrites
+   * the row this key created and moves it back to the top, unread.
+   */
+  lifecycleKey?: string;
+  /** False keeps the notification in the app without sending it to devices. */
+  push?: boolean;
   preferenceKey?: NotificationPreferenceKey;
   /** Skip the per-user preference lookup when the caller already checked. */
   skipPreferenceCheck?: boolean;
@@ -42,40 +53,83 @@ export async function createAndQueueNotification(
   options?: CreateNotificationOptions,
 ): Promise<boolean> {
   try {
+    let enabled = true;
     if (!options?.skipPreferenceCheck) {
       const target = await getNotificationTarget(userId);
-      if (
-        target &&
-        !isNotificationEnabled(
+      enabled =
+        !target ||
+        isNotificationEnabled(
           target.notificationPreferences,
           notificationType,
           options?.preferenceKey,
-        )
-      ) {
-        return false;
-      }
+        );
     }
 
+    const lifecycleRow = options?.lifecycleKey
+      ? await prisma.notification.findFirst({
+          where: {
+            userId,
+            notificationMetadata: {
+              path: ["lifecycle_key"],
+              equals: options.lifecycleKey,
+            },
+          },
+          orderBy: { id: "desc" },
+        })
+      : null;
+    const plan = planLifecycleWrite({
+      hasRow: lifecycleRow != null,
+      enabled,
+      push: options?.push ?? true,
+    });
+    if (plan.action === "skip") return false;
+
     const normalizedUrl = normalizeNotificationUrl(url, getBaseUrl());
-    const meta = metadata ? { ...metadata } : {};
-    if (options?.groupKey) {
+    let meta: NotificationMetadata = metadata ? { ...metadata } : {};
+    if (options?.lifecycleKey) {
+      meta = mergeLifecycleMetadata(
+        (lifecycleRow?.notificationMetadata ?? {}) as Record<string, unknown>,
+        { ...meta, lifecycle_key: options.lifecycleKey },
+      );
+    }
+    if (options?.groupKey && !options.lifecycleKey) {
       meta.group_key = options.groupKey;
     }
 
-    const grouped = options?.groupKey
-      ? await tryMergeGroupedNotification({
-          userId,
-          groupKey: options.groupKey,
-          notificationType,
-          title,
-          body,
-          url: normalizedUrl,
-          imageUrl,
-          metadata: meta,
+    const lifecycleUpdate = lifecycleRow
+      ? await prisma.notification.update({
+          where: { id: lifecycleRow.id },
+          data: {
+            title,
+            body,
+            type: notificationType,
+            url: normalizedUrl,
+            imageUrl: imageUrl ?? lifecycleRow.imageUrl,
+            notificationMetadata: JSON.parse(JSON.stringify(meta)),
+            read: false,
+            readAt: null,
+            createdAt: nowUtc(),
+          },
         })
       : null;
 
+    const grouped = lifecycleUpdate
+      ? null
+      : options?.groupKey && !options.lifecycleKey
+        ? await tryMergeGroupedNotification({
+            userId,
+            groupKey: options.groupKey,
+            notificationType,
+            title,
+            body,
+            url: normalizedUrl,
+            imageUrl,
+            metadata: meta,
+          })
+        : null;
+
     const notification =
+      lifecycleUpdate ??
       grouped ??
       (await prisma.notification.create({
         data: {
@@ -108,9 +162,12 @@ export async function createAndQueueNotification(
         | undefined,
     });
 
+    if (!plan.push) return true;
+
     await addJob<NotificationJobData>(
       QUEUE_NAMES.EXPRESS,
-      `send-push:${notification.id}`,
+      // A rewritten row pushes again; a reused job id would be dropped as a duplicate.
+      `send-push:${notification.id}:${notification.createdAt.getTime()}`,
       {
         notificationId: notification.id,
         userId,

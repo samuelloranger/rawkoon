@@ -296,6 +296,7 @@ export async function grabRelease(opts: {
       );
       await notifyAdminsLibraryGrabbed({
         mediaId,
+        downloadHistoryId: dhRow.id,
         episodeId: episodeId ?? null,
         season,
         releaseTitle,
