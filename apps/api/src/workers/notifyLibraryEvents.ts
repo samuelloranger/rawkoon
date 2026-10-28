@@ -5,14 +5,21 @@ import {
   notificationCopy,
   truncateReleaseTitle,
 } from "@rawkoon/api/services/notification/notificationCopy";
+import { downloadLifecycleKey } from "@rawkoon/api/services/notification/notificationLifecycle";
 import {
   loadEpisodeContext,
   loadMediaContext,
   notifyAdmins,
+  seasonCode,
+  subjectMetadata,
 } from "@rawkoon/api/workers/libraryNotificationHelpers";
 
 export type LibraryDownloadedOpts = {
   mediaId: number;
+  /** The grab this download completes; its notification is rewritten instead of adding one. */
+  downloadHistoryId?: number | null;
+  /** A grab whose file another grab already placed: settle its row without a push. */
+  quiet?: boolean;
   episodeId?: number | null;
   season?: number | null;
   episodeCount?: number | null;
@@ -111,19 +118,32 @@ export async function notifyAdminsMediaDownloaded(
     },
     {
       imageUrl: media.posterUrl,
-      metadata: episode
-        ? {
-            media_id: media.mediaId,
-            latest_code: episode.code,
-            show: media.label,
-          }
-        : { media_id: media.mediaId },
-      notifyOptions: episode
-        ? {
-            groupKey: `library_downloaded:${media.mediaId}`,
-            preferenceKey: "library_downloaded",
-          }
-        : { preferenceKey: "library_downloaded" },
+      metadata: {
+        ...subjectMetadata(media, {
+          code:
+            episode?.code ??
+            ((parsed.episodeCount ?? 0) > 0 ? seasonCode(parsed.season) : null),
+          detail: episode ? episodeDisplayName(episode.title) : null,
+          isUpgrade: parsed.isUpgrade,
+        }),
+        ...(episode ? { latest_code: episode.code, show: media.label } : {}),
+        ...(!episode && (parsed.episodeCount ?? 0) > 1
+          ? { episode_count: parsed.episodeCount }
+          : {}),
+      },
+      notifyOptions:
+        parsed.downloadHistoryId != null
+          ? {
+              lifecycleKey: downloadLifecycleKey(parsed.downloadHistoryId),
+              preferenceKey: "library_downloaded",
+              ...(parsed.quiet ? { push: false, updateOnly: true } : {}),
+            }
+          : episode
+            ? {
+                groupKey: `library_downloaded:${media.mediaId}`,
+                preferenceKey: "library_downloaded",
+              }
+            : { preferenceKey: "library_downloaded" },
       logTag: "notifyAdminsMediaDownloaded",
     },
   );
@@ -131,6 +151,7 @@ export async function notifyAdminsMediaDownloaded(
 
 export async function notifyAdminsLibraryGrabbed(opts: {
   mediaId: number;
+  downloadHistoryId?: number | null;
   episodeId?: number | null;
   season?: number | null;
   releaseTitle: string;
@@ -203,8 +224,22 @@ export async function notifyAdminsLibraryGrabbed(opts: {
     },
     {
       imageUrl: media.posterUrl,
-      metadata: { media_id: media.mediaId },
-      notifyOptions: { preferenceKey: "library_grabbed" },
+      metadata: {
+        ...subjectMetadata(media, {
+          code: episode?.code ?? seasonCode(opts.season),
+          detail: release,
+          isUpgrade: opts.isUpgrade,
+        }),
+        release,
+      },
+      // A grab shows in the app; only the download it leads to reaches devices.
+      notifyOptions: {
+        preferenceKey: "library_grabbed",
+        push: false,
+        ...(opts.downloadHistoryId != null
+          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+          : {}),
+      },
       logTag: "notifyAdminsLibraryGrabbed",
     },
   );
@@ -212,6 +247,7 @@ export async function notifyAdminsLibraryGrabbed(opts: {
 
 export async function notifyAdminsLibraryDownloadFailed(opts: {
   mediaId?: number | null;
+  downloadHistoryId?: number | null;
   episodeId?: number | null;
   reason: string;
 }): Promise<void> {
@@ -241,8 +277,16 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
     }),
     {
       imageUrl: media.posterUrl,
-      metadata: { media_id: media.mediaId },
-      notifyOptions: { preferenceKey: "library_failed" },
+      metadata: subjectMetadata(media, {
+        code: episode?.code,
+        detail: opts.reason,
+      }),
+      notifyOptions: {
+        preferenceKey: "library_failed",
+        ...(opts.downloadHistoryId != null
+          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+          : {}),
+      },
       logTag: "notifyAdminsLibraryDownloadFailed",
     },
   );
@@ -263,7 +307,10 @@ export async function notifyAdminsPostProcessFailed(
         url: "/library",
       }),
       {
-        notifyOptions: { preferenceKey: "library_failed" },
+        notifyOptions: {
+          preferenceKey: "library_failed",
+          lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+        },
         logTag: "notifyAdminsPostProcessFailed",
       },
     );
@@ -292,7 +339,11 @@ export async function notifyAdminsPostProcessFailed(
     }),
     {
       imageUrl: media.posterUrl,
-      notifyOptions: { preferenceKey: "library_failed" },
+      metadata: subjectMetadata(media, { code: episode?.code, detail: reason }),
+      notifyOptions: {
+        preferenceKey: "library_failed",
+        lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+      },
       logTag: "notifyAdminsPostProcessFailed",
     },
   );

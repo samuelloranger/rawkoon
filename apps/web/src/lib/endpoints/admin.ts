@@ -2,6 +2,9 @@ export const ADMIN_ENDPOINTS = {
   TRIGGER_ACTION: "/api/admin/trigger-action",
   SCHEDULED_JOBS: "/api/admin/scheduled-jobs",
   LIBRARY_HEALTH: "/api/admin/library-health",
+  LIBRARY_HEALTH_IGNORES: "/api/admin/library-health/ignores",
+  LIBRARY_HEALTH_IGNORE: (id: number) =>
+    `/api/admin/library-health/ignores/${id}`,
   QUEUE_JOBS: (name: string) => `/api/admin/queues/${name}/jobs`,
   USERS: "/api/admin/users",
   DELETE_USER: (userId: string) => `/api/admin/users/${userId}`,

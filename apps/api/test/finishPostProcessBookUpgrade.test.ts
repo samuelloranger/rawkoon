@@ -57,7 +57,7 @@ beforeEach(() => {
 describe("finishPostProcess book upgrade notices", () => {
   it("flags a successful upgrade import", async () => {
     await finishPostProcess(1, effects);
-    expect(effects.named("bookDownloaded")).toEqual([[11, true]]);
+    expect(effects.named("bookDownloaded")).toEqual([[11, true, 1]]);
   });
 
   it("flags an upgrade whose import failed", async () => {
@@ -100,6 +100,6 @@ describe("finishPostProcess book upgrade notices", () => {
   it("leaves a first grab unflagged", async () => {
     state.dh.isUpgrade = false;
     await finishPostProcess(1, effects);
-    expect(effects.named("bookDownloaded")).toEqual([[11, false]]);
+    expect(effects.named("bookDownloaded")).toEqual([[11, false, 1]]);
   });
 });

@@ -8,6 +8,7 @@ const state: {
     title: string;
     body: string;
     metadata: Record<string, unknown> | undefined;
+    options?: Record<string, unknown>;
   }>;
 } = { locale: "en", notifications: [] };
 
@@ -42,8 +43,10 @@ mock.module("@rawkoon/api/workers/notificationService", () => ({
     _type: string,
     _url?: string,
     metadata?: Record<string, unknown>,
+    _imageUrl?: string,
+    options?: Record<string, unknown>,
   ) => {
-    state.notifications.push({ title, body, metadata });
+    state.notifications.push({ title, body, metadata, options });
     return true;
   },
 }));
@@ -67,6 +70,28 @@ describe("book notifications", () => {
     expect(state.notifications[0]?.metadata).toEqual({
       book_id: 9,
       is_upgrade: false,
+      subject: "The Example",
+      detail: "Some.Release.M4B",
+      release: "Some.Release.M4B",
+    });
+  });
+
+  it("keeps a book grab in the app without a push, keyed to the grab", async () => {
+    await notifyAdminsBookGrabbed(1, "Some.Release.M4B", false, 5);
+
+    expect(state.notifications[0]?.options).toMatchObject({
+      preferenceKey: "book_grabbed",
+      push: false,
+      lifecycleKey: "download:5",
+    });
+  });
+
+  it("rewrites the book grab's notification when it lands", async () => {
+    await notifyAdminsBookDownloaded(1, false, 5);
+
+    expect(state.notifications[0]?.options).toMatchObject({
+      preferenceKey: "book_downloaded",
+      lifecycleKey: "download:5",
     });
   });
 

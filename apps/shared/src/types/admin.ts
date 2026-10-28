@@ -71,6 +71,8 @@ export interface LibraryHealthIssue {
   tmdb_status?: string | null;
   tmdb_status_refreshed_at?: string | null;
   detail: string;
+  /** Stable identity of the issue across runs; send it back to ignore the issue. */
+  key?: string;
 }
 
 export interface LibraryHealthLog {
@@ -84,6 +86,21 @@ export interface LibraryHealthLog {
   issues: LibraryHealthIssue[];
   warnings: string[];
   error: string | null;
+  /** Issues this run found that the admin ignored; `issues` and `summary` leave them out. */
+  ignored_count?: number;
+}
+
+export interface LibraryHealthIgnore {
+  id: number;
+  issue_key: string;
+  kind: LibraryHealthIssue["kind"] | string;
+  title: string | null;
+  detail: string;
+  created_at: string;
+}
+
+export interface LibraryHealthIgnoresResponse {
+  ignores: LibraryHealthIgnore[];
 }
 
 interface LibraryHealthHistoryEntry {

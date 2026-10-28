@@ -5489,7 +5489,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout marquer comme lu"
+            "value": "Tout lire"
           }
         }
       }
@@ -11037,16 +11037,6 @@
         }
       }
     },
-    "Release grabbed": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version récupérée"
-          }
-        }
-      }
-    },
     "Released": {
       "localizations": {
         "fr": {
@@ -16449,6 +16439,206 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les utilisateurs Jellyfin désactivés ou liés à quelqu’un d’autre ne sont pas listés. Changer le lien déconnecte les sessions Jellyfin de cette personne."
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier"
+          }
+        }
+      }
+    },
+    "Upgraded": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mis à niveau"
+          }
+        }
+      }
+    },
+    "Awaiting approval": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À approuver"
+          }
+        }
+      }
+    },
+    "Installed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installé"
+          }
+        }
+      }
+    },
+    "New version": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle version"
+          }
+        }
+      }
+    },
+    "%lld episodes, latest %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld épisodes, dernier : %@"
+          }
+        }
+      }
+    },
+    "Release grabbed (in the app, no push)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version récupérée (dans l’app, sans push)"
+          }
+        }
+      }
+    },
+    "Pre-release": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préversion"
+          }
+        }
+      }
+    },
+    "Open on GitHub": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir sur GitHub"
+          }
+        }
+      }
+    },
+    "No release notes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune note de version."
+          }
+        }
+      }
+    },
+    "No releases yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune version pour l’instant"
+          }
+        }
+      }
+    },
+    "Ignored issues": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Problèmes ignorés"
+          }
+        }
+      }
+    },
+    "Ignore": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorer"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rétablir"
+          }
+        }
+      }
+    },
+    "Couldn't ignore this issue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’ignorer ce problème."
+          }
+        }
+      }
+    },
+    "Couldn't restore this issue.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de rétablir ce problème."
+          }
+        }
+      }
+    },
+    "Nothing is ignored.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun problème ignoré."
+          }
+        }
+      }
+    },
+    "Couldn't load the ignored issues.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les problèmes ignorés."
+          }
+        }
+      }
+    },
+    "Ignored issues stop counting toward the badge. Restore one to count it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les problèmes ignorés ne comptent plus dans la pastille. Rétablissez-en un pour qu’il compte à nouveau."
+          }
+        }
+      }
+    },
+    "Swipe an issue to ignore it when it's expected, like a two-part episode stored as one file.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balayez un problème pour l’ignorer s’il est normal, comme un épisode en deux parties dans un seul fichier."
           }
         }
       }

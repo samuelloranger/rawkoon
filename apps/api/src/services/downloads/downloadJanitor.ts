@@ -40,11 +40,6 @@ export interface JanitorDeps {
   resolveAdapter: () => Promise<DownloadClientAdapter | null>;
   /** Record why the row was rejected, even if its torrent cannot be removed. */
   markRejected: (id: number, kind: RejectKind) => Promise<void>;
-  notifyBookRejected: (
-    editionId: number,
-    reason: string,
-    isUpgrade: boolean,
-  ) => Promise<void>;
 }
 
 const defaultDeps: JanitorDeps = {
@@ -75,12 +70,6 @@ const defaultDeps: JanitorDeps = {
       data: { seedReleaseReason: kind },
     });
   },
-  notifyBookRejected: async (editionId, reason, isUpgrade) => {
-    const { notifyAdminsBookImportFailed } = await import(
-      "@rawkoon/api/workers/notifyBookEvents"
-    );
-    await notifyAdminsBookImportFailed(editionId, reason, isUpgrade);
-  },
 };
 
 /** Condemn a release: fail the row, blocklist it so search skips it, and clear it from the client. */
@@ -92,12 +81,6 @@ export async function rejectRelease(
 ): Promise<void> {
   const hash = dh.torrentHash?.trim().toLowerCase() || null;
   await deps.failDownload(dh, reason);
-  // failDownload only notifies for media rows.
-  if (dh.bookEditionId != null) {
-    await deps
-      .notifyBookRejected(dh.bookEditionId, reason, dh.isUpgrade ?? false)
-      .catch((e) => console.warn("[downloadJanitor] book notice failed:", e));
-  }
   await deps.createBlocklist({
     torrentHash: hash,
     releaseTitle: dh.releaseTitle,

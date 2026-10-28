@@ -99,6 +99,8 @@
                 DebugGrowth(admin: false, showBooks: true)
             case "growthNoBooks":
                 DebugGrowth(admin: false, showBooks: false)
+            case "releaseNotes":
+                NavigationStack { ReleaseNotesView(release: DebugReleaseNotes.release, repo: "owner/app") }
             default:
                 EmptyView()
             }
@@ -111,6 +113,7 @@
                 "aiGrabs", "aiHistory", "aiCallDetail", "aiBanner", "aiBannerBudget",
                 "autoSearchIdle", "autoSearchBusy", "upgradeDialog", "motionKit",
                 "growthAdmin", "growthMember", "growthNoBooks", "liveSearchToasts",
+                "releaseNotes",
             ].contains(screen)
         }
     }
@@ -254,5 +257,42 @@
                 }
             }
         }
+    }
+
+    /// `RAWKOON_SCREEN=releaseNotes`: every block the notes renderer lays out.
+    enum DebugReleaseNotes {
+        static let release = GithubReleaseDTO(
+            tagName: "v2.4.0", name: "v2.4.0 — Chapter names from the epub", publishedAt: "2026-10-27T14:00:00Z",
+            body: """
+            Chapters get real names, and a movie and a show that share an id no longer \
+            overwrite each other. Update the app along with the server.
+
+            ### Highlights
+
+            - **Chapter names from the epub** (#387, #389). Multi-file audiobooks now read \
+            the epub's table of contents and match it to the files.
+            - **Movies and shows are kept apart** (#392). The library is unique on the id and the type.
+
+            ### Changed
+
+            - **Status contract** (#398). `status` is now one of `wanted` or `downloaded`.
+            - **Pipeline restructured** (#393, #394):
+              - Adoption sits behind the client adapter.
+              - Outcome notifications go through one port.
+
+            > Older app builds show airing shows as Downloaded until updated.
+
+            ### Upgrade notes
+
+            1. Two migrations run on boot.
+            2. Roll back by restoring the dump:
+
+            ```bash
+            docker compose pull && docker compose up -d
+            ```
+            """,
+            htmlUrl: "https://github.com/owner/app/releases/tag/v2.4.0", prerelease: false,
+            author: GithubReleaseAuthorDTO(login: "maintainer"), assets: []
+        )
     }
 #endif

@@ -18,6 +18,8 @@ struct HealthSettingsView: View {
     @State private var missingSearchesFailed = false
     @State private var rss: RssStatusResponse?
     @State private var rssFailed = false
+    /// Issues whose Ignore is in flight, hidden right away so the list answers the tap.
+    @State private var ignoringKeys: Set<String> = []
 
     var body: some View {
         Group {
@@ -98,12 +100,22 @@ struct HealthSettingsView: View {
                     Label("No issues found", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(Theme.seed)
                 }
-                ForEach(Array((health.issues ?? []).prefix(8).enumerated()), id: \.offset) { _, issue in
+                let issues = (health.issues ?? []).filter { $0.key.map { !ignoringKeys.contains($0) } ?? true }
+                ForEach(Array(issues.prefix(8).enumerated()), id: \.offset) { _, issue in
                     issueRow(issue)
                 }
-                if health.issueCount > 8 {
-                    Text("\(health.issueCount - 8) more issues")
+                if issues.count > 8 {
+                    Text("\(issues.count - 8) more issues")
                         .font(.footnote).foregroundStyle(Theme.muted)
+                }
+                if let ignored = health.ignoredCount, ignored > 0 {
+                    NavigationLink {
+                        IgnoredHealthIssuesView { await refresh() }
+                    } label: {
+                        LabeledContent("Ignored issues") {
+                            Text("\(ignored)").foregroundStyle(Theme.muted)
+                        }
+                    }
                 }
             } else if healthFailed {
                 failureRow("Couldn't load the library health run.")
@@ -115,21 +127,56 @@ struct HealthSettingsView: View {
             }
         } header: {
             Text("Library health")
+        } footer: {
+            if health?.issues?.contains(where: { $0.key != nil }) == true {
+                Text("Swipe an issue to ignore it when it's expected, like a two-part episode stored as one file.")
+            }
         }
         .listRowBackground(Theme.raised)
     }
 
-    @ViewBuilder
     private func issueRow(_ issue: LibraryHealthIssue) -> some View {
-        if let destination = issueDestination(issue) {
-            NavigationLink {
-                NotificationDestinationView(destination: destination)
-            } label: {
+        Group {
+            if let destination = issueDestination(issue) {
+                NavigationLink {
+                    NotificationDestinationView(destination: destination)
+                } label: {
+                    issueLabel(issue)
+                }
+            } else {
                 issueLabel(issue)
             }
-        } else {
-            issueLabel(issue)
         }
+        .swipeActions(edge: .trailing) {
+            if let key = issue.key {
+                Button {
+                    Task { await ignore(key) }
+                } label: {
+                    Label("Ignore", systemImage: "eye.slash")
+                }
+                .tint(Theme.muted)
+            }
+        }
+        .contextMenu {
+            if let key = issue.key {
+                Button {
+                    Task { await ignore(key) }
+                } label: {
+                    Label("Ignore", systemImage: "eye.slash")
+                }
+            }
+        }
+    }
+
+    private func ignore(_ key: String) async {
+        guard let client = model.api(), ignoringKeys.insert(key).inserted else { return }
+        do {
+            try await client.ignoreLibraryHealthIssue(key: key)
+            await loadHealth(client)
+        } catch {
+            model.toast(String(localized: "Couldn't ignore this issue."), style: .error)
+        }
+        ignoringKeys.remove(key)
     }
 
     private func issueLabel(_ issue: LibraryHealthIssue) -> some View {
@@ -328,6 +375,78 @@ struct HealthSettingsView: View {
             rssFailed = false
         } catch {
             rssFailed = rss == nil
+        }
+    }
+}
+
+/// Issues the admin ignored, each with a way to count it again.
+private struct IgnoredHealthIssuesView: View {
+    @Environment(AppModel.self) private var model
+    /// Reloads Health behind this screen so its counts follow a restore.
+    let onChange: () async -> Void
+
+    @State private var ignores: [LibraryHealthIgnore]?
+    @State private var failed = false
+    @State private var restoringIds: Set<Int> = []
+
+    var body: some View {
+        Form {
+            Section {
+                if let ignores {
+                    if ignores.isEmpty {
+                        Text("Nothing is ignored.").foregroundStyle(Theme.muted)
+                    }
+                    ForEach(ignores) { ignored in
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let title = ignored.title, !title.isEmpty {
+                                Text(verbatim: title).foregroundStyle(Theme.textStrong)
+                            }
+                            Text(verbatim: ignored.detail).font(.footnote).foregroundStyle(Theme.muted)
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button("Restore") { Task { await restore(ignored) } }
+                                .tint(Theme.apricot)
+                        }
+                        .contextMenu {
+                            Button("Restore") { Task { await restore(ignored) } }
+                        }
+                    }
+                } else if failed {
+                    Text("Couldn't load the ignored issues.").foregroundStyle(Theme.terracotta)
+                } else {
+                    ProgressView().tint(Theme.apricot).frame(maxWidth: .infinity)
+                }
+            } footer: {
+                Text("Ignored issues stop counting toward the badge. Restore one to count it again.")
+            }
+            .listRowBackground(Theme.raised)
+        }
+        .settingsScreenStyle()
+        .navigationTitle("Ignored issues")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    private func load() async {
+        guard let client = model.api() else { return }
+        do {
+            ignores = try await client.libraryHealthIgnores()
+            failed = false
+        } catch {
+            failed = ignores == nil
+        }
+    }
+
+    private func restore(_ ignored: LibraryHealthIgnore) async {
+        guard let client = model.api(), restoringIds.insert(ignored.id).inserted else { return }
+        defer { restoringIds.remove(ignored.id) }
+        do {
+            try await client.restoreLibraryHealthIssue(id: ignored.id)
+            ignores?.removeAll { $0.id == ignored.id }
+            await onChange()
+        } catch {
+            model.toast(String(localized: "Couldn't restore this issue."), style: .error)
         }
     }
 }

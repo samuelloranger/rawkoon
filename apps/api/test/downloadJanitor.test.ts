@@ -78,9 +78,6 @@ beforeEach(() => {
     markRejected: mock(async () => {
       calls.push("mark");
     }),
-    notifyBookRejected: mock(async () => {
-      calls.push("notify-book");
-    }),
     resolveAdapter: async () => adapter(),
   };
 });
@@ -154,31 +151,12 @@ describe("rejectRelease", () => {
     expect(deps.markRejected).toHaveBeenCalledWith(7, "stalled");
   });
 
-  it("tells admins when a book release is rejected", async () => {
-    await rejectRelease(
-      { ...dh, mediaId: null, bookEditionId: 11 },
-      "malware",
+  it("hands a rejected book row to failDownload, which tells admins", async () => {
+    const book = { ...dh, mediaId: null, bookEditionId: 11, isUpgrade: true };
+    await rejectRelease(book, "malware", "blocked file type: a.exe", deps);
+    expect(deps.failDownload).toHaveBeenCalledWith(
+      book,
       "blocked file type: a.exe",
-      deps,
-    );
-    expect(deps.notifyBookRejected).toHaveBeenCalledWith(
-      11,
-      "blocked file type: a.exe",
-      false,
-    );
-  });
-
-  it("marks the book notice as an upgrade when the rejected grab was one", async () => {
-    await rejectRelease(
-      { ...dh, mediaId: null, bookEditionId: 11, isUpgrade: true },
-      "stalled",
-      "stalled - no progress",
-      deps,
-    );
-    expect(deps.notifyBookRejected).toHaveBeenCalledWith(
-      11,
-      "stalled - no progress",
-      true,
     );
   });
 });

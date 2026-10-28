@@ -910,6 +910,18 @@ model LibraryHealthLog {
   @@map("library_health_log")
 }
 
+/// A library health issue the admin chose to ignore; later runs still find it, but it stops counting.
+model LibraryHealthIgnore {
+  id        Int      @id @default(autoincrement())
+  issueKey  String   @unique(map: "uq_library_health_ignores_issue_key") @map("issue_key")
+  kind      String
+  title     String?
+  detail    String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("library_health_ignores")
+}
+
 enum MediaRequestStatus {
   pending
   approved
