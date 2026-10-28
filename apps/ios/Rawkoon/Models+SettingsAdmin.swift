@@ -200,9 +200,26 @@ nonisolated struct GithubReleaseDTO: Decodable, Identifiable, Sendable {
     let tagName: String
     let name: String?
     let publishedAt: String?
+    /// The release notes, in GitHub markdown.
+    let body: String?
+    let htmlUrl: String?
+    let prerelease: Bool?
+    let author: GithubReleaseAuthorDTO?
+    let assets: [GithubReleaseAssetDTO]?
     var id: String {
         tagName
     }
+}
+
+nonisolated struct GithubReleaseAuthorDTO: Decodable, Sendable {
+    let login: String
+}
+
+nonisolated struct GithubReleaseAssetDTO: Decodable, Identifiable, Sendable {
+    let id: Int
+    let name: String
+    let size: Int64?
+    let browserDownloadUrl: String
 }
 
 nonisolated struct ReleaseSyncDTO: Decodable, Sendable {

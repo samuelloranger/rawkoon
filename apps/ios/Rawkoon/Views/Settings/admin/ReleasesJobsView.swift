@@ -33,18 +33,33 @@ struct ReleasesAdminView: View {
                             LabeledContent("Repo") { Text(repo).foregroundStyle(Theme.muted) }
                                 .listRowBackground(Theme.raised)
                         }
+                        LabeledContent("Last synced") {
+                            let synced = sync.lastSyncedAt
+                                .flatMap { ReleaseNotesView.formattedDate($0, withTime: true) }
+                            Text(synced ?? String(localized: "Never"))
+                                .foregroundStyle(Theme.muted)
+                        }
+                        .listRowBackground(Theme.raised)
                         if let error = sync.lastError {
                             Text(error).font(.footnote).foregroundStyle(Theme.terracotta)
                                 .listRowBackground(Theme.raised)
                         }
                     }
                 }
-                ForEach(releases) { release in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(release.name ?? release.tagName).foregroundStyle(Theme.text)
-                        Text(release.tagName).font(.footnote).foregroundStyle(Theme.muted)
+                Section {
+                    if releases.isEmpty {
+                        Text("No releases yet")
+                            .foregroundStyle(Theme.muted)
+                            .listRowBackground(Theme.raised)
                     }
-                    .listRowBackground(Theme.raised)
+                    ForEach(releases) { release in
+                        NavigationLink {
+                            ReleaseNotesView(release: release, repo: sync?.repoFullName)
+                        } label: {
+                            ReleaseSummaryRow(release: release)
+                        }
+                        .listRowBackground(Theme.raised)
+                    }
                 }
             }
         }

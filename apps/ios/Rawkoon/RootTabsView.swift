@@ -48,6 +48,7 @@ struct RootTabsView: View {
             case "showDetail": DebugFirstDetail(libraryType: "show")
             case "releaseSearch": DebugFirstReleaseSearch()
             case "home": NavigationStack { HomeView() }
+            case "releases": NavigationStack { ReleasesAdminView() }
             case "book": DebugFirstBook()
             case "playerReal": DebugRealPlayer()
             case "miniPlayer": DebugMiniPlayer { mainTabs }
