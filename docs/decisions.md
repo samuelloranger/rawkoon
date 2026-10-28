@@ -274,13 +274,16 @@ the iOS app are updated together to render the airing label for a downloaded
 show from `airing_state`; a build that predates this change shows such a show
 as plain "Downloaded".
 
-Internal reads that compared to `"downloaded"` alone keep that meaning by
-excluding airing shows explicitly, so server behaviour is unchanged.
+Internal reads that compared to `"downloaded"` alone first kept that meaning by
+excluding airing shows explicitly. Those exclusions were later removed: an
+airing show that is downloaded is counted, listed and checked like any other
+downloaded show.
 
 ### Consequences
 
 New code can ask "is it acquired" and "is it airing" separately, and the API no
-longer folds two concepts into one string for clients. Some internal checks
-(library stats, integrity, quality-profile upgrade detection) still treat airing
-shows as not `downloaded`; they were preserved as they were and are candidates
-for a separate behaviour change.
+longer folds two concepts into one string for clients. A show request no longer
+depends on the airing state: it becomes Available when every episode that has
+already aired is downloaded (specials, episodes without an air date and
+unmonitored episodes are ignored), and the rule is re-checked whenever episodes
+are imported or the TMDB refresh updates air dates.

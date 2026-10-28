@@ -165,7 +165,7 @@ A request waiting for an administrator.
 _Avoid_: Open, submitted
 
 **Approved**:
-An administrator accepted the request and the title is in the library. A show's request stays Approved until a show-wide or season-pack download of it finishes while the show is no longer airing; episodes downloaded one at a time never make it Available on their own.
+An administrator accepted the request and the title is in the library. A show's request stays Approved until every episode that has already aired is downloaded, whether or not the show is still airing; one episode or one season does not make it Available while other aired episodes are missing.
 _Avoid_: Accepted, granted
 
 **Denied**:
@@ -173,7 +173,7 @@ An administrator declined the request, optionally with a reason. Asking again re
 _Avoid_: Rejected, declined
 
 **Available**:
-The requested title has been delivered: a movie when its download finishes, a show as described under Approved, a book when its first edition is placed.
+The requested title has been delivered: a movie when its download finishes, a show when all of its aired episodes are downloaded, a book when its first edition is placed.
 _Avoid_: Fulfilled, done, downloaded
 
 ## Books playback
@@ -193,4 +193,4 @@ _Avoid_: Token, signed URL
 - A **Target** is searched when it is **Wanted** and **Monitored**; the search yields **Releases** that the profile accepts or rejects.
 - A **Grab** of a **Release** creates one **Download** for a **Target**; a **Delayed grab** postpones it.
 - A **Download outcome** moves the **Library status** and may make a movie or show **Request** **Available**; for a book, **Post-process** does.
-- A show's **Library status** and **Airing state** vary independently; a show request becomes **Available** only when a show-wide download finishes after the show has stopped airing.
+- A show's **Library status** and **Airing state** vary independently; a show request becomes **Available** once every **Episode** that has aired is downloaded, whatever the **Airing state**. Specials, episodes without an air date and unmonitored episodes do not count, and at least one aired episode is required.

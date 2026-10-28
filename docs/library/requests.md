@@ -48,10 +48,14 @@ is released and found.
 ## When a request becomes available
 
 - **Movie:** when its download completes and is imported.
-- **Show:** only when the whole show is complete. A show that is still airing,
-  in production, or planned keeps its request **Approved** even when every
-  episode released so far is downloaded, because more episodes are coming. A
-  single finished episode never completes a show's request.
+- **Show:** when every episode that has already aired is downloaded, whether
+  or not the show is still airing. Episodes that have not aired yet do not
+  hold the request back, but one finished episode or one finished season does
+  not complete it while other aired episodes are missing. Specials, episodes
+  with no air date and episodes you have set to unmonitored are ignored, and
+  at least one episode must have aired. The check runs again after each
+  import and after each metadata refresh, so a request also becomes available
+  when a refresh brings new air dates.
 - **Book:** when the first edition of the book, ebook or audiobook, finishes
   importing. A request does not choose a format, so either one satisfies it.
 
