@@ -29,6 +29,10 @@
   },
   {
     "method": "GET",
+    "path": "/api/admin/jellyfin-users"
+  },
+  {
+    "method": "GET",
     "path": "/api/admin/jobs/events"
   },
   {
@@ -38,6 +42,18 @@
   {
     "method": "GET",
     "path": "/api/admin/library-health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/admin/library-health/ignores"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/library-health/ignores"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/admin/library-health/ignores/:id"
   },
   {
     "method": "DELETE",
@@ -73,6 +89,10 @@
   },
   {
     "method": "POST",
+    "path": "/api/admin/sse-test"
+  },
+  {
+    "method": "POST",
     "path": "/api/admin/trigger-action"
   },
   {
@@ -88,12 +108,20 @@
     "path": "/api/admin/users/:id"
   },
   {
+    "method": "PATCH",
+    "path": "/api/admin/users/:id/jellyfin"
+  },
+  {
     "method": "POST",
     "path": "/api/admin/users/:id/reset-password"
   },
   {
     "method": "PATCH",
     "path": "/api/admin/users/:id/role"
+  },
+  {
+    "method": "POST",
+    "path": "/api/admin/users/import-jellyfin"
   },
   {
     "method": "GET",
@@ -164,6 +192,14 @@
     "path": "/api/books"
   },
   {
+    "method": "POST",
+    "path": "/api/books/:bookId/handoff/to-audiobook"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/:bookId/handoff/to-ebook"
+  },
+  {
     "method": "DELETE",
     "path": "/api/books/:id"
   },
@@ -208,12 +244,28 @@
     "path": "/api/books/:id/overrides"
   },
   {
+    "method": "DELETE",
+    "path": "/api/books/:id/progress"
+  },
+  {
     "method": "PUT",
     "path": "/api/books/:id/read"
   },
   {
     "method": "POST",
     "path": "/api/books/:id/refresh-metadata"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/discovery"
+  },
+  {
+    "method": "POST",
+    "path": "/api/books/discovery/add"
+  },
+  {
+    "method": "GET",
+    "path": "/api/books/discovery/sources"
   },
   {
     "method": "GET",
@@ -257,6 +309,18 @@
   },
   {
     "method": "GET",
+    "path": "/api/calendar/:file"
+  },
+  {
+    "method": "GET",
+    "path": "/api/calendar/subscription"
+  },
+  {
+    "method": "POST",
+    "path": "/api/calendar/subscription/regenerate"
+  },
+  {
+    "method": "GET",
     "path": "/api/custom-formats"
   },
   {
@@ -277,7 +341,19 @@
   },
   {
     "method": "GET",
+    "path": "/api/dashboard/downloads/active"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/downloads/progress"
+  },
+  {
+    "method": "GET",
     "path": "/api/dashboard/downloads/speed"
+  },
+  {
+    "method": "GET",
+    "path": "/api/dashboard/hero"
   },
   {
     "method": "GET",
@@ -325,6 +401,14 @@
   },
   {
     "method": "GET",
+    "path": "/api/downloads/pending-releases"
+  },
+  {
+    "method": "POST",
+    "path": "/api/downloads/pending-releases/grab-now"
+  },
+  {
+    "method": "GET",
     "path": "/api/downloads/seed-rules"
   },
   {
@@ -345,7 +429,31 @@
   },
   {
     "method": "GET",
+    "path": "/api/export/library"
+  },
+  {
+    "method": "GET",
     "path": "/api/health"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/ai-provider"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/integrations/ai-provider"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/ai-provider/calls"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/ai-provider/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/integrations/ai-provider/test"
   },
   {
     "method": "GET",
@@ -425,15 +533,15 @@
   },
   {
     "method": "GET",
-    "path": "/api/integrations/ai-provider"
+    "path": "/api/integrations/nyt"
   },
   {
     "method": "PUT",
-    "path": "/api/integrations/ai-provider"
+    "path": "/api/integrations/nyt"
   },
   {
-    "method": "GET",
-    "path": "/api/integrations/ai-provider/test"
+    "method": "POST",
+    "path": "/api/integrations/nyt/test"
   },
   {
     "method": "GET",
@@ -470,6 +578,10 @@
   {
     "method": "PUT",
     "path": "/api/integrations/tmdb"
+  },
+  {
+    "method": "POST",
+    "path": "/api/jellyfin/session"
   },
   {
     "method": "GET",
@@ -629,6 +741,10 @@
   },
   {
     "method": "GET",
+    "path": "/api/library/growth"
+  },
+  {
+    "method": "GET",
     "path": "/api/library/item/:id"
   },
   {
@@ -645,11 +761,19 @@
   },
   {
     "method": "GET",
+    "path": "/api/library/post-processing/grab-readiness"
+  },
+  {
+    "method": "GET",
     "path": "/api/library/post-processing/settings"
   },
   {
     "method": "PATCH",
     "path": "/api/library/post-processing/settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/library/random"
   },
   {
     "method": "POST",
@@ -860,6 +984,18 @@
     "path": "/api/notifications/vapid-public-key"
   },
   {
+    "method": "DELETE",
+    "path": "/api/profile/jellyfin"
+  },
+  {
+    "method": "GET",
+    "path": "/api/profile/jellyfin"
+  },
+  {
+    "method": "POST",
+    "path": "/api/profile/jellyfin"
+  },
+  {
     "method": "GET",
     "path": "/api/quality-profiles"
   },
@@ -892,12 +1028,20 @@
     "path": "/api/requests"
   },
   {
+    "method": "DELETE",
+    "path": "/api/requests/:id"
+  },
+  {
     "method": "POST",
     "path": "/api/requests/:id/approve"
   },
   {
     "method": "POST",
     "path": "/api/requests/:id/deny"
+  },
+  {
+    "method": "GET",
+    "path": "/api/requests/status"
   },
   {
     "method": "GET",
@@ -918,6 +1062,90 @@
   {
     "method": "GET",
     "path": "/api/system/version"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/transcode/batches/:batchId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/batches/:batchId/move"
+  },
+  {
+    "method": "GET",
+    "path": "/api/transcode/capabilities"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/estimate"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/transcode/history"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/transcode/history/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/transcode/jobs"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/jobs"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/transcode/jobs/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/transcode/jobs/:id/free-source"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/jobs/:id/free-source"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/jobs/:id/move"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/jobs/:id/retry"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/transcode/live-activity/devices/:installationId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/live-activity/register"
+  },
+  {
+    "method": "POST",
+    "path": "/api/transcode/live-activity/token"
+  },
+  {
+    "method": "GET",
+    "path": "/api/transcode/settings"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/transcode/settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/transcode/summary"
+  },
+  {
+    "method": "GET",
+    "path": "/api/tv/bootstrap"
+  },
+  {
+    "method": "POST",
+    "path": "/api/tv/jellyfin/quick-connect"
   },
   {
     "method": "GET",

@@ -130,6 +130,30 @@ export const adminFixtures: FixtureRegistry = {
     negativeBody: null,
   },
 
+  "POST /api/admin/library-health/ignores": {
+    phase: "bootstrap",
+    admin: true,
+    body: (ctx) => ({ issue_key: ctx.get("healthIssueKey") }),
+    captures: (body, ctx) => {
+      const id = (body as { ignore?: { id?: unknown } }).ignore?.id;
+      if (typeof id === "number") ctx.set("healthIgnoreId", String(id));
+    },
+    negativeBody: { issue_key: "" },
+  },
+
+  "GET /api/admin/library-health/ignores": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+
+  "DELETE /api/admin/library-health/ignores/:id": {
+    phase: "delete",
+    admin: true,
+    pathParams: (ctx) => ({ id: ctx.get("healthIgnoreId") }),
+    negativeBody: null,
+  },
+
   // Sessions
   "GET /api/admin/sessions": {
     phase: "read",

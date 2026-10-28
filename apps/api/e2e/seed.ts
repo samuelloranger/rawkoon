@@ -1,4 +1,6 @@
+import type { LibraryHealthIssue } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
+import { libraryHealthIssueKey } from "@rawkoon/api/services/libraryIntegrity/libraryHealthIgnoreFilter";
 import { hashPassword } from "@rawkoon/api/utils/password";
 import { assertE2eDatabase } from "./boot";
 import type { Context } from "./context";
@@ -136,9 +138,28 @@ async function seedLibrary(ctx: Context): Promise<void> {
   const edition = await prisma.bookEdition.create({
     data: { bookId: book.id, kind: "ebook" },
   });
+  // A finished health run with one issue, so the ignore routes have something to ignore.
+  const healthIssue: LibraryHealthIssue = {
+    kind: "episode_duration_mismatch",
+    media_id: show.id,
+    episode_id: episode.id,
+    title: "E2E Show",
+    detail: "E2E episode runtime differs from TMDB",
+  };
+  await prisma.libraryHealthLog.create({
+    data: {
+      status: "success",
+      trigger: "manual",
+      completedAt: new Date(),
+      durationMs: 1,
+      summary: { total_issues: 1, episode_duration_mismatches: 1 },
+      issues: [healthIssue] as unknown as object,
+    },
+  });
   ctx.set("libraryMediaId", String(movie.id));
   ctx.set("libraryShowId", String(show.id));
   ctx.set("libraryEpisodeId", String(episode.id));
+  ctx.set("healthIssueKey", libraryHealthIssueKey(healthIssue));
   ctx.set("authorId", String(author.id));
   ctx.set("bookId", String(book.id));
   ctx.set("editionId", String(edition.id));
