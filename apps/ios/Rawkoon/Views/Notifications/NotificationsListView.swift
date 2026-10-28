@@ -187,7 +187,6 @@ struct NotificationsListView: View {
         .listStyle(.plain)
         .listSectionSpacing(0)
         .scrollContentBackground(.hidden)
-        .task(id: hiddenIds) { await markHiddenRead() }
     }
 
     /// Infinite-scroll sentinel: appearing near the list's end pulls the next
@@ -318,6 +317,8 @@ struct NotificationsListView: View {
             let response = try await client.notifications(page: page, limit: limit)
             notifications = response.notifications
             hasMore = (response.pagination?.page ?? page) < (response.pagination?.pages ?? page)
+            // Every fresh page retries, so a failed or offline attempt doesn't leave the badge lit.
+            await markHiddenRead()
         } catch {
             errorMessage = String(localized: "Could not load notifications.")
         }
@@ -411,7 +412,8 @@ struct NotificationsListView: View {
 
     /// A hidden duplicate would otherwise keep the badge lit with nothing to open.
     private func markHiddenRead() async {
-        for notification in notifications where hiddenIds.contains(notification.id) && !notification.read {
+        let hidden = hiddenIds
+        for notification in notifications where hidden.contains(notification.id) && !notification.read {
             await markRead(notification)
         }
     }

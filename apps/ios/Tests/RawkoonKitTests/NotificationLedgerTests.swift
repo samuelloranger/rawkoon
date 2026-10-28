@@ -76,6 +76,22 @@ final class NotificationLedgerReleaseTests: XCTestCase {
         XCTAssertEqual(NotificationLedger.releaseSummary("Film.2024.1080p.BluRay.x264-GRO…"), "1080p BluRay")
     }
 
+    func testIgnoresTitleWordsBeforeTheYear() {
+        XCTAssertEqual(
+            NotificationLedger.releaseSummary("Charlottes.Web.2006.1080p.BluRay.x264-GRP"),
+            "1080p BluRay · GRP"
+        )
+        XCTAssertEqual(
+            NotificationLedger.releaseSummary("The.French.Dispatch.2021.1080p.WEB-DL-GRP"),
+            "1080p WEB · GRP"
+        )
+    }
+
+    func testNilForANameThatIsNotASceneName() {
+        XCTAssertNil(NotificationLedger.releaseSummary("Spider-Man"))
+        XCTAssertNil(NotificationLedger.releaseSummary("Some Book - Audiobook"))
+    }
+
     func testNilWhenNothingIsRecognised() {
         XCTAssertNil(NotificationLedger.releaseSummary("Some Audiobook Title"))
     }

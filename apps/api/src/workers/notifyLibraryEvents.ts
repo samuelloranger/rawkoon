@@ -115,7 +115,9 @@ export async function notifyAdminsMediaDownloaded(
       imageUrl: media.posterUrl,
       metadata: {
         ...subjectMetadata(media, {
-          code: episode?.code ?? seasonCode(parsed.season),
+          code:
+            episode?.code ??
+            ((parsed.episodeCount ?? 0) > 0 ? seasonCode(parsed.season) : null),
           detail: episode ? episodeDisplayName(episode.title) : null,
           isUpgrade: parsed.isUpgrade,
         }),

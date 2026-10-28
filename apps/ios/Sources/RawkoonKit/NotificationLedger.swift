@@ -58,12 +58,16 @@ public enum NotificationLedger {
     }
 
     /// "VFQ 1080p WEB · MTLQC" from a scene release name: language, resolution,
-    /// HDR and source, then the group. Nil when none of them can be read.
+    /// HDR and source, then the group. Nil when the name has no year, episode
+    /// code or resolution to anchor on, since then it isn't a scene name.
     public static func releaseSummary(_ release: String) -> String? {
-        let tokens = release
+        let allTokens = release
             .split(whereSeparator: { ".  _[]()".contains($0) })
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "-…")) }
             .filter { !$0.isEmpty }
+        // Title words come first; reading them would turn "Charlotte's Web" into a WEB source.
+        guard let start = allTokens.firstIndex(where: isAnchor) else { return nil }
+        let tokens = allTokens[start...]
 
         var languages: [String] = []
         var resolution: String?
@@ -171,6 +175,13 @@ public enum NotificationLedger {
     }
 
     // MARK: Private
+
+    private static func isAnchor(_ token: String) -> Bool {
+        let upper = token.uppercased()
+        return resolutions[upper] != nil
+            || upper.wholeMatch(of: /(19|20)\d{2}/) != nil
+            || upper.wholeMatch(of: /S\d{1,2}(E\d{1,3})?/) != nil
+    }
 
     private static func releaseGroup(_ release: String) -> String? {
         let trimmed = release.trimmingCharacters(in: .whitespaces)
