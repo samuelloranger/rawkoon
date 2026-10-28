@@ -13,6 +13,33 @@ export type Req = {
   libraryBookId?: number | null;
 };
 
+export type EpisodeRow = {
+  season: number;
+  airDate: Date | null;
+  monitored: boolean;
+  status: string;
+};
+
+type EpisodeWhere = {
+  mediaId: number;
+  season?: { gt: number };
+  monitored?: boolean;
+  airDate?: { lte: Date };
+  status?: { notIn: string[] };
+};
+
+/** Evaluates the subset of the episode filter that showAvailability uses. */
+function countEpisodes(where: EpisodeWhere): number {
+  return (state.episodesByMediaId[where.mediaId] ?? []).filter(
+    (e) =>
+      (where.season == null || e.season > where.season.gt) &&
+      (where.monitored == null || e.monitored === where.monitored) &&
+      (where.airDate == null ||
+        (e.airDate != null && e.airDate <= where.airDate.lte)) &&
+      (where.status == null || !where.status.notIn.includes(e.status)),
+  ).length;
+}
+
 export const state: {
   library: Array<{ tmdbId: number; type: "movie" | "show" }>;
   libraryBooks: Array<{ googleVolumeId: string }>;
@@ -28,6 +55,7 @@ export const state: {
   bookProfiles: number[];
   mediaStatusById: Record<number, string>;
   mediaTmdbStatusById: Record<number, string>;
+  episodesByMediaId: Record<number, EpisodeRow[]>;
   addedBooks: Array<{ volumeId: string; bookQualityProfileId?: number }>;
   bookEditionStatusByBookId: Record<number, string>;
   defaultProfiles: { movie: number | null; show: number | null };
@@ -46,6 +74,7 @@ export const state: {
   bookProfiles: [],
   mediaStatusById: {},
   mediaTmdbStatusById: {},
+  episodesByMediaId: {},
   addedBooks: [],
   bookEditionStatusByBookId: {},
   defaultProfiles: { movie: null, show: null },
@@ -74,7 +103,8 @@ function installMediaRequestDbMock() {
                     id: where.id,
                     status: state.mediaStatusById[where.id],
                     type:
-                      state.mediaTmdbStatusById[where.id] != null
+                      state.mediaTmdbStatusById[where.id] != null ||
+                      state.episodesByMediaId[where.id] != null
                         ? "show"
                         : "movie",
                     tmdbStatus: state.mediaTmdbStatusById[where.id] ?? null,
@@ -94,6 +124,10 @@ function installMediaRequestDbMock() {
           state.deletedLibrary.push(`media:${where.id}`);
           return Promise.resolve({});
         },
+      },
+      libraryEpisode: {
+        count: ({ where }: { where: EpisodeWhere }) =>
+          Promise.resolve(countEpisodes(where)),
       },
       libraryBook: {
         delete: ({ where }: { where: { id: number } }) => {
@@ -181,6 +215,19 @@ function installMediaRequestDbMock() {
           const row = state.requests.find((r) => r.id === where.id)!;
           Object.assign(row, data);
           return Promise.resolve(row);
+        },
+        updateMany: ({
+          where,
+          data,
+        }: {
+          where: { id: number; status: string };
+          data: Partial<Req>;
+        }) => {
+          const rows = state.requests.filter(
+            (r) => r.id === where.id && r.status === where.status,
+          );
+          for (const r of rows) Object.assign(r, data);
+          return Promise.resolve({ count: rows.length });
         },
         deleteMany: ({
           where,
@@ -355,6 +402,7 @@ export function useMediaRequestHooks() {
     state.bookProfiles = [7];
     state.mediaStatusById = {};
     state.mediaTmdbStatusById = {};
+    state.episodesByMediaId = {};
     state.addedBooks = [];
     state.bookEditionStatusByBookId = {};
     state.defaultProfiles = { movie: null, show: null };

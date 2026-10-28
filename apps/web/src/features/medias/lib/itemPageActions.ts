@@ -1,10 +1,5 @@
-import type {
-  AiringState,
-  LibraryMedia,
-  LibraryMediaStatus,
-} from "@rawkoon/shared/types";
+import type { LibraryMedia, LibraryMediaStatus } from "@rawkoon/shared/types";
 import type { TFunction } from "i18next";
-import { displayLibraryStatus } from "@/utils/libraryStatusPresentation";
 import { formatRelativeTime } from "@/lib/utils/relativeTime";
 
 export type ItemPageTab = "info" | "similar" | "files" | "releases";
@@ -40,16 +35,11 @@ export type HeaderActionKind =
 export function headerActionKind(
   status: LibraryMediaStatus,
   isAdmin: boolean,
-  airingState?: AiringState | null,
 ): HeaderActionKind {
   if (!isAdmin) return null;
   if (status === "wanted") return "missing";
   if (status === "downloading" || status === "upgrading") return "downloading";
-  // An airing show gets no header actions, as before the airing state was split out.
-  if (status === "downloaded")
-    return displayLibraryStatus(status, airingState) === "downloaded"
-      ? "downloaded"
-      : null;
+  if (status === "downloaded") return "downloaded";
   if (status === "skipped") return "skipped";
   return null;
 }

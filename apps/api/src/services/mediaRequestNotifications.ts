@@ -1,6 +1,6 @@
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
-import { isAiringShow } from "@rawkoon/api/utils/medias/libraryAiring";
+import { allAiredEpisodesDownloaded } from "@rawkoon/api/services/library/showAvailability";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import {
   getAdminNotificationTargets,
@@ -56,6 +56,17 @@ export async function notifyAdminsRequestPending(
   );
 }
 
+/**
+ * Flip an Approved movie or show request to Available and tell the requester.
+ * Safe to call after anything that can complete the title: only an Approved
+ * request flips, and only once.
+ *
+ * - Movie: its status is downloaded.
+ * - Show: every episode that has already aired is downloaded (see
+ *   allAiredEpisodesDownloaded), whatever the show's TMDB airing state and
+ *   whatever the show-level status says. A single finished episode, or a
+ *   season pack with other aired seasons missing, therefore does not flip it.
+ */
 export async function notifyRequestAvailable(
   libraryMediaId: number,
 ): Promise<void> {
@@ -64,21 +75,38 @@ export async function notifyRequestAvailable(
   });
   if (!req) return;
 
-  // Only mark available once the media is actually complete. This avoids a
-  // single finished episode (episode downloads carry the parent show's
-  // mediaId) flipping a whole-show request, and torrent-complete-but-not-yet-
-  // ready cases. "downloaded" is the library's ready state; ongoing shows
-  // are still airing and stay approved until truly complete.
   const media = await prisma.libraryMedia.findUnique({
     where: { id: libraryMediaId },
-    select: { status: true, type: true, tmdbStatus: true },
+    select: { status: true, type: true },
   });
-  if (!media || media.status !== "downloaded" || isAiringShow(media)) return;
+  if (!media) return;
+  const complete =
+    media.type === "show"
+      ? await allAiredEpisodesDownloaded(libraryMediaId)
+      : media.status === "downloaded";
+  if (!complete) return;
 
   await finalizeRequestAvailable(req, {
     libraryMediaId: req.libraryMediaId,
     urlLibraryMediaId: req.libraryMediaId,
   });
+}
+
+/**
+ * Never-throwing wrapper for callers that mark episodes downloaded outside the
+ * download-completion path (post-processing, rescan, TMDB refresh).
+ */
+export async function recheckRequestAvailable(
+  libraryMediaId: number,
+): Promise<void> {
+  try {
+    await notifyRequestAvailable(libraryMediaId);
+  } catch (e) {
+    console.warn(
+      `[mediaRequests] availability re-check failed for media ${libraryMediaId}:`,
+      e,
+    );
+  }
 }
 
 /**
@@ -131,10 +159,12 @@ async function finalizeRequestAvailable(
   },
   opts: { libraryMediaId: number | null; urlLibraryMediaId: number | null },
 ): Promise<void> {
-  await prisma.mediaRequest.update({
-    where: { id: req.id },
+  // Claim the flip first so concurrent re-checks notify only once.
+  const claimed = await prisma.mediaRequest.updateMany({
+    where: { id: req.id, status: "approved" },
     data: { status: "available" },
   });
+  if (claimed.count === 0) return;
 
   const requester = await getNotificationTarget(req.requestedById);
   const locale = requester?.locale ?? null;

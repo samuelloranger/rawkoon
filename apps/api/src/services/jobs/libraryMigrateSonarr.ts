@@ -1,6 +1,5 @@
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import { prisma } from "@rawkoon/api/db";
-import { isAiring } from "@rawkoon/api/utils/medias/libraryAiring";
 import {
   scanMediaInfo,
   remapPath,
@@ -94,7 +93,7 @@ export async function migrateFromSonarr(
 
         const existing = await prisma.libraryMedia.findUnique({
           where: { tmdbId_type: { tmdbId, type: "show" } },
-          select: { id: true, status: true, tmdbStatus: true },
+          select: { id: true, status: true },
         });
 
         const mediaRow = await prisma.libraryMedia.upsert({
@@ -118,9 +117,7 @@ export async function migrateFromSonarr(
             year: series.year || null,
             posterUrl: poster,
             status: existing
-              ? existing.status === "wanted" ||
-                (existing.status === "downloaded" &&
-                  !isAiring(existing.tmdbStatus))
+              ? existing.status === "wanted" || existing.status === "downloaded"
                 ? hasAnyFile
                   ? "downloaded"
                   : "wanted"

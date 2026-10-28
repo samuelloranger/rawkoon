@@ -89,4 +89,10 @@ export async function syncLibraryShowEpisodes(mediaId: number): Promise<void> {
     apiKey: key,
     languageParams: { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE },
   });
+
+  // New air dates can leave every aired episode downloaded; re-check the request.
+  const { recheckRequestAvailable } = await import(
+    "@rawkoon/api/services/mediaRequestNotifications"
+  );
+  await recheckRequestAvailable(mediaId);
 }

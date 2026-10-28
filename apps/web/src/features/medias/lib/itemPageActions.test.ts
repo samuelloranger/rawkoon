@@ -64,13 +64,6 @@ describe("headerActionKind", () => {
     expect(headerActionKind("skipped", true)).toBe("skipped");
   });
 
-  it("adds nothing for a downloaded show that is still airing", () => {
-    for (const airing of ["returning", "in_production", "planned"] as const)
-      expect(headerActionKind("downloaded", true, airing)).toBeNull();
-    expect(headerActionKind("downloaded", true, "ended")).toBe("downloaded");
-    expect(headerActionKind("downloaded", true, null)).toBe("downloaded");
-  });
-
   it("adds nothing for non-admins", () => {
     expect(headerActionKind("wanted", false)).toBeNull();
     expect(headerActionKind("downloaded", false)).toBeNull();
