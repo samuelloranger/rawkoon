@@ -43,8 +43,8 @@ describe("buildLibraryStatsResponse", () => {
       files: [{ resolution: 1080, size_bytes: 100n }],
     });
     expect(stats.wanted).toBe(3);
-    // An airing show is not counted as downloaded.
-    expect(stats.downloaded).toBe(5);
+    // Airing shows count as downloaded like any other.
+    expect(stats.downloaded).toBe(7);
     expect(stats.counts_by_status_type[1]).toEqual({
       type: "show",
       status: "downloaded",

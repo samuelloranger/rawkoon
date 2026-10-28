@@ -9,12 +9,6 @@ const RESOLUTION_ORDER: LibraryStatsResolution[] = [
   "4k",
 ];
 
-function isAiringState(state: AiringState | null): boolean {
-  return (
-    state === "returning" || state === "in_production" || state === "planned"
-  );
-}
-
 export function bucketResolution(
   resolution: number | null,
 ): LibraryStatsResolution {
@@ -43,9 +37,7 @@ export function buildLibraryStatsResponse(input: {
   const counts_by_status_type = input.byTypeStatus.map((row) => {
     if (row.type === "movie") total_movies += row.count;
     if (row.type === "show") total_shows += row.count;
-    // An airing show is not counted as downloaded.
-    if (row.status === "downloaded" && !isAiringState(row.airing_state))
-      downloaded += row.count;
+    if (row.status === "downloaded") downloaded += row.count;
     if (row.status === "wanted") wanted += row.count;
     return {
       type: row.type as "movie" | "show",

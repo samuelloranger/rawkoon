@@ -27,7 +27,6 @@ import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
 import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
 
 import { mapLibraryMedia } from "./libraryHelpers";
-import { isAiringShow } from "@rawkoon/api/utils/medias/libraryAiring";
 import {
   getLibraryTmdbApiKey,
   tmdbApiFetch,
@@ -115,7 +114,6 @@ export const libraryMetaRoutes = new Hono<Env>()
         if (
           profileChanged &&
           existing.status === "downloaded" &&
-          !isAiringShow(existing) &&
           newProfile != null
         ) {
           const profileInput = profileToScoreInput(newProfile);

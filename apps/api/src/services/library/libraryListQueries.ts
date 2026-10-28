@@ -1,10 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@rawkoon/api/db";
-import {
-  airingStateWhere,
-  notAiringSql,
-} from "@rawkoon/api/services/library/libraryStatusFilter";
+import { airingStateWhere } from "@rawkoon/api/services/library/libraryStatusFilter";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
 import {
   buildLibraryOrderBy,
@@ -34,7 +31,7 @@ export type LibraryListParams = {
   titleLanguage: TitleLanguage;
 };
 
-const watchableWhere = Prisma.sql`((status = 'downloaded' AND ${notAiringSql()}) OR status = 'upgrading' OR downloaded_episode_count > 0)`;
+const watchableWhere = Prisma.sql`(status IN ('downloaded', 'upgrading') OR downloaded_episode_count > 0)`;
 
 async function randomWatchableIds(
   take: number,

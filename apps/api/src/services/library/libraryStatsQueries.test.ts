@@ -63,9 +63,9 @@ describe("getLibraryStatsWithDisk", () => {
     });
   });
 
-  it("keeps airing shows out of the downloaded total", async () => {
+  it("counts every downloaded item, airing shows included", async () => {
     const stats = await getLibraryStatsWithDisk();
-    expect(stats.downloaded).toBe(7);
+    expect(stats.downloaded).toBe(13);
     expect(stats.wanted).toBe(8);
     expect(stats.total_movies).toBe(6);
     expect(stats.total_shows).toBe(15);

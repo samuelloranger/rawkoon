@@ -53,6 +53,9 @@ describe("GET /random", () => {
     await ids("/random");
     const sql = queryRaw.mock.calls[0]?.[0].strings.join("?") ?? "";
     expect(sql).toContain("downloaded_episode_count > 0");
+    // A downloaded show counts however TMDB labels its airing state.
+    expect(sql).toContain("status IN ('downloaded', 'upgrading')");
+    expect(sql).not.toContain("tmdb_status");
     expect(sql).toContain("ORDER BY random()");
   });
 
