@@ -122,8 +122,15 @@ export async function completeDownload(
 
   if (dh.mediaId != null) {
     effects.libraryChanged(dh.mediaId);
-    // Reads the status written above, so it must run after the transition.
-    await effects.requestAvailable(dh.mediaId);
+    // Reads the status written above, so it must run after the transition; a failure must not stop post-processing being queued.
+    await effects
+      .requestAvailable(dh.mediaId)
+      .catch((e) =>
+        console.warn(
+          `[downloadOutcome] request availability check failed media=${dh.mediaId}:`,
+          e,
+        ),
+      );
   }
 
   // Scheduling failure must not undo the transition (reconcile skips completed rows), so persist the reason.
