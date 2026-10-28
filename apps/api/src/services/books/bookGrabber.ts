@@ -346,6 +346,7 @@ export async function grabBookRelease(opts: {
       opts.editionId,
       releaseTitle,
       opts.isUpgrade ?? false,
+      dhRow.id,
     );
   } catch (e) {
     console.warn("[bookGrabber] grab notification failed:", e);

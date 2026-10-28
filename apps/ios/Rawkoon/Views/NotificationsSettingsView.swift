@@ -20,7 +20,7 @@ struct NotificationsSettingsView: View {
 
     private let libraryRows: [Row] = [
         Row(key: "library_downloaded", label: "Download finished"),
-        Row(key: "library_grabbed", label: "Release grabbed"),
+        Row(key: "library_grabbed", label: "Release grabbed (in the app, no push)"),
         Row(key: "library_failed", label: "Download failed"),
         Row(key: "library_grab_skipped", label: "Search gave up"),
         Row(key: "library_attention", label: "Needs attention"),
@@ -28,7 +28,7 @@ struct NotificationsSettingsView: View {
 
     private let bookRows: [Row] = [
         Row(key: "book_downloaded", label: "Download finished"),
-        Row(key: "book_grabbed", label: "Release grabbed"),
+        Row(key: "book_grabbed", label: "Release grabbed (in the app, no push)"),
         Row(key: "book_failed", label: "Import failed"),
         Row(key: "book_search_skipped", label: "Search gave up"),
         Row(key: "book_author_releases", label: "New book from a followed author"),

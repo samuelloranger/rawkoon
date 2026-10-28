@@ -25,7 +25,9 @@ struct NotificationLines {
                     ?? String(localized: "\(count) episodes")
             } else {
                 code = subject.code
-                detail = Self.detail(subject.detail, type: notification.type, episodeCount: meta?.episodeCount)
+                detail = Self.detail(
+                    subject.detail, type: notification.type, episodeCount: meta?.episodeCount, release: meta?.release
+                )
             }
             return
         }
@@ -61,15 +63,15 @@ struct NotificationLines {
         return legacy
     }
 
-    private static func detail(_ raw: String?, type: String, episodeCount: Int?) -> String? {
-        if let episodeCount, episodeCount > 1 {
-            return String(localized: "\(episodeCount) episodes")
-        }
-        guard let raw else { return nil }
+    private static func detail(_ raw: String?, type: String, episodeCount: Int?, release: String?) -> String? {
         if type.hasSuffix("_grabbed") {
-            return NotificationLedger.releaseSummary(raw) ?? raw
+            return raw.map { NotificationLedger.releaseSummary($0) ?? $0 }
         }
-        return raw
+        let what = episodeCount.flatMap { $0 > 1 ? String(localized: "\($0) episodes") : nil } ?? raw
+        // A download rewrites its grab's notification, which named the release; keep showing its quality.
+        let quality = type.hasSuffix("_downloaded") ? release.flatMap(NotificationLedger.releaseSummary) : nil
+        let parts = [what, quality].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private static func status(type: String, isUpgrade: Bool) -> (label: String, tint: Color)? {

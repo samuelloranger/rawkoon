@@ -228,15 +228,39 @@ export async function finishPostProcess(
         }
         await effects.mediaDownloaded({
           mediaId,
+          downloadHistoryId,
           episodeId,
           season,
           episodeCount: packEpisodeCount,
           isUpgrade,
         });
+      } else {
+        // The grab whose file is already in place would otherwise stay "Grabbed" forever.
+        await effects
+          .mediaDownloaded({
+            mediaId,
+            downloadHistoryId,
+            episodeId,
+            season,
+            episodeCount: undefined,
+            isUpgrade,
+            quiet: true,
+          })
+          .catch((e) =>
+            console.warn(
+              `[downloadOutcome] skip notice failed dh=${downloadHistoryId}:`,
+              e,
+            ),
+          );
       }
     }
-    if (bookEditionId != null && !result.skipped) {
-      await effects.bookDownloaded(bookEditionId, isUpgrade);
+    if (bookEditionId != null) {
+      await effects.bookDownloaded(
+        bookEditionId,
+        isUpgrade,
+        downloadHistoryId,
+        result.skipped,
+      );
     }
     if (dh?.torrentHash) {
       await effects

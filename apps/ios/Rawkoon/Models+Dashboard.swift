@@ -141,6 +141,8 @@ nonisolated struct NotificationMetadata: Decodable, Sendable {
     let subject: String?
     let code: String?
     let detail: String?
+    /// The release a grab sent to the download client; kept when its download rewrites the notice.
+    let release: String?
     let isUpgrade: Bool?
     /// Episodes the server merged into one download notice.
     let groupCount: Int?
@@ -159,7 +161,7 @@ extension NotificationMetadata {
     init(serviceName: String?, mediaId: Int?, bookId: Int?, silent: Bool?) {
         self.init(
             serviceName: serviceName, mediaId: mediaId, bookId: bookId, silent: silent,
-            subject: nil, code: nil, detail: nil, isUpgrade: nil, groupCount: nil, episodeCount: nil,
+            subject: nil, code: nil, detail: nil, release: nil, isUpgrade: nil, groupCount: nil, episodeCount: nil,
             show: nil, latestCode: nil, version: nil, releases: nil
         )
     }

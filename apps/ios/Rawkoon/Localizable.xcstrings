@@ -11037,16 +11037,6 @@
         }
       }
     },
-    "Release grabbed": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Version récupérée"
-          }
-        }
-      }
-    },
     "Released": {
       "localizations": {
         "fr": {
@@ -16509,6 +16499,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld épisodes, dernier : %@"
+          }
+        }
+      }
+    },
+    "Release grabbed (in the app, no push)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version récupérée (dans l’app, sans push)"
           }
         }
       }

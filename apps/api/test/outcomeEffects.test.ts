@@ -40,7 +40,7 @@ describe("productionOutcomeEffects.importFailed", () => {
       isUpgrade: true,
     });
     expect(calls).toEqual([
-      { name: "bookImportFailed", args: [9, "bad file", true] },
+      { name: "bookImportFailed", args: [9, "bad file", true, 1] },
     ]);
   });
 

@@ -5,6 +5,7 @@ import {
   notificationCopy,
   truncateReleaseTitle,
 } from "@rawkoon/api/services/notification/notificationCopy";
+import { downloadLifecycleKey } from "@rawkoon/api/services/notification/notificationLifecycle";
 import {
   loadEpisodeContext,
   loadMediaContext,
@@ -15,6 +16,10 @@ import {
 
 export type LibraryDownloadedOpts = {
   mediaId: number;
+  /** The grab this download completes; its notification is rewritten instead of adding one. */
+  downloadHistoryId?: number | null;
+  /** A grab whose file another grab already placed: settle its row without a push. */
+  quiet?: boolean;
   episodeId?: number | null;
   season?: number | null;
   episodeCount?: number | null;
@@ -126,12 +131,19 @@ export async function notifyAdminsMediaDownloaded(
           ? { episode_count: parsed.episodeCount }
           : {}),
       },
-      notifyOptions: episode
-        ? {
-            groupKey: `library_downloaded:${media.mediaId}`,
-            preferenceKey: "library_downloaded",
-          }
-        : { preferenceKey: "library_downloaded" },
+      notifyOptions:
+        parsed.downloadHistoryId != null
+          ? {
+              lifecycleKey: downloadLifecycleKey(parsed.downloadHistoryId),
+              preferenceKey: "library_downloaded",
+              ...(parsed.quiet ? { push: false, updateOnly: true } : {}),
+            }
+          : episode
+            ? {
+                groupKey: `library_downloaded:${media.mediaId}`,
+                preferenceKey: "library_downloaded",
+              }
+            : { preferenceKey: "library_downloaded" },
       logTag: "notifyAdminsMediaDownloaded",
     },
   );
@@ -139,6 +151,7 @@ export async function notifyAdminsMediaDownloaded(
 
 export async function notifyAdminsLibraryGrabbed(opts: {
   mediaId: number;
+  downloadHistoryId?: number | null;
   episodeId?: number | null;
   season?: number | null;
   releaseTitle: string;
@@ -211,12 +224,22 @@ export async function notifyAdminsLibraryGrabbed(opts: {
     },
     {
       imageUrl: media.posterUrl,
-      metadata: subjectMetadata(media, {
-        code: episode?.code ?? seasonCode(opts.season),
-        detail: release,
-        isUpgrade: opts.isUpgrade,
-      }),
-      notifyOptions: { preferenceKey: "library_grabbed" },
+      metadata: {
+        ...subjectMetadata(media, {
+          code: episode?.code ?? seasonCode(opts.season),
+          detail: release,
+          isUpgrade: opts.isUpgrade,
+        }),
+        release,
+      },
+      // A grab shows in the app; only the download it leads to reaches devices.
+      notifyOptions: {
+        preferenceKey: "library_grabbed",
+        push: false,
+        ...(opts.downloadHistoryId != null
+          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+          : {}),
+      },
       logTag: "notifyAdminsLibraryGrabbed",
     },
   );
@@ -224,6 +247,7 @@ export async function notifyAdminsLibraryGrabbed(opts: {
 
 export async function notifyAdminsLibraryDownloadFailed(opts: {
   mediaId?: number | null;
+  downloadHistoryId?: number | null;
   episodeId?: number | null;
   reason: string;
 }): Promise<void> {
@@ -257,7 +281,12 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
         code: episode?.code,
         detail: opts.reason,
       }),
-      notifyOptions: { preferenceKey: "library_failed" },
+      notifyOptions: {
+        preferenceKey: "library_failed",
+        ...(opts.downloadHistoryId != null
+          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+          : {}),
+      },
       logTag: "notifyAdminsLibraryDownloadFailed",
     },
   );
@@ -278,7 +307,10 @@ export async function notifyAdminsPostProcessFailed(
         url: "/library",
       }),
       {
-        notifyOptions: { preferenceKey: "library_failed" },
+        notifyOptions: {
+          preferenceKey: "library_failed",
+          lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+        },
         logTag: "notifyAdminsPostProcessFailed",
       },
     );
@@ -308,7 +340,10 @@ export async function notifyAdminsPostProcessFailed(
     {
       imageUrl: media.posterUrl,
       metadata: subjectMetadata(media, { code: episode?.code, detail: reason }),
-      notifyOptions: { preferenceKey: "library_failed" },
+      notifyOptions: {
+        preferenceKey: "library_failed",
+        lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+      },
       logTag: "notifyAdminsPostProcessFailed",
     },
   );
