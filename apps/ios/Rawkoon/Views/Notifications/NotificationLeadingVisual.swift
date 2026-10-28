@@ -49,30 +49,46 @@ private func typeStyle(_ type: String, metadata: NotificationMetadata?) -> Notif
 
 /// The row's leading visual: the notification's poster/image when present,
 /// else an SF Symbol keyed off its type (web: `NotificationLeadingVisual`).
+/// A poster that fails to load shows the symbol instead of an empty frame.
 struct NotificationLeadingVisual: View {
     @Environment(AppModel.self) private var model
     let type: String
     let metadata: NotificationMetadata?
     let imageUrl: String?
-
-    private let size: CGFloat = 40
+    /// Set to give posters and symbols one shared width, so the text beside them lines up.
+    var gutter: CGFloat?
 
     var body: some View {
         if let url = model.absoluteURL(imageUrl) {
-            AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: {
-                Theme.raised
+            let size = posterSize
+            CachedAsyncImage(url: url, targetSize: size) { $0.resizable().scaledToFill() } placeholder: {
+                symbol(width: size.width, height: size.height)
             }
-            .frame(width: size * 0.7, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .frame(width: size.width, height: size.height)
+            .clipShape(RoundedRectangle(cornerRadius: gutter == nil ? 8 : 6))
         } else {
-            let style = typeStyle(type, metadata: metadata)
-            RoundedRectangle(cornerRadius: 10)
-                .fill(style.tint.opacity(0.16))
-                .frame(width: size, height: size)
-                .overlay {
-                    Image(systemName: style.systemImage)
-                        .foregroundStyle(style.tint)
-                }
+            let side = gutter ?? 40
+            symbol(width: side, height: side)
         }
+    }
+
+    private var posterSize: CGSize {
+        if let gutter {
+            return CGSize(width: gutter, height: gutter * 1.5)
+        }
+        return CGSize(width: 28, height: 40)
+    }
+
+    private func symbol(width: CGFloat, height: CGFloat) -> some View {
+        let style = typeStyle(type, metadata: metadata)
+        return RoundedRectangle(cornerRadius: gutter == nil ? 10 : 9)
+            .fill(style.tint.opacity(0.16))
+            .frame(width: width, height: height)
+            .overlay {
+                Image(systemName: style.systemImage)
+                    .font(gutter == nil ? .body : .footnote)
+                    .foregroundStyle(style.tint)
+            }
+            .accessibilityHidden(true)
     }
 }

@@ -129,13 +129,44 @@ nonisolated struct SsoProvidersResponse: Decodable, Sendable {
 
 // MARK: - Notification center (spec §T3/T4/T5) — mirrors the web `/notifications` page.
 
-/// The fields `NotificationLeadingVisual` (web) reads to pick an icon override
-/// for `external` notifications. Other metadata keys are ignored on decode.
+/// The metadata keys the app reads: icon overrides, the structured fields the
+/// inbox row lays out, and the version a release or update notice names.
+/// Other keys are ignored on decode.
 nonisolated struct NotificationMetadata: Decodable, Sendable {
     let serviceName: String?
     let mediaId: Int?
     let bookId: Int?
     let silent: Bool?
+    /// The title a library, book or request notice is about; absent on notices sent before it existed.
+    let subject: String?
+    let code: String?
+    let detail: String?
+    let isUpgrade: Bool?
+    /// Episodes the server merged into one download notice.
+    let groupCount: Int?
+    let episodeCount: Int?
+    /// Merged episode notices name the show and the newest episode here.
+    let show: String?
+    let latestCode: String?
+    /// `app-update`: the version now running.
+    let version: String?
+    /// `github-release`: the releases announced.
+    let releases: [NotificationReleaseRef]?
+}
+
+extension NotificationMetadata {
+    /// A notice with none of the structured row fields, as older servers send.
+    init(serviceName: String?, mediaId: Int?, bookId: Int?, silent: Bool?) {
+        self.init(
+            serviceName: serviceName, mediaId: mediaId, bookId: bookId, silent: silent,
+            subject: nil, code: nil, detail: nil, isUpgrade: nil, groupCount: nil, episodeCount: nil,
+            show: nil, latestCode: nil, version: nil, releases: nil
+        )
+    }
+}
+
+nonisolated struct NotificationReleaseRef: Decodable, Sendable {
+    let tagName: String
 }
 
 nonisolated struct NotificationDTO: Decodable, Identifiable, Sendable {
