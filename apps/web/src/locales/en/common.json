@@ -970,6 +970,12 @@
         "noRuns": "No library integrity check has been recorded yet.",
         "showIssues": "Show {{count}} issue(s)",
         "hideIssues": "Hide issues",
+        "ignore": "Ignore",
+        "ignoreFailed": "Couldn't ignore this issue.",
+        "showIgnored": "Show {{count}} ignored issue(s)",
+        "hideIgnored": "Hide ignored issues",
+        "restore": "Restore",
+        "restoreFailed": "Couldn't restore this issue.",
         "metrics": {
           "downloaded_media_without_files": "Downloaded media missing files",
           "downloaded_episodes_without_files": "Downloaded episodes missing files",

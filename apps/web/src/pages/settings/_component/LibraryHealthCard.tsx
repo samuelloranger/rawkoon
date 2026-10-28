@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { useOrphans } from "@/features/seeding/hooks/useOrphans";
 import { formatBytes } from "@/lib/utils/format";
 import { ShieldAlert } from "lucide-react";
@@ -7,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import type { LibraryHealthLog } from "@rawkoon/shared/types";
 import { useFeatures } from "@/lib/routing/useFeatures";
 import { getLibraryHealthRunStatusColor } from "./jobsUtils";
+import {
+  useIgnoreLibraryHealthIssue,
+  useLibraryHealthIgnores,
+  useRestoreLibraryHealthIssue,
+} from "@/pages/settings/useLibraryHealth";
 
 export function LibraryHealthCard({
   latest,
@@ -17,6 +23,7 @@ export function LibraryHealthCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { data: features } = useFeatures();
+  const ignore = useIgnoreLibraryHealthIssue();
   const issueCount = latest?.summary.total_issues ?? 0;
   const metrics: Array<[string, number]> = latest
     ? [
@@ -144,11 +151,37 @@ export function LibraryHealthCard({
                         key={`${issue.kind}-${issue.media_id ?? ""}-${issue.episode_id ?? ""}-${issue.media_file_id ?? ""}-${issue.book_edition_id ?? ""}-${issue.book_file_id ?? ""}-${index}`}
                         className="rounded-md bg-neutral-800 border border-neutral-700 px-3 py-2 text-xs"
                       >
-                        <div className="font-medium text-neutral-100">
-                          {t(`settings.jobs.libraryHealth.kinds.${issue.kind}`)}
-                        </div>
-                        <div className="text-neutral-400 mt-0.5 break-words">
-                          {issue.detail}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium text-neutral-100">
+                              {t(
+                                `settings.jobs.libraryHealth.kinds.${issue.kind}`,
+                              )}
+                            </div>
+                            <div className="text-neutral-400 mt-0.5 break-words">
+                              {issue.detail}
+                            </div>
+                          </div>
+                          {issue.key && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0 text-xs text-neutral-300 hover:text-white"
+                              disabled={ignore.isPending}
+                              onClick={() =>
+                                ignore.mutate(issue.key as string, {
+                                  onError: () =>
+                                    toast.error(
+                                      t(
+                                        "settings.jobs.libraryHealth.ignoreFailed",
+                                      ),
+                                    ),
+                                })
+                              }
+                            >
+                              {t("settings.jobs.libraryHealth.ignore")}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -162,10 +195,77 @@ export function LibraryHealthCard({
               )}
             </div>
           )}
+          {(latest.ignored_count ?? 0) > 0 && (
+            <IgnoredIssues count={latest.ignored_count ?? 0} t={t} />
+          )}
         </div>
       )}
       <OrphanHealthRow />
     </section>
+  );
+}
+
+function IgnoredIssues({
+  count,
+  t,
+}: {
+  count: number;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data } = useLibraryHealthIgnores(open);
+  const restore = useRestoreLibraryHealthIssue();
+
+  return (
+    <div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen(!open)}
+        className="text-xs text-neutral-400 hover:text-white px-0"
+      >
+        {open
+          ? t("settings.jobs.libraryHealth.hideIgnored")
+          : t("settings.jobs.libraryHealth.showIgnored", { count })}
+      </Button>
+      {open && (
+        <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto">
+          {(data?.ignores ?? []).map((ignored) => (
+            <div
+              key={ignored.id}
+              className="flex items-start justify-between gap-3 rounded-md bg-neutral-800/60 border border-neutral-700 px-3 py-2 text-xs"
+            >
+              <div className="min-w-0">
+                <div className="font-medium text-neutral-300">
+                  {t(`settings.jobs.libraryHealth.kinds.${ignored.kind}`, {
+                    defaultValue: ignored.kind,
+                  })}
+                </div>
+                <div className="text-neutral-500 mt-0.5 break-words">
+                  {ignored.detail}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-xs text-neutral-300 hover:text-white"
+                disabled={restore.isPending}
+                onClick={() =>
+                  restore.mutate(ignored.id, {
+                    onError: () =>
+                      toast.error(
+                        t("settings.jobs.libraryHealth.restoreFailed"),
+                      ),
+                  })
+                }
+              >
+                {t("settings.jobs.libraryHealth.restore")}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
