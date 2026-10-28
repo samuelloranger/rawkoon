@@ -15,6 +15,7 @@ import {
   isNotificationEnabled,
 } from "@rawkoon/api/services/notification/notificationPreferences";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
+import { mergeGroupedMetadata } from "@rawkoon/api/services/notification/groupedNotificationMetadata";
 
 interface NotificationMetadata {
   [key: string]: unknown;
@@ -159,14 +160,11 @@ async function tryMergeGroupedNotification(opts: {
   const meta = recent.notificationMetadata as Record<string, unknown>;
   if (meta.group_key !== opts.groupKey) return null;
 
-  const count = typeof meta.group_count === "number" ? meta.group_count + 1 : 2;
-  const show = typeof opts.metadata.show === "string" ? opts.metadata.show : "";
+  const merged = mergeGroupedMetadata(meta, opts.metadata, opts.groupKey);
+  const count = merged.group_count;
+  const show = typeof merged.show === "string" ? merged.show : "";
   const latestCode =
-    typeof opts.metadata.latest_code === "string"
-      ? opts.metadata.latest_code
-      : typeof meta.latest_code === "string"
-        ? meta.latest_code
-        : "";
+    typeof merged.latest_code === "string" ? merged.latest_code : "";
 
   const target = await getNotificationTarget(opts.userId);
   const locale = target?.locale ?? null;
@@ -183,16 +181,6 @@ async function tryMergeGroupedNotification(opts: {
         })
       : opts.body;
 
-  const mergedMeta: Record<string, string | number> = {
-    ...(opts.metadata.group_key
-      ? { group_key: String(opts.metadata.group_key) }
-      : {}),
-    group_key: opts.groupKey,
-    group_count: count,
-    ...(latestCode ? { latest_code: latestCode } : {}),
-    ...(show ? { show } : {}),
-  };
-
   return prisma.notification.update({
     where: { id: recent.id },
     data: {
@@ -200,7 +188,7 @@ async function tryMergeGroupedNotification(opts: {
       body: mergedBody,
       url: opts.url,
       imageUrl: opts.imageUrl ?? recent.imageUrl,
-      notificationMetadata: JSON.parse(JSON.stringify(mergedMeta)) as object,
+      notificationMetadata: JSON.parse(JSON.stringify(merged)) as object,
       createdAt: nowUtc(),
       read: false,
     },

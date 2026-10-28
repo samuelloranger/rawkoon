@@ -5489,7 +5489,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tout marquer comme lu"
+            "value": "Tout lire"
           }
         }
       }
@@ -16449,6 +16449,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "Les utilisateurs Jellyfin désactivés ou liés à quelqu’un d’autre ne sont pas listés. Changer le lien déconnecte les sessions Jellyfin de cette personne."
+          }
+        }
+      }
+    },
+    "Yesterday": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier"
+          }
+        }
+      }
+    },
+    "Upgraded": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mis à niveau"
+          }
+        }
+      }
+    },
+    "Awaiting approval": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À approuver"
+          }
+        }
+      }
+    },
+    "Installed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installé"
+          }
+        }
+      }
+    },
+    "New version": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle version"
+          }
+        }
+      }
+    },
+    "%lld episodes, latest %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld épisodes, dernier : %@"
           }
         }
       }

@@ -48,7 +48,7 @@ export async function notifyAdminsRequestPending(
         notificationCopy(admin.locale, "requestPendingBody", { title: label }),
         "request_pending",
         APP_PATHS.activityRequests,
-        { requestId },
+        { requestId, subject: title },
         posterUrl ?? undefined,
         { preferenceKey: "request_pending" },
       ),

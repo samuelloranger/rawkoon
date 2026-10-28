@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import {
+  formatSeason,
   formatSeasonEpisode,
   showLabel,
 } from "@rawkoon/api/services/notification/notificationCopy";
@@ -56,6 +57,28 @@ export async function loadEpisodeContext(
     episode: episode.episode,
     title: episode.title,
     code: formatSeasonEpisode(episode.season, episode.episode),
+  };
+}
+
+export function seasonCode(season: number | null | undefined): string | null {
+  return season != null ? formatSeason(season) : null;
+}
+
+/** Structured fields a client can lay out itself instead of parsing the localized title and body. */
+export function subjectMetadata(
+  media: MediaContext,
+  opts: {
+    code?: string | null;
+    detail?: string | null;
+    isUpgrade?: boolean;
+  },
+): Record<string, unknown> {
+  return {
+    media_id: media.mediaId,
+    subject: media.title,
+    ...(opts.code ? { code: opts.code } : {}),
+    ...(opts.detail ? { detail: opts.detail } : {}),
+    ...(opts.isUpgrade ? { is_upgrade: true } : {}),
   };
 }
 

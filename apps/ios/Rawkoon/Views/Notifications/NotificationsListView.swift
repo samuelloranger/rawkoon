@@ -129,19 +129,52 @@ struct NotificationsListView: View {
         }
     }
 
+    /// Release and update notices for the same version keep only the release one.
+    private var hiddenIds: Set<Int> {
+        NotificationLedger.hiddenUpdateNotices(notifications.compactMap { notification in
+            switch notification.type {
+            case "app-update":
+                .init(id: notification.id, installed: notification.metadata?.version, announced: [])
+            case "github-release":
+                .init(
+                    id: notification.id, installed: nil,
+                    announced: notification.metadata?.releases?.map(\.tagName) ?? []
+                )
+            default:
+                nil
+            }
+        })
+    }
+
+    private var sections: [NotificationLedger.Section<NotificationDTO>] {
+        let hidden = hiddenIds
+        return NotificationLedger.sections(
+            notifications.filter { !hidden.contains($0.id) },
+            date: { NotificationLedger.parseDate($0.createdAt) },
+            now: Date()
+        )
+    }
+
     private var notificationList: some View {
         List {
-            ForEach(notifications) { notification in
-                row(notification)
-                    .listRowBackground(Theme.raised)
-                    .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
-                            pendingDeleteId = notification.id
-                        }) {
-                            Label("Delete", systemImage: "trash")
-                        }
+            ForEach(sections) { section in
+                Section {
+                    ForEach(section.items) { notification in
+                        row(notification)
+                            .listRowBackground(Theme.raised)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive, action: OfflineFeedback.gate(model.isOffline) {
+                                    pendingDeleteId = notification.id
+                                }) {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                     }
+                } header: {
+                    NotificationDayHeader(day: section.day)
+                }
             }
             // The sentinel would spin forever offline; it comes back with the connection.
             if hasMore, !model.isOffline {
@@ -152,6 +185,7 @@ struct NotificationsListView: View {
         .rawkoonMotion(RawkoonMotion.spring, value: notifications.map(\.id))
         .reportsTabBarScroll()
         .listStyle(.plain)
+        .listSectionSpacing(0)
         .scrollContentBackground(.hidden)
     }
 
@@ -169,12 +203,11 @@ struct NotificationsListView: View {
     }
 
     private func row(_ notification: NotificationDTO) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 10) {
             rowButton(notification)
             let action = InboxAction.resolve(type: notification.type, url: notification.url, isAdmin: model.isAdmin)
             if let action {
                 actionButton(action, for: notification)
-                    .padding(.leading, 52)
             }
         }
     }
@@ -190,6 +223,8 @@ struct NotificationsListView: View {
                 }
             }
             .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .controlSize(.small)
             .tint(Theme.apricot)
             .frame(minHeight: 44)
         case let .searchAgain(libraryId, season, episode):
@@ -203,6 +238,8 @@ struct NotificationsListView: View {
                 }
             }
             .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .controlSize(.small)
             .tint(Theme.apricot)
             .frame(minHeight: 44)
             .disabled(searchingIds.contains(notification.id))
@@ -214,30 +251,7 @@ struct NotificationsListView: View {
         Button {
             Task { await open(notification) }
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                NotificationLeadingVisual(
-                    type: notification.type, metadata: notification.metadata, imageUrl: notification.imageUrl
-                )
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(notification.title)
-                        .font(.subheadline.weight(notification.read ? .medium : .semibold))
-                        .foregroundStyle(Theme.textStrong)
-                        .lineLimit(2)
-                    Text(notification.body)
-                        .font(.subheadline)
-                        .foregroundStyle(notification.read ? Theme.muted : Theme.text)
-                        .lineLimit(3)
-                    Text(relativeTime(notification.createdAt) ?? notification.createdAt)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.faint)
-                }
-                Spacer(minLength: 0)
-                // Always laid out so the text never shifts when a row is read; only its opacity changes.
-                Circle().fill(Theme.apricot).frame(width: 8, height: 8).padding(.top, 4)
-                    .opacity(notification.read ? 0 : 1)
-                    .rawkoonMotion(RawkoonMotion.snappy, value: notification.read)
-            }
-            .padding(.vertical, 4)
+            NotificationLedgerRow(notification: notification, time: clockTime(notification.createdAt))
         }
         .buttonStyle(.plain)
     }
@@ -303,6 +317,8 @@ struct NotificationsListView: View {
             let response = try await client.notifications(page: page, limit: limit)
             notifications = response.notifications
             hasMore = (response.pagination?.page ?? page) < (response.pagination?.pages ?? page)
+            // Every fresh page retries, so a failed or offline attempt doesn't leave the badge lit.
+            await markHiddenRead()
         } catch {
             errorMessage = String(localized: "Could not load notifications.")
         }
@@ -389,16 +405,16 @@ struct NotificationsListView: View {
         (error as? APIError)?.userMessage() ?? String(localized: "Can't reach the server. Try again in a moment.")
     }
 
-    private func relativeTime(_ isoString: String) -> String? {
-        let formatterFraction = ISO8601DateFormatter()
-        formatterFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let formatterPlain = ISO8601DateFormatter()
-        formatterPlain.formatOptions = [.withInternetDateTime]
-        guard let date = formatterFraction.date(from: isoString) ?? formatterPlain.date(from: isoString) else {
-            return nil
+    /// The section header already dates the row, so the row shows the time of day.
+    private func clockTime(_ isoString: String) -> String? {
+        NotificationLedger.parseDate(isoString)?.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// A hidden duplicate would otherwise keep the badge lit with nothing to open.
+    private func markHiddenRead() async {
+        let hidden = hiddenIds
+        for notification in notifications where hidden.contains(notification.id) && !notification.read {
+            await markRead(notification)
         }
-        let relativeFormatter = RelativeDateTimeFormatter()
-        relativeFormatter.unitsStyle = .abbreviated
-        return relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 }
