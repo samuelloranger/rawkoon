@@ -18,6 +18,8 @@ export type LibraryDownloadedOpts = {
   mediaId: number;
   /** The grab this download completes; its notification is rewritten instead of adding one. */
   downloadHistoryId?: number | null;
+  /** A grab whose file another grab already placed: settle its row without a push. */
+  quiet?: boolean;
   episodeId?: number | null;
   season?: number | null;
   episodeCount?: number | null;
@@ -134,6 +136,7 @@ export async function notifyAdminsMediaDownloaded(
           ? {
               lifecycleKey: downloadLifecycleKey(parsed.downloadHistoryId),
               preferenceKey: "library_downloaded",
+              ...(parsed.quiet ? { push: false, updateOnly: true } : {}),
             }
           : episode
             ? {

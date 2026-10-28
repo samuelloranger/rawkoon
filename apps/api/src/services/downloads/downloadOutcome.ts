@@ -17,6 +17,7 @@ export type DownloadRef = {
   episodeId: number | null;
   /** Set instead of mediaId/episodeId when the grab was for a book edition. */
   bookEditionId?: number | null;
+  isUpgrade?: boolean;
 };
 
 /** Unblock an item with no other active grab: `downloading` -> `wanted`, in-flight upgrade -> `downloaded`. */
@@ -201,6 +202,20 @@ export async function failDownload(
       });
     } catch (e) {
       console.warn("[downloadOutcome] download-failed notification failed:", e);
+    }
+  }
+  if (dh.bookEditionId != null) {
+    try {
+      await effects.importFailed({
+        downloadHistoryId: dh.id,
+        reason,
+        mediaId: null,
+        episodeId: null,
+        bookEditionId: dh.bookEditionId,
+        isUpgrade: dh.isUpgrade ?? false,
+      });
+    } catch (e) {
+      console.warn("[downloadOutcome] book download-failed notice failed:", e);
     }
   }
 }

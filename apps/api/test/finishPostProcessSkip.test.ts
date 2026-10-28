@@ -95,8 +95,20 @@ describe("finishPostProcess duplicate skip", () => {
       "/movies/Some Movie (2026).mkv",
     );
 
-    // A skip is not a fresh import — no "downloaded" admin notification.
-    expect(effects.named("mediaDownloaded")).toHaveLength(0);
+    // A skip is not a fresh import: only a quiet settle of its own grab's notice.
+    expect(effects.named("mediaDownloaded")).toEqual([
+      [
+        {
+          mediaId: 42,
+          downloadHistoryId: 1,
+          episodeId: null,
+          season: null,
+          episodeCount: undefined,
+          isUpgrade: false,
+          quiet: true,
+        },
+      ],
+    ]);
     expect(effects.named("importLanded")).toHaveLength(0);
   });
 

@@ -12,7 +12,10 @@ export function planLifecycleWrite(opts: {
   hasRow: boolean;
   enabled: boolean;
   push: boolean;
+  /** Only rewrite a row an earlier stage created; never start one. */
+  updateOnly?: boolean;
 }): { action: "write" | "skip"; push: boolean } {
+  if (opts.updateOnly && !opts.hasRow) return { action: "skip", push: false };
   if (opts.enabled) return { action: "write", push: opts.push };
   return opts.hasRow
     ? { action: "write", push: false }

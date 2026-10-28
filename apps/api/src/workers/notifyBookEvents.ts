@@ -71,6 +71,7 @@ async function notifyAdmins(opts: {
   /** The grab this notice belongs to; its stages share one notification. */
   downloadHistoryId?: number | null;
   push?: boolean;
+  updateOnly?: boolean;
   logTag: string;
 }): Promise<void> {
   const admins = await getAdminNotificationTargets();
@@ -88,6 +89,7 @@ async function notifyAdmins(opts: {
         {
           preferenceKey: opts.preferenceKey,
           push: opts.push,
+          updateOnly: opts.updateOnly,
           ...(opts.downloadHistoryId != null
             ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
             : {}),
@@ -141,6 +143,8 @@ export async function notifyAdminsBookDownloaded(
   editionId: number,
   isUpgrade = false,
   downloadHistoryId: number | null = null,
+  /** A grab whose file another grab already placed: settle its row without a push. */
+  quiet = false,
 ): Promise<void> {
   const ctx = await editionContext(editionId);
   if (!ctx) return;
@@ -167,6 +171,7 @@ export async function notifyAdminsBookDownloaded(
     },
     preferenceKey: "book_downloaded",
     downloadHistoryId,
+    ...(quiet ? { push: false, updateOnly: true } : {}),
     logTag: "notifyAdminsBookDownloaded",
   });
 }

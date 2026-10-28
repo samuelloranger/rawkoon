@@ -35,6 +35,8 @@ export type CreateNotificationOptions = {
   lifecycleKey?: string;
   /** False keeps the notification in the app without sending it to devices. */
   push?: boolean;
+  /** With lifecycleKey: only rewrite an existing row, never start one. */
+  updateOnly?: boolean;
   preferenceKey?: NotificationPreferenceKey;
   /** Skip the per-user preference lookup when the caller already checked. */
   skipPreferenceCheck?: boolean;
@@ -81,6 +83,7 @@ export async function createAndQueueNotification(
       hasRow: lifecycleRow != null,
       enabled,
       push: options?.push ?? true,
+      updateOnly: options?.updateOnly ?? false,
     });
     if (plan.action === "skip") return false;
 
@@ -166,8 +169,7 @@ export async function createAndQueueNotification(
 
     await addJob<NotificationJobData>(
       QUEUE_NAMES.EXPRESS,
-      // A rewritten row pushes again; a reused job id would be dropped as a duplicate.
-      `send-push:${notification.id}:${notification.createdAt.getTime()}`,
+      `send-push:${notification.id}`,
       {
         notificationId: notification.id,
         userId,

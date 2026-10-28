@@ -43,6 +43,30 @@ describe("planLifecycleWrite", () => {
   });
 });
 
+describe("planLifecycleWrite update-only", () => {
+  it("rewrites an existing row", () => {
+    expect(
+      planLifecycleWrite({
+        hasRow: true,
+        enabled: true,
+        push: false,
+        updateOnly: true,
+      }),
+    ).toEqual({ action: "write", push: false });
+  });
+
+  it("starts nothing when there is no row", () => {
+    expect(
+      planLifecycleWrite({
+        hasRow: false,
+        enabled: true,
+        push: true,
+        updateOnly: true,
+      }),
+    ).toEqual({ action: "skip", push: false });
+  });
+});
+
 describe("mergeLifecycleMetadata", () => {
   it("replaces the stage fields but keeps the grab's release", () => {
     const grabbed = {

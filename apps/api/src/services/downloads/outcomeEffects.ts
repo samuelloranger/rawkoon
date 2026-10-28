@@ -40,12 +40,15 @@ export interface OutcomeEffects {
     season: number | null | undefined;
     episodeCount: number | undefined;
     isUpgrade: boolean;
+    /** The file was already placed by another grab: settle this grab's notice quietly. */
+    quiet?: boolean;
   }): Promise<void>;
   /** A book import finished; tell admins. */
   bookDownloaded(
     bookEditionId: number,
     isUpgrade: boolean,
     downloadHistoryId: number,
+    quiet?: boolean,
   ): Promise<void>;
   /** An import failed in a retryable way; tell admins (book or media flavour by row target). */
   importFailed(p: {
@@ -122,7 +125,12 @@ export const productionOutcomeEffects: OutcomeEffects = {
     );
     await notifyAdminsMediaDownloaded(p);
   },
-  bookDownloaded: async (bookEditionId, isUpgrade, downloadHistoryId) => {
+  bookDownloaded: async (
+    bookEditionId,
+    isUpgrade,
+    downloadHistoryId,
+    quiet,
+  ) => {
     const { notifyAdminsBookDownloaded } = await import(
       "@rawkoon/api/workers/notifyBookEvents"
     );
@@ -130,6 +138,7 @@ export const productionOutcomeEffects: OutcomeEffects = {
       bookEditionId,
       isUpgrade,
       downloadHistoryId,
+      quiet,
     );
   },
   importFailed: async (p) => {
