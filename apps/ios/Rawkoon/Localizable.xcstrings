@@ -16452,6 +16452,46 @@
           }
         }
       }
+    },
+    "Pre-release": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préversion"
+          }
+        }
+      }
+    },
+    "Open on GitHub": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir sur GitHub"
+          }
+        }
+      }
+    },
+    "No release notes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune note de version."
+          }
+        }
+      }
+    },
+    "No releases yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune version pour l’instant"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
