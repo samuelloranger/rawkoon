@@ -67,6 +67,8 @@ describe("book notifications", () => {
     expect(state.notifications[0]?.metadata).toEqual({
       book_id: 9,
       is_upgrade: false,
+      subject: "The Example",
+      detail: "Some.Release.M4B",
     });
   });
 

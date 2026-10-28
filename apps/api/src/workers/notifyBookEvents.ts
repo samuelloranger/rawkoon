@@ -15,6 +15,7 @@ const KIND_LABEL: Record<string, "bookKindEbook" | "bookKindAudiobook"> = {
 
 async function editionContext(editionId: number): Promise<{
   bookId: number;
+  title: string;
   label: string;
   kindKey: "bookKindEbook" | "bookKindAudiobook";
   coverUrl: string | null;
@@ -42,6 +43,7 @@ async function editionContext(editionId: number): Promise<{
   const kindKey = KIND_LABEL[edition.kind] ?? "bookKindEbook";
   return {
     bookId: book.id,
+    title: book.title,
     label: author
       ? `${book.title}${year} by ${author}`
       : `${book.title}${year}`,
@@ -109,7 +111,12 @@ export async function notifyAdminsBookGrabbed(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
-    metadata: { book_id: ctx.bookId, is_upgrade: isUpgrade },
+    metadata: {
+      book_id: ctx.bookId,
+      is_upgrade: isUpgrade,
+      subject: ctx.title,
+      detail: release,
+    },
     preferenceKey: "book_grabbed",
     logTag: "notifyAdminsBookGrabbed",
   });
@@ -137,7 +144,11 @@ export async function notifyAdminsBookDownloaded(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
-    metadata: { book_id: ctx.bookId, is_upgrade: isUpgrade },
+    metadata: {
+      book_id: ctx.bookId,
+      is_upgrade: isUpgrade,
+      subject: ctx.title,
+    },
     preferenceKey: "book_downloaded",
     logTag: "notifyAdminsBookDownloaded",
   });
@@ -170,7 +181,12 @@ export async function notifyAdminsBookImportFailed(
       url: `/books/${ctx.bookId}`,
     }),
     imageUrl: ctx.coverUrl,
-    metadata: { book_id: ctx.bookId, is_upgrade: isUpgrade },
+    metadata: {
+      book_id: ctx.bookId,
+      is_upgrade: isUpgrade,
+      subject: ctx.title,
+      detail: reason,
+    },
     preferenceKey: "book_failed",
     logTag: "notifyAdminsBookImportFailed",
   });

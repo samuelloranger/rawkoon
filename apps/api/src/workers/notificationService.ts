@@ -183,14 +183,18 @@ async function tryMergeGroupedNotification(opts: {
         })
       : opts.body;
 
+  const subject =
+    typeof opts.metadata.subject === "string" ? opts.metadata.subject : "";
+  const mediaId =
+    typeof opts.metadata.media_id === "number" ? opts.metadata.media_id : null;
+
   const mergedMeta: Record<string, string | number> = {
-    ...(opts.metadata.group_key
-      ? { group_key: String(opts.metadata.group_key) }
-      : {}),
     group_key: opts.groupKey,
     group_count: count,
-    ...(latestCode ? { latest_code: latestCode } : {}),
+    ...(latestCode ? { latest_code: latestCode, code: latestCode } : {}),
     ...(show ? { show } : {}),
+    ...(subject ? { subject } : {}),
+    ...(mediaId != null ? { media_id: mediaId } : {}),
   };
 
   return prisma.notification.update({

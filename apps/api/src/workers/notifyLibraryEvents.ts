@@ -9,6 +9,8 @@ import {
   loadEpisodeContext,
   loadMediaContext,
   notifyAdmins,
+  seasonCode,
+  subjectMetadata,
 } from "@rawkoon/api/workers/libraryNotificationHelpers";
 
 export type LibraryDownloadedOpts = {
@@ -111,13 +113,17 @@ export async function notifyAdminsMediaDownloaded(
     },
     {
       imageUrl: media.posterUrl,
-      metadata: episode
-        ? {
-            media_id: media.mediaId,
-            latest_code: episode.code,
-            show: media.label,
-          }
-        : { media_id: media.mediaId },
+      metadata: {
+        ...subjectMetadata(media, {
+          code: episode?.code ?? seasonCode(parsed.season),
+          detail: episode ? episodeDisplayName(episode.title) : null,
+          isUpgrade: parsed.isUpgrade,
+        }),
+        ...(episode ? { latest_code: episode.code, show: media.label } : {}),
+        ...(!episode && (parsed.episodeCount ?? 0) > 1
+          ? { episode_count: parsed.episodeCount }
+          : {}),
+      },
       notifyOptions: episode
         ? {
             groupKey: `library_downloaded:${media.mediaId}`,
@@ -203,7 +209,11 @@ export async function notifyAdminsLibraryGrabbed(opts: {
     },
     {
       imageUrl: media.posterUrl,
-      metadata: { media_id: media.mediaId },
+      metadata: subjectMetadata(media, {
+        code: episode?.code ?? seasonCode(opts.season),
+        detail: release,
+        isUpgrade: opts.isUpgrade,
+      }),
       notifyOptions: { preferenceKey: "library_grabbed" },
       logTag: "notifyAdminsLibraryGrabbed",
     },
@@ -241,7 +251,10 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
     }),
     {
       imageUrl: media.posterUrl,
-      metadata: { media_id: media.mediaId },
+      metadata: subjectMetadata(media, {
+        code: episode?.code,
+        detail: opts.reason,
+      }),
       notifyOptions: { preferenceKey: "library_failed" },
       logTag: "notifyAdminsLibraryDownloadFailed",
     },
@@ -292,6 +305,7 @@ export async function notifyAdminsPostProcessFailed(
     }),
     {
       imageUrl: media.posterUrl,
+      metadata: subjectMetadata(media, { code: episode?.code, detail: reason }),
       notifyOptions: { preferenceKey: "library_failed" },
       logTag: "notifyAdminsPostProcessFailed",
     },

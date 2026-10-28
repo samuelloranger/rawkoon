@@ -6,6 +6,7 @@ const state: {
     body: string;
     url: string | undefined;
   }>;
+  metadata: Array<Record<string, unknown> | undefined>;
   media: {
     id: number;
     title: string;
@@ -20,6 +21,7 @@ const state: {
   } | null;
 } = {
   notifications: [],
+  metadata: [],
   media: null,
   episode: null,
 };
@@ -45,8 +47,10 @@ function installNotificationTargetMocks() {
       body: string,
       _type: string,
       url?: string,
+      metadata?: Record<string, unknown>,
     ) => {
       state.notifications.push({ title, body, url });
+      state.metadata.push(metadata);
       return true;
     },
   }));
@@ -67,6 +71,7 @@ const { notifyAdminsPostProcessFailed } = await import(
 describe("library notification targets", () => {
   beforeEach(() => {
     state.notifications = [];
+    state.metadata = [];
     state.episode = null;
     state.media = {
       id: 42,
@@ -149,6 +154,39 @@ describe("library notification targets", () => {
         url: "/library/10?tab=files&season=1&episode=1",
       },
     ]);
+    expect(state.metadata[0]).toEqual({
+      media_id: 10,
+      subject: "Severance",
+      code: "S01E01",
+      detail: "Good News About Hell",
+      latest_code: "S01E01",
+      show: "Severance (2022)",
+    });
+  });
+
+  it("carries the season code and count for a season pack", async () => {
+    state.media = {
+      id: 10,
+      title: "Severance",
+      year: 2022,
+      type: "show",
+      posterUrl: null,
+    };
+
+    await notifyAdminsMediaDownloaded({
+      mediaId: 10,
+      season: 1,
+      episodeCount: 9,
+      isUpgrade: true,
+    });
+
+    expect(state.metadata[0]).toEqual({
+      media_id: 10,
+      subject: "Severance",
+      code: "S01",
+      is_upgrade: true,
+      episode_count: 9,
+    });
   });
 
   it("opens the media detail page when an automatic grab is skipped", async () => {
@@ -179,5 +217,10 @@ describe("library notification targets", () => {
     await notifyAdminsPostProcessFailed(7, "Permission denied", 42);
 
     expect(state.notifications[0]?.url).toBe("/library/42?tab=files");
+    expect(state.metadata[0]).toEqual({
+      media_id: 42,
+      subject: "Dune",
+      detail: "Permission denied",
+    });
   });
 });
