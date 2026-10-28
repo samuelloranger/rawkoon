@@ -33,42 +33,107 @@ describe("notifyRequestAvailable", () => {
     ]);
   });
 
-  it("does not flip while the media is not yet complete (e.g. one show episode)", async () => {
-    state.requests = [
-      {
-        id: 1,
-        tmdbId: 9,
-        type: "show",
-        status: "approved",
-        requestedById: "u1",
-        libraryMediaId: 909,
-        title: "X",
-      },
-    ];
-    // ongoing show: downloaded as far as acquisition goes, but still airing
-    state.mediaStatusById = { 909: "downloaded" };
+  const showRequest = () => [
+    {
+      id: 1,
+      tmdbId: 9,
+      type: "show",
+      status: "approved",
+      requestedById: "u1",
+      libraryMediaId: 909,
+      title: "X",
+    },
+  ];
+  const PAST = new Date("2020-01-01");
+  const FUTURE = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  const ep = (
+    season: number,
+    status: string,
+    airDate: Date | null = PAST,
+    monitored = true,
+  ) => ({ season, status, airDate, monitored });
+
+  it("flips an airing show whose aired episodes are all downloaded while future ones are pending", async () => {
+    state.requests = showRequest();
+    state.mediaStatusById = { 909: "wanted" };
     state.mediaTmdbStatusById = { 909: "Returning Series" };
+    state.episodesByMediaId = {
+      909: [
+        ep(1, "downloaded"),
+        ep(1, "upgrading"),
+        ep(2, "wanted", FUTURE),
+        ep(2, "wanted", null),
+      ],
+    };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("available");
+    expect(state.notifications).toEqual([
+      { userId: "u1", type: "request_available" },
+    ]);
+  });
+
+  it("stays approved when an aired season is still missing, even for an ended show with a show-level downloaded status", async () => {
+    state.requests = showRequest();
+    // a finished season pack marks the show downloaded while season 2 is missing
+    state.mediaStatusById = { 909: "downloaded" };
+    state.mediaTmdbStatusById = { 909: "Ended" };
+    state.episodesByMediaId = {
+      909: [ep(1, "downloaded"), ep(1, "downloaded"), ep(2, "wanted")],
+    };
     await notifyRequestAvailable(909);
     expect(state.requests[0].status).toBe("approved");
     expect(state.notifications).toEqual([]);
   });
 
-  it("flips a show request once the show has ended", async () => {
-    state.requests = [
-      {
-        id: 1,
-        tmdbId: 9,
-        type: "show",
-        status: "approved",
-        requestedById: "u1",
-        libraryMediaId: 909,
-        title: "X",
-      },
-    ];
+  it("stays approved while an aired episode is downloading or skipped", async () => {
+    state.requests = showRequest();
     state.mediaStatusById = { 909: "downloaded" };
-    state.mediaTmdbStatusById = { 909: "Ended" };
+    state.episodesByMediaId = {
+      909: [ep(1, "downloaded"), ep(1, "downloading")],
+    };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("approved");
+    state.episodesByMediaId = { 909: [ep(1, "downloaded"), ep(1, "skipped")] };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("approved");
+  });
+
+  it("ignores specials, unmonitored episodes and episodes without an air date", async () => {
+    state.requests = showRequest();
+    state.mediaStatusById = { 909: "wanted" };
+    state.episodesByMediaId = {
+      909: [
+        ep(1, "downloaded"),
+        ep(0, "wanted"),
+        ep(1, "wanted", PAST, false),
+        ep(1, "wanted", null),
+      ],
+    };
     await notifyRequestAvailable(909);
     expect(state.requests[0].status).toBe("available");
+  });
+
+  it("needs at least one aired episode", async () => {
+    state.requests = showRequest();
+    state.mediaStatusById = { 909: "downloaded" };
+    state.episodesByMediaId = {
+      909: [ep(1, "wanted", FUTURE), ep(0, "downloaded")],
+    };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("approved");
+    state.episodesByMediaId = { 909: [] };
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("approved");
+  });
+
+  it("notifies once: an already available request is not flipped or notified again", async () => {
+    state.requests = showRequest();
+    state.mediaStatusById = { 909: "downloaded" };
+    state.episodesByMediaId = { 909: [ep(1, "downloaded")] };
+    await notifyRequestAvailable(909);
+    await notifyRequestAvailable(909);
+    expect(state.requests[0].status).toBe("available");
+    expect(state.notifications).toHaveLength(1);
   });
 
   it("is a no-op when no approved request links to the media", async () => {

@@ -58,6 +58,10 @@ mock.module("@rawkoon/api/db", () =>
         },
       },
       libraryEpisode: {
+        // Availability counts aired episodes (total) and those still missing:
+        // the one aired episode of this show is downloaded.
+        count: ({ where }: { where: { status?: unknown } }) =>
+          Promise.resolve(where.status ? 0 : 1),
         update: (args: {
           where: { id: number };
           data: Record<string, unknown>;
@@ -87,6 +91,13 @@ mock.module("@rawkoon/api/db", () =>
       },
       mediaRequest: {
         findFirst: () => Promise.resolve(state.approvedRequest),
+        updateMany: (args: {
+          where: { id: number };
+          data: Record<string, unknown>;
+        }) => {
+          state.requestUpdates.push(args);
+          return Promise.resolve({ count: 1 });
+        },
         update: (args: {
           where: { id: number };
           data: Record<string, unknown>;

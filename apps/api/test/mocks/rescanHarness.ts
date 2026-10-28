@@ -252,6 +252,11 @@ export async function installRescanMocks(): Promise<void> {
   const realDownloadOutcome = await import(
     "@rawkoon/api/services/downloads/downloadOutcome"
   );
+  // The availability re-check needs the request tables and the notification
+  // queue; rescan only has to call it.
+  mock.module("@rawkoon/api/services/mediaRequestNotifications", () => ({
+    recheckRequestAvailable: () => Promise.resolve(),
+  }));
   mock.module("@rawkoon/api/services/downloads/downloadOutcome", () => ({
     ...realDownloadOutcome,
     enqueuePostProcess: (dhId: number) => {

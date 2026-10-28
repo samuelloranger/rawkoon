@@ -198,6 +198,16 @@ export async function finishPostProcess(
     });
     if (mediaId != null) {
       effects.libraryChanged(mediaId);
+      // Pack and episode imports mark episodes downloaded only now, after
+      // completion already ran this check, so run it again.
+      await effects
+        .requestAvailable(mediaId)
+        .catch((e) =>
+          console.warn(
+            `[downloadOutcome] request availability check failed dh=${downloadHistoryId}:`,
+            e,
+          ),
+        );
       if (!result.skipped) {
         const packEpisodeCount = result.episodeCount;
         if (!isUpgrade) {

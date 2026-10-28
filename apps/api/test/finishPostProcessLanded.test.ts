@@ -109,6 +109,22 @@ describe("finishPostProcess landed event", () => {
     ]);
   });
 
+  it("re-checks the title's request after a successful import, skipped or not", async () => {
+    await finishPostProcess(1, effects);
+    state.skipped = true;
+    await finishPostProcess(1, effects);
+    expect(effects.named("requestAvailable")).toEqual([[42], [42]]);
+  });
+
+  it("finishes the import when the request re-check rejects", async () => {
+    effects.requestAvailable = async () => {
+      throw new Error("queue down");
+    };
+    const result = await finishPostProcess(1, effects);
+    expect(result.success).toBe(true);
+    expect(effects.named("mediaDownloaded")).toHaveLength(1);
+  });
+
   it("emits nothing for a skipped import or an upgrade", async () => {
     state.skipped = true;
     await finishPostProcess(1, effects);

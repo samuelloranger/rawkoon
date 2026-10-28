@@ -24,6 +24,11 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
+const recheckRequestAvailable = mock(async (_mediaId: number) => {});
+mock.module("@rawkoon/api/services/mediaRequestNotifications", () => ({
+  recheckRequestAvailable,
+}));
+
 const realHelpers = await import("@rawkoon/api/utils/medias/libraryHelpers");
 
 mock.module("@rawkoon/api/utils/medias/libraryHelpers", () => ({
@@ -54,6 +59,7 @@ function statusWritten(): string | undefined {
 describe("syncLibraryShowEpisodes status reconciliation", () => {
   beforeEach(() => {
     update.mockClear();
+    recheckRequestAvailable.mockClear();
     dhCount.mockClear();
     pendingShowLevelGrabs = 0;
     mediaRow = {
@@ -112,5 +118,10 @@ describe("syncLibraryShowEpisodes status reconciliation", () => {
     expect(arg.where.episodeId).toBeNull();
     expect(arg.where.failed).toBe(false);
     expect(arg.where.completedAt).toBeNull();
+  });
+
+  it("re-checks the show's request after the refresh", async () => {
+    await syncLibraryShowEpisodes(675);
+    expect(recheckRequestAvailable.mock.calls).toEqual([[675]]);
   });
 });

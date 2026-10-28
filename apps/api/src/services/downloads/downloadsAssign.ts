@@ -390,6 +390,12 @@ export async function assignDownloadFromDisk(
         },
       });
 
+      // A manually assigned file can complete the title a request is waiting on.
+      const { recheckRequestAvailable } = await import(
+        "@rawkoon/api/services/mediaRequestNotifications"
+      );
+      await recheckRequestAvailable(library.id);
+
       invalidateDownloadsScannerCache();
       // The just-created MediaFile adds a new inode to the library; drop the
       // cached inode set so the next scan/assignment sees it (hardlink dedup).

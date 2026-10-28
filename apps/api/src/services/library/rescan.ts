@@ -252,6 +252,13 @@ async function rescanLibraryItemInner(
     trackedPaths,
     validEpisodeIds,
   });
+  if (imported > 0) {
+    // Newly tracked files can complete a title whose request is waiting.
+    const { recheckRequestAvailable } = await import(
+      "@rawkoon/api/services/mediaRequestNotifications"
+    );
+    await recheckRequestAvailable(mediaId);
+  }
 
   // ── Step 1c: Rename — rename files that don't match the configured template ─
   // Skipped when fileOperation is "none" (manual placement) or when a download
