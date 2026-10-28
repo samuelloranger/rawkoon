@@ -64,6 +64,22 @@ final class ReleaseNotesBlockTests: XCTestCase {
         )
     }
 
+    func testKeepsTableRowsTogether() {
+        XCTAssertEqual(
+            ReleaseNotes.blocks("Before\n| a | b |\n|---|---|\n| 1 | 2 |\nAfter"),
+            [.paragraph("Before"), .table("| a | b |\n|---|---|\n| 1 | 2 |"), .paragraph("After")]
+        )
+    }
+
+    func testKeepsATrailingHashThatIsContent() {
+        XCTAssertEqual(ReleaseNotes.blocks("## C#"), [.heading(level: 2, text: "C#")])
+        XCTAssertEqual(ReleaseNotes.blocks("## Title ##"), [.heading(level: 2, text: "Title")])
+    }
+
+    func testDropsMultiLineComments() {
+        XCTAssertEqual(ReleaseNotes.blocks("<!--\nhidden\n-->\nShown"), [.paragraph("Shown")])
+    }
+
     func testEmptyBodyHasNoBlocks() {
         XCTAssertTrue(ReleaseNotes.blocks("").isEmpty)
         XCTAssertTrue(ReleaseNotes.blocks("\n\n  \n").isEmpty)
@@ -87,6 +103,13 @@ final class ReleaseNotesReferenceTests: XCTestCase {
         XCTAssertEqual(
             ReleaseNotes.linkingReferences("Use `#12` and [#13](https://x) but #14", repo: "o/a"),
             "Use `#12` and [#13](https://x) but [#14](https://github.com/o/a/issues/14)"
+        )
+    }
+
+    func testLeavesReferencesInsideLinkTextAndTargetsAlone() {
+        XCTAssertEqual(
+            ReleaseNotes.linkingReferences("See [PR #12](https://x/pull/12), [Jump](#123) and #14", repo: "o/a"),
+            "See [PR #12](https://x/pull/12), [Jump](#123) and [#14](https://github.com/o/a/issues/14)"
         )
     }
 

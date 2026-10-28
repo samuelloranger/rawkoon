@@ -22,7 +22,7 @@ struct ReleaseSummaryRow: View {
                 .foregroundStyle(Theme.muted)
             if let summary = release.body.flatMap(ReleaseNotes.summary) {
                 // No links here: the whole row is the tap target.
-                ReleaseNotesView.inline(summary, repo: nil)
+                ReleaseNotesView.inline(summary, repo: nil, links: false)
                     .font(.footnote)
                     .foregroundStyle(Theme.text)
                     .lineLimit(2)
@@ -136,7 +136,7 @@ struct ReleaseNotesView: View {
                     .foregroundStyle(Theme.muted)
             }
             .fixedSize(horizontal: false, vertical: true)
-        case let .code(text):
+        case let .code(text), let .table(text):
             ScrollView(.horizontal) {
                 Text(verbatim: text)
                     .font(.footnote.monospaced())
@@ -161,11 +161,16 @@ struct ReleaseNotesView: View {
     }
 
     /// Bold, code spans and links from the markdown; plain text if it doesn't parse.
-    static func inline(_ markdown: String, repo: String?) -> Text {
+    static func inline(_ markdown: String, repo: String?, links: Bool = true) -> Text {
         let linked = ReleaseNotes.linkingReferences(markdown, repo: repo)
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        guard let attributed = try? AttributedString(markdown: linked, options: options) else {
+        guard var attributed = try? AttributedString(markdown: linked, options: options) else {
             return Text(verbatim: markdown)
+        }
+        if !links {
+            for run in attributed.runs where run.link != nil {
+                attributed[run.range].link = nil
+            }
         }
         return Text(attributed)
     }

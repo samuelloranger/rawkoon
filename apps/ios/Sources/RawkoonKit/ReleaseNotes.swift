@@ -12,6 +12,8 @@ public enum ReleaseNotes {
         case numbered(depth: Int, number: Int, text: String)
         case quote(String)
         case code(String)
+        /// Table rows, kept as written so a monospaced font lines the columns up.
+        case table(String)
         case rule
     }
 
@@ -50,10 +52,24 @@ public enum ReleaseNotes {
         guard let repo, !repo.isEmpty else { return text }
         return text.components(separatedBy: "`").enumerated().map { index, segment in
             guard index.isMultiple(of: 2) else { return segment }
-            return segment.replacing(/(^|[\s(,;])#(\d+)\b/) { match in
-                "\(match.1)[#\(match.2)](https://github.com/\(repo)/issues/\(match.2))"
+            return outsideLinks(segment) { plain in
+                plain.replacing(/(^|[\s(,;])#(\d+)\b/) { match in
+                    "\(match.1)[#\(match.2)](https://github.com/\(repo)/issues/\(match.2))"
+                }
             }
         }.joined(separator: "`")
+    }
+
+    /// Applies `transform` to the text between markdown links, leaving each `[text](url)` as it is.
+    private static func outsideLinks(_ text: String, _ transform: (String) -> String) -> String {
+        var result = ""
+        var rest = text[...]
+        while let link = rest.firstMatch(of: /\[[^\]]*\]\([^)]*\)/) {
+            result += transform(String(rest[..<link.range.lowerBound]))
+            result += rest[link.range]
+            rest = rest[link.range.upperBound...]
+        }
+        return result + transform(String(rest))
     }
 
     private struct Parser {
@@ -61,23 +77,33 @@ public enum ReleaseNotes {
         var paragraph: [String] = []
         var quote: [String] = []
         var code: [String]?
+        var table: [String] = []
+        var inComment = false
         /// The open list item, so an indented line under it continues its text.
         var item: (block: Block, indent: Int)?
 
         mutating func consume(_ line: String) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if consumeCode(line, trimmed: trimmed) || trimmed.hasPrefix("<!--") {
+            if consumeCode(line, trimmed: trimmed) || consumeComment(trimmed) {
                 return
             }
             if trimmed.isEmpty {
                 flush()
                 return
             }
+            if trimmed.hasPrefix("|") {
+                flushParagraph()
+                flushQuote()
+                flushItem()
+                table.append(trimmed)
+                return
+            }
+            flushTable()
 
             let indent = line.prefix { $0 == " " || $0 == "\t" }
                 .reduce(0) { $0 + ($1 == "\t" ? 4 : 1) }
 
-            if let match = trimmed.wholeMatch(of: /(#{1,6})\s+(.+?)\s*#*/) {
+            if let match = trimmed.wholeMatch(of: /(#{1,6})\s+(.+?)(?:\s+#+)?\s*/) {
                 flush()
                 blocks.append(.heading(level: match.1.count, text: String(match.2)))
             } else if trimmed.wholeMatch(of: /(-\s*){3,}|(\*\s*){3,}|(_\s*){3,}/) != nil {
@@ -100,6 +126,17 @@ public enum ReleaseNotes {
                 flushQuote()
                 paragraph.append(trimmed)
             }
+        }
+
+        /// Drops HTML comments, including ones that span lines; true when the line was one.
+        private mutating func consumeComment(_ trimmed: String) -> Bool {
+            if inComment {
+                inComment = !trimmed.contains("-->")
+                return true
+            }
+            guard trimmed.hasPrefix("<!--") else { return false }
+            inComment = !trimmed.contains("-->")
+            return true
         }
 
         /// Handles fence lines and everything inside a fence; true when the line was used.
@@ -142,6 +179,13 @@ public enum ReleaseNotes {
             flushParagraph()
             flushQuote()
             flushItem()
+            flushTable()
+        }
+
+        private mutating func flushTable() {
+            guard !table.isEmpty else { return }
+            blocks.append(.table(table.joined(separator: "\n")))
+            table = []
         }
 
         private mutating func flushParagraph() {
