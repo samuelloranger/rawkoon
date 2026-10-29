@@ -3,10 +3,19 @@ import { Pause, Play, SkipBack, SkipForward, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BookCover } from "@/pages/books/_component/BookCover";
 import { Button } from "@/components/ui/button";
+import type { NavPosition } from "@rawkoon/shared/types";
 import { formatClock } from "./formatClock";
 import { usePlayer } from "./PlayerProvider";
 
-export function MiniPlayer() {
+// Clears the desktop sidebar, which is fixed above the player on the same edge.
+const desktopNavInset: Record<NavPosition, string> = {
+  left: "lg:left-60",
+  right: "lg:right-60",
+  top: "",
+  bottom: "lg:bottom-12",
+};
+
+export function MiniPlayer({ navPosition }: { navPosition: NavPosition }) {
   const { t } = useTranslation("common");
   const player = usePlayer();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -22,7 +31,7 @@ export function MiniPlayer() {
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-[var(--z-sticky)] ${onRead ? "" : "max-lg:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"} border-t border-neutral-800 bg-neutral-950/95 px-3 py-2 backdrop-blur-md`}
+      className={`fixed inset-x-0 bottom-0 z-[var(--z-sticky)] ${onRead ? "" : `max-lg:bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] ${desktopNavInset[navPosition]}`} border-t border-neutral-800 bg-neutral-950/95 px-3 py-2 backdrop-blur-md`}
     >
       <div className="mx-auto flex max-w-7xl items-center gap-3">
         <Link

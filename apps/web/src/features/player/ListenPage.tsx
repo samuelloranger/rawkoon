@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { BookManifestChapter } from "@rawkoon/shared/types";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -100,22 +101,7 @@ export function ListenPage({ bookId }: { bookId: number }) {
           </p>
         )}
 
-        <div className="w-full">
-          <input
-            type="range"
-            min={0}
-            max={Math.max(player.durationSecs, 0)}
-            step={1}
-            value={Math.min(player.positionSecs, player.durationSecs)}
-            aria-label={t("books.listen.title")}
-            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-neutral-800 accent-primary-500"
-            onChange={(e) => player.seek(Number(e.target.value))}
-          />
-          <div className="mt-1 flex justify-between font-mono text-[11px] text-neutral-500">
-            <span>{formatClock(player.positionSecs)}</span>
-            <span>{formatClock(player.durationSecs)}</span>
-          </div>
-        </div>
+        <Scrubber />
 
         <div className="flex items-center gap-2">
           <Button
@@ -219,6 +205,87 @@ export function ListenPage({ bookId }: { bookId: number }) {
         </section>
       </div>
     </PageLayout>
+  );
+}
+
+/** Scoped to the current chapter, like the iOS player; whole-book when there is no usable chapter. */
+function Scrubber() {
+  const { t } = useTranslation("common");
+  const player = usePlayer();
+  // Seeking only on release keeps the scope from jumping to the next chapter mid-drag.
+  const [drag, setDrag] = useState<{
+    value: number;
+    chapter: BookManifestChapter | null;
+  } | null>(null);
+  const current = player.chapters.find(
+    (c) => c.index === player.currentChapterIndex,
+  );
+  // A zero-length chapter would give the range no span to scrub.
+  const usable =
+    current && current.end_secs > current.start_secs ? current : null;
+  const chapter = drag ? drag.chapter : usable;
+  const position = drag
+    ? drag.value
+    : Math.min(player.positionSecs, player.durationSecs);
+  const start = chapter?.start_secs ?? 0;
+  const end = chapter?.end_secs ?? Math.max(player.durationSecs, 0);
+  const elapsed = Math.max(position - start, 0);
+
+  const commit = () => {
+    if (!drag) return;
+    player.seek(drag.value);
+    setDrag(null);
+  };
+
+  // A release outside the thumb's element never reaches the input.
+  useEffect(() => {
+    if (!drag) return;
+    window.addEventListener("pointerup", commit);
+    window.addEventListener("pointercancel", commit);
+    return () => {
+      window.removeEventListener("pointerup", commit);
+      window.removeEventListener("pointercancel", commit);
+    };
+  });
+
+  return (
+    <div className="w-full">
+      <input
+        type="range"
+        min={start}
+        max={end}
+        step="any"
+        value={Math.min(Math.max(position, start), end)}
+        aria-label={
+          chapter
+            ? t("books.listen.chapterPosition")
+            : t("books.listen.positionInBook")
+        }
+        aria-valuetext={formatClock(elapsed)}
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-neutral-800 accent-primary-500"
+        onChange={(e) =>
+          setDrag({
+            value: Number(e.target.value),
+            chapter: drag ? drag.chapter : usable,
+          })
+        }
+        onKeyUp={commit}
+        onBlur={commit}
+      />
+      <div className="mt-1 flex justify-between font-mono text-[11px] text-neutral-500">
+        <span>{formatClock(elapsed)}</span>
+        <span>−{formatClock(Math.max(end - position, 0))}</span>
+      </div>
+      {chapter && (
+        <p className="mt-0.5 font-mono text-[10px] text-neutral-600">
+          <span className="sr-only">{t("books.listen.positionInBook")}: </span>
+          {t("books.listen.bookPosition", {
+            position: formatClock(position),
+            duration: formatClock(player.durationSecs),
+          })}
+        </p>
+      )}
+    </div>
   );
 }
 
