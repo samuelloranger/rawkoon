@@ -2961,7 +2961,10 @@
       "notReady": "Ce livre audio n’est pas encore prêt — les fichiers de chapitres n’ont pas été enregistrés.",
       "back": "Retour au livre",
       "chapters": "Chapitres",
-      "loading": "Chargement…"
+      "loading": "Chargement…",
+      "chapterPosition": "Position dans le chapitre",
+      "bookPosition": "{{position}} sur {{duration}}",
+      "positionInBook": "Position dans le livre"
     },
     "player": {
       "play": "Lecture",

@@ -2961,7 +2961,10 @@
       "notReady": "This audiobook isn’t ready to play yet — chapter files haven’t been registered.",
       "back": "Back to book",
       "chapters": "Chapters",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "chapterPosition": "Position in chapter",
+      "bookPosition": "{{position}} of {{duration}}",
+      "positionInBook": "Position in book"
     },
     "player": {
       "play": "Play",

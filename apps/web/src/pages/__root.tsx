@@ -93,7 +93,7 @@ function RootLayout() {
               bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
             }}
           />
-          <MiniPlayer />
+          <MiniPlayer navPosition={position} />
         </LibraryNavigationProvider>
       </PlayerProvider>
     </ConfirmProvider>
