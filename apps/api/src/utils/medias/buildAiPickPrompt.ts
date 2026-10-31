@@ -1,4 +1,5 @@
 import { formatMatches } from "@rawkoon/api/utils/medias/customFormatEvaluator";
+import type { AssignedCustomFormat } from "@rawkoon/api/utils/medias/customFormatTypes";
 import {
   parseAudioFlags,
   parseReleaseTitle,
@@ -51,13 +52,22 @@ export const AI_SYSTEM_PROMPT =
   "(3) when a profile is given, follow it: higher resolution up to its cutoff, then its source and codec order (earlier is better), then HDR if preferred, then releases matching liked formats over disliked ones; " +
   "if the profile says trackers outrank quality, prefer the earliest listed tracker first; " +
   "(4) without a profile, prefer higher resolution and a WEB or BluRay source; " +
-  "(5) between releases of the same quality, prefer the smaller file, a PROPER/REPACK, then more seeders; " +
+  "(5) between releases of the same quality, prefer a PROPER/REPACK, then more seeders; " +
   "avoid a release with very few seeders when a comparable one is well seeded. " +
   "release_key MUST be exactly one of the provided keys — never invent one. " +
   'Respond ONLY with valid JSON matching: { "release_key": string, "reasoning": string }. ' +
   "In reasoning, cite the deciding traits (e.g. language, resolution, source, size), under 150 characters.";
 
 const ordered = (values: string[]) => values.join(" > ");
+
+/** Format names repeat on every release row, so a large profile would crowd a small model's context. */
+const MAX_FORMAT_NAMES = 5;
+
+const strongestFormats = (formats: AssignedCustomFormat[]): string[] =>
+  [...formats]
+    .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+    .slice(0, MAX_FORMAT_NAMES)
+    .map((f) => f.name);
 
 function profileLines(profile: QualityProfileScoreInput): string[] {
   const { minResolution: min, cutoffResolution: cutoff } = profile;
@@ -67,8 +77,12 @@ function profileLines(profile: QualityProfileScoreInput): string[] {
       : cutoff === min
         ? `${min}p only`
         : `${min}p-${cutoff}p`;
-  const liked = profile.customFormats.filter((f) => f.score > 0);
-  const disliked = profile.customFormats.filter((f) => f.score < 0);
+  const liked = strongestFormats(
+    profile.customFormats.filter((f) => f.score > 0),
+  );
+  const disliked = strongestFormats(
+    profile.customFormats.filter((f) => f.score < 0),
+  );
   return [
     profile.preferredLanguages.length
       ? `Preferred audio languages: ${profile.preferredLanguages.join(", ")}`
@@ -87,12 +101,8 @@ function profileLines(profile: QualityProfileScoreInput): string[] {
           profile.preferTrackerOverQuality ? " (outrank quality)" : ""
         }`
       : null,
-    liked.length
-      ? `Liked formats: ${liked.map((f) => f.name).join(", ")}`
-      : null,
-    disliked.length
-      ? `Disliked formats: ${disliked.map((f) => f.name).join(", ")}`
-      : null,
+    liked.length ? `Liked formats: ${liked.join(", ")}` : null,
+    disliked.length ? `Disliked formats: ${disliked.join(", ")}` : null,
   ].filter((l) => l != null);
 }
 
@@ -115,6 +125,7 @@ function releaseTraits(
           }),
         )
         .map((f) => f.name)
+        .slice(0, MAX_FORMAT_NAMES)
     : [];
   return [
     `res:${parsed.resolution != null ? `${parsed.resolution}p` : "?"}`,

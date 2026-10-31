@@ -206,6 +206,33 @@ describe("buildAiPickPrompt release traits", () => {
     expect(prompt).toContain("formats:Team,Atmos");
   });
 
+  it("caps format names to the strongest few", () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({
+      name: `F${i}`,
+      conditions: [
+        {
+          type: "title_regex" as const,
+          operator: "matches" as const,
+          value: "Movie",
+        },
+      ],
+      score: (i + 1) * 10,
+      required: false,
+      forbidden: false,
+    }));
+    const prompt = buildAiPickPrompt(
+      {
+        title: "Movie",
+        year: 2024,
+        type: "movie",
+        profile: { ...profile, customFormats: many },
+      },
+      releases,
+    );
+    expect(prompt).toContain("Liked formats: F7, F6, F5, F4, F3\n");
+    expect(prompt).toMatch(/formats:F0,F1,F2,F3,F4$/m);
+  });
+
   it("lists no formats without a profile", () => {
     const prompt = buildAiPickPrompt(
       { title: "Movie", year: 2024, type: "movie" },

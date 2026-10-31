@@ -154,6 +154,7 @@ export const aiPickBodySchema = z.object({
       seeders: nullableNumber,
       score: nullableNumber,
       indexer: z.string().nullable().optional(),
+      freeleech: z.boolean().optional(),
     }),
   ),
 });

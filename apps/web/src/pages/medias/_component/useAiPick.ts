@@ -92,6 +92,7 @@ export function useAiPick(params: UseAiPickParams) {
             seeders: r.seeders ?? null,
             score: r.quality_score ?? null,
             indexer: r.indexer ?? null,
+            freeleech: r.freeleech ?? false,
             rejected: r.rejected,
           })),
         },
