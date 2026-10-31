@@ -310,6 +310,11 @@ describe("source ranking spread", () => {
     expect(new Set(scores).size).toBe(scores.length);
   });
 
+  test("a scene WEB release ranks as WEB-DL, and WEBRip does not", () => {
+    expect(sourceScore("WEB")).toBe(sourceScore("WEB-DL"));
+    expect(sourceScore("WEBRip")).toBeLessThan(sourceScore("WEB"));
+  });
+
   test("reordering the profile flips which source wins", () => {
     const webFirst: QualityProfileScoreInput = {
       ...baseProfile,
