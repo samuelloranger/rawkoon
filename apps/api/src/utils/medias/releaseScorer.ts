@@ -122,6 +122,34 @@ function languagePreferenceScore(title: string, preferred: string[]): number {
   return indexScore(idx, 300);
 }
 
+const rankOf = (index: number): number | null => (index < 0 ? null : index + 1);
+
+/** 1-based position of a release in each of the profile's ranked lists (null when unlisted), matched exactly as scoring matches them. */
+export function profileRanks(
+  rawTitle: string,
+  parsed: ParsedRelease,
+  profile: QualityProfileScoreInput,
+): { language: number | null; source: number | null; codec: number | null } {
+  const flags = new Set(parseAudioFlags(rawTitle).map((f) => f.toLowerCase()));
+  return {
+    language: rankOf(
+      profile.preferredLanguages.findIndex((p) =>
+        flags.has(p.trim().toLowerCase()),
+      ),
+    ),
+    source: rankOf(
+      profile.preferredSources.findIndex((p) =>
+        parsedSourceMatchesPreferred(parsed.source, p),
+      ),
+    ),
+    codec: rankOf(
+      profile.preferredCodecs.findIndex((p) =>
+        parsed.codec ? codecMatches(p, parsed.codec) : false,
+      ),
+    ),
+  };
+}
+
 export function scoreReleaseDetailed(
   ctx: ReleaseEvalContext,
   profile: QualityProfileScoreInput,

@@ -2,9 +2,13 @@ import { formatMatches } from "@rawkoon/api/utils/medias/customFormatEvaluator";
 import type { AssignedCustomFormat } from "@rawkoon/api/utils/medias/customFormatTypes";
 import {
   parseAudioFlags,
+  parseReleaseSeasonEpisode,
   parseReleaseTitle,
 } from "@rawkoon/api/utils/medias/filenameParser";
-import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
+import {
+  profileRanks,
+  type QualityProfileScoreInput,
+} from "@rawkoon/api/utils/medias/releaseScorer";
 
 export interface AiPickRelease {
   key: string;
@@ -46,10 +50,11 @@ export const AI_SYSTEM_PROMPT =
   "You are a media release selection assistant for a homelab. " +
   "Given a list of releases, pick the single best one. " +
   "Each release lists traits parsed from its name; trust them over your own reading of the title. " +
+  "A (#N) after a trait is its position in the user's ranked list for that trait: #1 is the first choice, a lower number always beats a higher one, and (-) means not in the list. " +
   "Choose in this order: " +
-  "(1) discard releases that do not match the target season/episode when one is given, and low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
-  "(2) when preferred audio languages are given, prefer releases tagged with them (earlier is better) over untagged ones; " +
-  "(3) when a profile is given, follow it: higher resolution up to its cutoff, then its source and codec order (earlier is better), then HDR if preferred, then releases matching liked formats over disliked ones; " +
+  "(1) discard releases marked WRONG-EPISODE and low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
+  "(2) the audio rank outranks every quality trait: the lowest audio (#N) wins even if its source or codec is worse, and any (#N) beats (-); " +
+  "(3) only between releases with the same audio rank: higher resolution up to the cutoff, then the lowest src (#N), then the lowest codec (#N), then HDR if preferred, then releases matching liked formats over disliked ones; " +
   "if the profile says trackers outrank quality, prefer the earliest listed tracker first; " +
   "(4) without a profile, prefer higher resolution and a WEB or BluRay source; " +
   "(5) between releases of the same quality, prefer a PROPER/REPACK, then more seeders; " +
@@ -106,12 +111,31 @@ function profileLines(profile: QualityProfileScoreInput): string[] {
   ].filter((l) => l != null);
 }
 
-function releaseTraits(
-  r: AiPickRelease,
-  profile: QualityProfileScoreInput | null | undefined,
-): string {
+const ranked = (
+  trait: string,
+  rank: number | null,
+  list: string[] | undefined,
+): string =>
+  list?.length ? `${trait}(${rank != null ? `#${rank}` : "-"})` : trait;
+
+/** Small models skip the target rule when a wrong episode is otherwise the best release, so mismatches are named in code. */
+function episodeTrait(title: string, media: AiPickMediaContext): string | null {
+  if (media.season == null) return null;
+  const parsed = parseReleaseSeasonEpisode(title);
+  if (!parsed) return null;
+  const wrong =
+    parsed.season !== media.season ||
+    (media.episode != null &&
+      parsed.episode != null &&
+      parsed.episode !== media.episode);
+  return wrong ? "WRONG-EPISODE" : null;
+}
+
+function releaseTraits(r: AiPickRelease, media: AiPickMediaContext): string {
+  const { profile } = media;
   const parsed = parseReleaseTitle(r.title);
   const audio = parseAudioFlags(r.title);
+  const ranks = profile ? profileRanks(r.title, parsed, profile) : null;
   const formats = profile
     ? profile.customFormats
         .filter((f) =>
@@ -128,11 +152,24 @@ function releaseTraits(
         .slice(0, MAX_FORMAT_NAMES)
     : [];
   return [
+    episodeTrait(r.title, media),
     `res:${parsed.resolution != null ? `${parsed.resolution}p` : "?"}`,
-    `src:${parsed.source ?? "?"}`,
-    `codec:${parsed.codec ?? "?"}`,
+    ranked(
+      `src:${parsed.source ?? "?"}`,
+      ranks?.source ?? null,
+      profile?.preferredSources,
+    ),
+    ranked(
+      `codec:${parsed.codec ?? "?"}`,
+      ranks?.codec ?? null,
+      profile?.preferredCodecs,
+    ),
     parsed.hdr ? `hdr:${parsed.hdr}` : null,
-    `audio:${audio.length ? audio.join("+") : "untagged"}`,
+    ranked(
+      `audio:${audio.length ? audio.join("+") : "untagged"}`,
+      ranks?.language ?? null,
+      profile?.preferredLanguages,
+    ),
     parsed.isProper ? "proper" : null,
     r.indexer ? `tracker:${r.indexer}` : null,
     r.freeleech ? "freeleech" : null,
@@ -163,7 +200,7 @@ export function buildAiPickPrompt(
           : "unknown size";
       const seeders =
         r.seeders != null ? `${r.seeders} seeders` : "unknown seeders";
-      return `${i + 1}. key="${r.key}" | ${r.title} | ${size} | ${seeders} | ${releaseTraits(r, media.profile)}`;
+      return `${i + 1}. key="${r.key}" | ${r.title} | ${size} | ${seeders} | ${releaseTraits(r, media)}`;
     })
     .join("\n");
 

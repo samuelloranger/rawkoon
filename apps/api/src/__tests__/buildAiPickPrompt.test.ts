@@ -233,6 +233,60 @@ describe("buildAiPickPrompt release traits", () => {
     expect(prompt).toMatch(/formats:F0,F1,F2,F3,F4$/m);
   });
 
+  it("ranks audio, source and codec against the profile", () => {
+    const prompt = buildAiPickPrompt(
+      { title: "Movie", year: 2024, type: "movie", profile },
+      [
+        {
+          key: "a",
+          title: "Movie.2024.MULTi.VFF.1080p.WEBRip.x264-GROUP",
+          size_bytes: null,
+          seeders: 3,
+          score: null,
+        },
+        {
+          key: "b",
+          title: "Movie.2024.MULTi.VFQ.1080p.BluRay.x265-GROUP",
+          size_bytes: null,
+          seeders: 3,
+          score: null,
+        },
+      ],
+    );
+    const [lineA, lineB] = prompt.split("\n").filter((l) => l.includes("key="));
+    expect(lineA).toContain("src:WEBRip(#2)");
+    expect(lineA).toContain("codec:x264(-)");
+    expect(lineA).toContain("audio:MULTI+VFF(#2)");
+    expect(lineB).toContain("src:BluRay(#1)");
+    expect(lineB).toContain("codec:x265(#1)");
+    expect(lineB).toContain("audio:MULTI+VFQ(#1)");
+  });
+
+  it("flags releases for another episode or season", () => {
+    const prompt = buildAiPickPrompt(
+      { title: "Show", year: null, type: "tv", season: 1, episode: 5 },
+      [
+        "Show.S01E05.1080p.WEB",
+        "Show.S01E01.1080p.WEB",
+        "Show.S02E05.1080p.WEB",
+        "Show.S01.1080p.WEB",
+      ].map((title, i) => ({
+        key: `k${i}`,
+        title,
+        size_bytes: null,
+        seeders: 1,
+        score: null,
+      })),
+    );
+    const lines = prompt.split("\n").filter((l) => l.includes("key="));
+    expect(lines.map((l) => l.includes("WRONG-EPISODE"))).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
+  });
+
   it("lists no formats without a profile", () => {
     const prompt = buildAiPickPrompt(
       { title: "Movie", year: 2024, type: "movie" },
