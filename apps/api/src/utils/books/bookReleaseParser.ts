@@ -58,14 +58,15 @@ const normalize = (title: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-const LANGUAGE_PATTERNS: [RegExp, string][] = [
-  [/\b(?:fr|fre|fra|french|francais|français|vf|vff|multi-fr)\b/i, "fr"],
-  [/\b(?:en|eng|english)\b/i, "en"],
-  [/\b(?:es|spa|spanish|espanol|español)\b/i, "es"],
-  [/\b(?:de|ger|deu|german|allemand)\b/i, "de"],
-  [/\b(?:it|ita|italian)\b/i, "it"],
-  [/\b(?:pt|por|portuguese)\b/i, "pt"],
-  [/\b(?:nl|dut|nld|dutch)\b/i, "nl"],
+// en, es, de and it are also words in titles ("Les Secrets de…"), so bare they count only in capitals, the way tags are written.
+const LANGUAGE_PATTERNS: [RegExp[], string][] = [
+  [[/\b(?:fr|fre|fra|french|francais|français|vf|vff|multi-fr)\b/i], "fr"],
+  [[/\b(?:eng|english)\b/i, /\bEN\b/], "en"],
+  [[/\b(?:spa|spanish|espanol|español)\b/i, /\bES\b/], "es"],
+  [[/\b(?:ger|deu|german|allemand)\b/i, /\bDE\b/], "de"],
+  [[/\b(?:ita|italian)\b/i, /\bIT\b/], "it"],
+  [[/\b(?:pt|por|portuguese)\b/i], "pt"],
+  [[/\b(?:nl|dut|nld|dutch)\b/i], "nl"],
 ];
 
 /**
@@ -133,8 +134,8 @@ const parseLanguage = (normalized: string): string | null => {
   // Strip bracketed format/bitrate blocks first: `[MP3 à 64 kb/s]` contains no
   // language, but a bare `a` or `s` could otherwise trip a short pattern.
   const stripped = normalized.replace(/\[[^\]]*\]/g, " ");
-  for (const [re, code] of LANGUAGE_PATTERNS) {
-    if (re.test(stripped)) return code;
+  for (const [patterns, code] of LANGUAGE_PATTERNS) {
+    if (patterns.some((re) => re.test(stripped))) return code;
   }
   return null;
 };
