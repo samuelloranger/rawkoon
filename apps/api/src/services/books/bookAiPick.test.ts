@@ -168,6 +168,8 @@ describe("buildAiBookPickPrompt", () => {
     expect(prompt).toContain("Trackers: TrackerA (outrank quality)");
     expect(prompt).toContain("retail");
     expect(prompt).toContain("tracker:TrackerA");
+    expect(prompt).toContain("format:m4b(#1)");
+    expect(prompt).toContain("language:fr(#1)");
     expect(prompt).not.toContain("score");
     expect(prompt).not.toContain("4321");
   });
