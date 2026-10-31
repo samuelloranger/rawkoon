@@ -121,6 +121,7 @@ export async function pollIndexerRssBooks(
         kind: ctx.kind,
         language: c.language,
         audioBitrate: c.audioBitrate,
+        indexer: c.release.indexer,
       }),
     );
     const url = best.url;
