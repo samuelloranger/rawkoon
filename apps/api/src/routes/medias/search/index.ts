@@ -12,6 +12,7 @@ import type {
   LanguageFallbackSummary,
 } from "@rawkoon/shared/types";
 import { profileToScoreInput } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
+import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
 import {
   applyQualityProfileToReleases,
   findEpisodeMediaId,
@@ -152,6 +153,8 @@ export const aiPickBodySchema = z.object({
       size_bytes: nullableNumber,
       seeders: nullableNumber,
       score: nullableNumber,
+      indexer: z.string().nullable().optional(),
+      freeleech: z.boolean().optional(),
     }),
   ),
 });
@@ -182,30 +185,23 @@ export async function handleAiPick(
       : tooManyRequests("AI daily budget reached");
   }
 
-  // Languages come from the media's own profile, as in the automatic grab.
-  let preferredLanguages: string[] = [];
+  // Preferences come from the media's own profile, as in the automatic grab.
+  let profile: QualityProfileScoreInput | null = null;
   if (body.media_id != null) {
     try {
       const media = await findMediaWithQualityProfile(body.media_id);
       if (media?.qualityProfile) {
-        preferredLanguages = profileToScoreInput(
-          media.qualityProfile,
-        ).preferredLanguages;
+        profile = profileToScoreInput(media.qualityProfile);
       }
     } catch (error) {
-      // A suggestion without language hints beats failing the whole pick.
+      // A suggestion without profile hints beats failing the whole pick.
       console.warn("[ai-pick] profile lookup failed:", error);
     }
   }
 
   const result = await pickReleaseWithAi(
     config,
-    {
-      ...body.media_context,
-      ...(preferredLanguages.length > 0
-        ? { preferred_languages: preferredLanguages }
-        : {}),
-    },
+    { ...body.media_context, profile },
     body.releases,
     ctx,
   );

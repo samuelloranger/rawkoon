@@ -358,12 +358,7 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     const best = await pickReleaseForGrab({
       candidates,
       profile: profileInput,
-      mediaContext: profileInput?.preferredLanguages.length
-        ? {
-            ...mediaContext,
-            preferred_languages: profileInput.preferredLanguages,
-          }
-        : mediaContext,
+      mediaContext: { ...mediaContext, profile: profileInput },
       aiConfig,
       feature: "release_pick_rss",
       trigger: "rss",
