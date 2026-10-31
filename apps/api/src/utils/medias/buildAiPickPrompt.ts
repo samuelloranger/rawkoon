@@ -1,17 +1,27 @@
+import { formatMatches } from "@rawkoon/api/utils/medias/customFormatEvaluator";
+import {
+  parseAudioFlags,
+  parseReleaseTitle,
+} from "@rawkoon/api/utils/medias/filenameParser";
+import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
+
 export interface AiPickRelease {
   key: string;
   title: string;
   size_bytes: number | null;
   seeders: number | null;
+  /** Classic score; only orders the shortlist, never shown to the model. */
   score: number | null;
+  indexer?: string | null;
+  freeleech?: boolean;
 }
 
 export interface AiPickMediaContext {
   title: string;
   year: number | null;
   type: string;
-  /** Profile tags as release titles spell them (VFQ, VFF, TRUEFRENCH, MULTI, fr), best first. */
-  preferred_languages?: string[];
+  /** The media's quality profile, sent as preferences in place of the classic score. */
+  profile?: QualityProfileScoreInput | null;
   season?: number | null;
   episode?: number | null;
 }
@@ -25,29 +35,101 @@ function targetLabel(season?: number | null, episode?: number | null) {
 }
 
 /**
- * Shared by both callers: the RSS auto-grab, where a quality profile scores
- * every candidate, and interactive search, where releases arrive unscored
- * unless the search was launched from a media page. The unscored branch is
- * load-bearing — without it the model is told to rank on a signal that is
- * absent and forbidden from using the only one it has, so it disobeys to
- * answer at all.
- *
- * Undownloadable releases are filtered in code before this is sent, so the
- * prompt no longer mentions them.
+ * Shared by the RSS auto-grab, the add-time search and interactive search.
+ * The model judges each release's parsed traits against the user's profile
+ * rather than reading the classic score, which reduced it to a seeder
+ * tie-breaker. The grab paths enforce hard profile rules (minimum resolution,
+ * size cap, required formats) in code before this is sent.
  */
 export const AI_SYSTEM_PROMPT =
   "You are a media release selection assistant for a homelab. " +
   "Given a list of releases, pick the single best one. " +
-  "`score` is the app's quality rating derived from the user's resolution, format, and size preferences (higher is better). " +
+  "Each release lists traits parsed from its name; trust them over your own reading of the title. " +
   "Choose in this order: " +
   "(1) discard releases that do not match the target season/episode when one is given, and low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
-  "when preferred audio languages are given, prefer releases tagged with them (earlier is better) over untagged ones; " +
-  "(2) among those remaining, pick the highest score, and do not second-guess a score from the title; " +
-  "(3) if every release is unscored, rank by seeders, preferring a higher resolution and a non-capture source; " +
-  "(4) break ties by seeders. " +
+  "(2) when preferred audio languages are given, prefer releases tagged with them (earlier is better) over untagged ones; " +
+  "(3) when a profile is given, follow it: higher resolution up to its cutoff, then its source and codec order (earlier is better), then HDR if preferred, then releases matching liked formats over disliked ones; " +
+  "if the profile says trackers outrank quality, prefer the earliest listed tracker first; " +
+  "(4) without a profile, prefer higher resolution and a WEB or BluRay source; " +
+  "(5) between releases of the same quality, prefer the smaller file, a PROPER/REPACK, then more seeders; " +
+  "avoid a release with very few seeders when a comparable one is well seeded. " +
   "release_key MUST be exactly one of the provided keys — never invent one. " +
   'Respond ONLY with valid JSON matching: { "release_key": string, "reasoning": string }. ' +
-  "In reasoning, cite the deciding factors (e.g. score and seeders), under 150 characters.";
+  "In reasoning, cite the deciding traits (e.g. language, resolution, source, size), under 150 characters.";
+
+const ordered = (values: string[]) => values.join(" > ");
+
+function profileLines(profile: QualityProfileScoreInput): string[] {
+  const { minResolution: min, cutoffResolution: cutoff } = profile;
+  const res =
+    cutoff == null
+      ? `${min}p+`
+      : cutoff === min
+        ? `${min}p only`
+        : `${min}p-${cutoff}p`;
+  const liked = profile.customFormats.filter((f) => f.score > 0);
+  const disliked = profile.customFormats.filter((f) => f.score < 0);
+  return [
+    profile.preferredLanguages.length
+      ? `Preferred audio languages: ${profile.preferredLanguages.join(", ")}`
+      : null,
+    `Resolution: ${res}`,
+    profile.preferredSources.length
+      ? `Sources: ${ordered(profile.preferredSources)}`
+      : null,
+    profile.preferredCodecs.length
+      ? `Codecs: ${ordered(profile.preferredCodecs)}`
+      : null,
+    profile.preferHdr ? "HDR: preferred" : null,
+    profile.maxSizeGb != null ? `Size cap: ${profile.maxSizeGb} GB` : null,
+    profile.prioritizedTrackers.length
+      ? `Trackers: ${ordered(profile.prioritizedTrackers)}${
+          profile.preferTrackerOverQuality ? " (outrank quality)" : ""
+        }`
+      : null,
+    liked.length
+      ? `Liked formats: ${liked.map((f) => f.name).join(", ")}`
+      : null,
+    disliked.length
+      ? `Disliked formats: ${disliked.map((f) => f.name).join(", ")}`
+      : null,
+  ].filter((l) => l != null);
+}
+
+function releaseTraits(
+  r: AiPickRelease,
+  profile: QualityProfileScoreInput | null | undefined,
+): string {
+  const parsed = parseReleaseTitle(r.title);
+  const audio = parseAudioFlags(r.title);
+  const formats = profile
+    ? profile.customFormats
+        .filter((f) =>
+          formatMatches(f, {
+            parsed,
+            rawTitle: r.title,
+            sizeBytes: r.size_bytes,
+            indexerName: r.indexer ?? null,
+            seeders: r.seeders,
+            freeleech: r.freeleech ?? false,
+          }),
+        )
+        .map((f) => f.name)
+    : [];
+  return [
+    `res:${parsed.resolution != null ? `${parsed.resolution}p` : "?"}`,
+    `src:${parsed.source ?? "?"}`,
+    `codec:${parsed.codec ?? "?"}`,
+    parsed.hdr ? `hdr:${parsed.hdr}` : null,
+    `audio:${audio.length ? audio.join("+") : "untagged"}`,
+    parsed.isProper ? "proper" : null,
+    r.indexer ? `tracker:${r.indexer}` : null,
+    r.freeleech ? "freeleech" : null,
+    formats.length ? `formats:${formats.join(",")}` : null,
+  ]
+    .filter((t) => t != null)
+    .join(" ");
+}
 
 export function buildAiPickPrompt(
   media: AiPickMediaContext,
@@ -57,9 +139,7 @@ export function buildAiPickPrompt(
   const header = [
     `Media: ${media.title}${media.year ? ` (${media.year})` : ""} [${media.type}]`,
     target ? `Target: ${target}` : null,
-    media.preferred_languages?.length
-      ? `Preferred audio languages: ${media.preferred_languages.join(", ")}`
-      : null,
+    ...(media.profile ? profileLines(media.profile) : []),
   ]
     .filter((l) => l != null)
     .join("\n");
@@ -72,8 +152,7 @@ export function buildAiPickPrompt(
           : "unknown size";
       const seeders =
         r.seeders != null ? `${r.seeders} seeders` : "unknown seeders";
-      const score = r.score != null ? `score:${r.score}` : "unscored";
-      return `${i + 1}. key="${r.key}" | ${r.title} | ${size} | ${seeders} | ${score}`;
+      return `${i + 1}. key="${r.key}" | ${r.title} | ${size} | ${seeders} | ${releaseTraits(r, media.profile)}`;
     })
     .join("\n");
 

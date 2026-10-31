@@ -26,6 +26,8 @@ function toAiPickReleases(scored: ScoredRelease[]) {
     size_bytes: release.sizeBytes,
     seeders: release.seeders,
     score,
+    indexer: release.indexer,
+    freeleech: release.freeleech,
   }));
 }
 

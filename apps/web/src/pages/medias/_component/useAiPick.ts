@@ -91,6 +91,7 @@ export function useAiPick(params: UseAiPickParams) {
             size_bytes: r.size_bytes ?? null,
             seeders: r.seeders ?? null,
             score: r.quality_score ?? null,
+            indexer: r.indexer ?? null,
             rejected: r.rejected,
           })),
         },

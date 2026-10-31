@@ -33,7 +33,7 @@ export async function pickAiRow(opts: {
       title: media?.title ?? "",
       year: media?.year ?? null,
       type: media?.type ?? opts.mediaType,
-      preferred_languages: profileInput?.preferredLanguages,
+      profile: profileInput,
       season: opts.season,
       episode: opts.episode,
     },
@@ -44,6 +44,8 @@ export async function pickAiRow(opts: {
       size_bytes: r.size,
       seeders: r.seeders,
       score: profileInput ? r.score : null,
+      indexer: r.release?.indexer ?? null,
+      freeleech: r.release?.freeleech ?? false,
     })),
     {
       feature: "release_pick_search",
