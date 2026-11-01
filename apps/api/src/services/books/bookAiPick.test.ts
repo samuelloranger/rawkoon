@@ -34,7 +34,17 @@ const edition = {
   bookLanguage: "fr",
   seriesName: "Chronique du tueur de roi",
   seriesPosition: 1,
-  profile: {} as never,
+  profile: {
+    allowedFormats: ["m4b", "mp3"],
+    cutoffFormat: null,
+    preferRetail: true,
+    maxSizeMb: 2000,
+    minSeeders: 0,
+    minAudioBitrate: null,
+    preferredLanguages: ["fr"],
+    prioritizedTrackers: ["TrackerA"],
+    preferTrackerOverQuality: false,
+  },
 };
 
 const releases = [
@@ -51,6 +61,7 @@ const describe_ = (r: (typeof releases)[number]) => ({
   kind: "audiobook",
   language: "fr",
   audioBitrate: 64,
+  indexer: "TrackerA",
 });
 
 const realFetch = globalThis.fetch;
@@ -122,6 +133,61 @@ describe("buildAiBookPickPrompt", () => {
     expect(prompt).toContain("Wanted: audiobook");
     expect(prompt).toContain("Language: fr");
     expect(prompt).toContain("bitrate:64kbps");
+  });
+
+  it("lists the profile's preferences and never the classic score", () => {
+    const prompt = buildAiBookPickPrompt(
+      {
+        title: "T",
+        authors: ["A"],
+        kind: "audiobook",
+        language: "fr",
+        seriesName: null,
+        seriesPosition: null,
+        profile: { ...edition.profile, preferTrackerOverQuality: true },
+      },
+      [
+        {
+          key: "r0",
+          title: "A - T (2024) [RETAIL] M4B",
+          size_bytes: 1e9,
+          seeders: 3,
+          score: 4321,
+          format: "m4b",
+          kind: "audiobook",
+          language: "fr",
+          audio_bitrate: null,
+          indexer: "TrackerA",
+        },
+      ],
+    );
+    expect(prompt).toContain("Formats: m4b > mp3");
+    expect(prompt).toContain("Retail: preferred");
+    expect(prompt).toContain("Preferred languages: fr");
+    expect(prompt).toContain("Size cap: 2000 MB");
+    expect(prompt).toContain("Trackers: TrackerA (outrank quality)");
+    expect(prompt).toContain("retail");
+    expect(prompt).toContain("tracker:TrackerA");
+    expect(prompt).toContain("format:m4b(#1)");
+    expect(prompt).toContain("language:fr(#1)");
+    expect(prompt).not.toContain("score");
+    expect(prompt).not.toContain("4321");
+  });
+
+  it("omits profile lines without a profile", () => {
+    const prompt = buildAiBookPickPrompt(
+      {
+        title: "T",
+        authors: ["A"],
+        kind: "ebook",
+        language: "en",
+        seriesName: null,
+        seriesPosition: null,
+      },
+      [],
+    );
+    expect(prompt).not.toContain("Formats:");
+    expect(prompt).not.toContain("Trackers:");
   });
 });
 
