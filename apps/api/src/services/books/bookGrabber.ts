@@ -379,6 +379,7 @@ export function describeBookRelease(r: BookRelease): BookPickCandidate {
     kind: r.kind,
     language: r.language,
     audioBitrate: r.audio_bitrate,
+    indexer: r.indexer,
   };
 }
 

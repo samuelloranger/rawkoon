@@ -75,8 +75,9 @@ const SOURCE_ACCEPTS: Record<string, string[]> = {
   bluray: DISC_SOURCES,
   "blu-ray": DISC_SOURCES,
   hdlight: ["hdlight"],
-  "web-dl": ["web-dl", "webdl"],
-  webdl: ["web-dl", "webdl"],
+  // Scene rules spell an untouched stream plain "WEB"; it is a WEB-DL, never a WEBRip.
+  "web-dl": ["web-dl", "webdl", "web"],
+  webdl: ["web-dl", "webdl", "web"],
   webrip: ["webrip", "hdrip"],
   hdrip: ["hdrip"],
   web: WEB_SOURCES,
@@ -120,6 +121,34 @@ function languagePreferenceScore(title: string, preferred: string[]): number {
   const flags = new Set(parseAudioFlags(title).map((f) => f.toLowerCase()));
   const idx = preferred.findIndex((p) => flags.has(p.trim().toLowerCase()));
   return indexScore(idx, 300);
+}
+
+const rankOf = (index: number): number | null => (index < 0 ? null : index + 1);
+
+/** 1-based position of a release in each of the profile's ranked lists (null when unlisted), matched exactly as scoring matches them. */
+export function profileRanks(
+  rawTitle: string,
+  parsed: ParsedRelease,
+  profile: QualityProfileScoreInput,
+): { language: number | null; source: number | null; codec: number | null } {
+  const flags = new Set(parseAudioFlags(rawTitle).map((f) => f.toLowerCase()));
+  return {
+    language: rankOf(
+      profile.preferredLanguages.findIndex((p) =>
+        flags.has(p.trim().toLowerCase()),
+      ),
+    ),
+    source: rankOf(
+      profile.preferredSources.findIndex((p) =>
+        parsedSourceMatchesPreferred(parsed.source, p),
+      ),
+    ),
+    codec: rankOf(
+      profile.preferredCodecs.findIndex((p) =>
+        parsed.codec ? codecMatches(p, parsed.codec) : false,
+      ),
+    ),
+  };
 }
 
 export function scoreReleaseDetailed(

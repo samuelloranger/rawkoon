@@ -15,6 +15,7 @@ export type BookPickCandidate = {
   kind: string | null;
   language: string | null;
   audioBitrate: number | null;
+  indexer: string | null;
 };
 
 /**
@@ -54,6 +55,7 @@ export async function pickBookCandidate<T>(
         language: edition.bookLanguage,
         seriesName: edition.seriesName,
         seriesPosition: edition.seriesPosition,
+        profile: edition.profile,
       },
       // Index keys: two results can share a download URL under different titles.
       allowed.map((i) => {
@@ -68,6 +70,7 @@ export async function pickBookCandidate<T>(
           kind: c.kind,
           language: c.language,
           audio_bitrate: c.audioBitrate,
+          indexer: c.indexer,
         };
       }),
       {
