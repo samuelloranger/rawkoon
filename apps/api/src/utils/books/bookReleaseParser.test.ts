@@ -166,3 +166,25 @@ describe("kindForFormat", () => {
     expect(kindForFormat(format)).toBe(kind);
   });
 });
+
+describe("parseBookReleaseTitle — two-letter codes that are also words", () => {
+  test.each([
+    "Camille Rousseau - Les Secrets de la Serre [2024] [mp3 à 64 Kb/s]",
+    "Camille Rousseau - La Serre en hiver - 2024 [EPUB]",
+    "Camille Rousseau - It Was the Serre - 2024 [EPUB]",
+    "Camille Rousseau - Es la Serre - 2024 [EPUB]",
+  ])("a word in the title is not a language tag: %s", (title) => {
+    expect(parseBookReleaseTitle(title).language).toBeNull();
+  });
+
+  test.each([
+    ["Die.Serre.Camille.Rousseau.2024.DE.[EPUB]", "de"],
+    ["The.Serre.Camille.Rousseau.2024.EN.[EPUB]", "en"],
+    ["La.Serre.Camille.Rousseau.2024.IT.[EPUB]", "it"],
+    ["La.Serre.Camille.Rousseau.2024.ES.[EPUB]", "es"],
+    ["Die Serre - Camille Rousseau - 2024 German [EPUB]", "de"],
+    ["The Serre - Camille Rousseau - 2024 english [EPUB]", "en"],
+  ])("a capitalised code or a language name is a tag: %s", (title, code) => {
+    expect(parseBookReleaseTitle(title).language).toBe(code);
+  });
+});
