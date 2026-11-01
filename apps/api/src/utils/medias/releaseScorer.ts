@@ -75,8 +75,9 @@ const SOURCE_ACCEPTS: Record<string, string[]> = {
   bluray: DISC_SOURCES,
   "blu-ray": DISC_SOURCES,
   hdlight: ["hdlight"],
-  "web-dl": ["web-dl", "webdl"],
-  webdl: ["web-dl", "webdl"],
+  // Scene rules spell an untouched stream plain "WEB"; it is a WEB-DL, never a WEBRip.
+  "web-dl": ["web-dl", "webdl", "web"],
+  webdl: ["web-dl", "webdl", "web"],
   webrip: ["webrip", "hdrip"],
   hdrip: ["hdrip"],
   web: WEB_SOURCES,

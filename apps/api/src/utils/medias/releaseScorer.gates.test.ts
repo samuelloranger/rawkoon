@@ -3,6 +3,7 @@ import type {
   AssignedCustomFormat,
   ReleaseEvalContext,
 } from "@rawkoon/api/utils/medias/customFormatTypes";
+import { parseReleaseTitle } from "@rawkoon/api/utils/medias/filenameParser";
 import {
   scoreRelease,
   scoreReleaseDetailed,
@@ -308,6 +309,22 @@ describe("source ranking spread", () => {
     );
     expect(scores).toEqual([800, 600, 400, 200, 0]);
     expect(new Set(scores).size).toBe(scores.length);
+  });
+
+  test("a scene WEB release ranks as WEB-DL, and WEBRip does not", () => {
+    expect(sourceScore("WEB")).toBe(sourceScore("WEB-DL"));
+    expect(sourceScore("WEBRip")).toBeLessThan(sourceScore("WEB"));
+  });
+
+  test("a real scene WEB title outranks a WEBRip when WEB-DL is preferred", () => {
+    const titleScore = (title: string) =>
+      sourceScore(parseReleaseTitle(title).source ?? "");
+    expect(titleScore("Movie.2024.1080p.WEB.H264-GRP")).toBe(
+      titleScore("Movie.2024.1080p.WEB-DL.H264-GRP"),
+    );
+    expect(titleScore("Movie.2024.1080p.WEBRip.x264-GRP")).toBeLessThan(
+      titleScore("Movie.2024.1080p.WEB.H264-GRP"),
+    );
   });
 
   test("reordering the profile flips which source wins", () => {
