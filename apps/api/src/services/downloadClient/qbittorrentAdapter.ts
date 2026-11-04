@@ -55,6 +55,25 @@ export function qbRawToNormalized(
   };
 }
 
+/** Reads the sync server_state; null when the client can reach peers or the fields are missing. */
+export function qbNetworkProblem(
+  serverState: Record<string, unknown>,
+): string | null {
+  const status = serverState.connection_status;
+  if (status === "disconnected") return "download client is disconnected";
+  // Firewalled alone is normal without a forwarded port; with no DHT node and no
+  // external address the client has reached nothing, e.g. it started before its VPN tunnel.
+  if (
+    status === "firewalled" &&
+    serverState.dht_nodes === 0 &&
+    serverState.last_external_address_v4 === "" &&
+    (serverState.last_external_address_v6 ?? "") === ""
+  ) {
+    return "download client cannot reach any peer";
+  }
+  return null;
+}
+
 export function createQbittorrentAdapter(
   config: QbittorrentIntegrationConfig,
   deps?: { maindata?: MaindataDeps },
@@ -109,6 +128,11 @@ export function createQbittorrentAdapter(
     async listTorrents() {
       const { torrents } = await fetchMaindata(config, deps?.maindata);
       return [...torrents].map(([hash, raw]) => qbRawToNormalized(hash, raw));
+    },
+
+    async networkProblem() {
+      const { serverState } = await fetchMaindata(config, deps?.maindata);
+      return qbNetworkProblem(serverState);
     },
 
     async getTorrent(hash: string) {

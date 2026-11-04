@@ -8,6 +8,7 @@ struct NotificationDestinationTests {
         #expect(NotificationDestination.resolve(url: "/settings/reencode") == .reencode)
         #expect(NotificationDestination.resolve(url: "/settings/alerts") == .alerts)
         #expect(NotificationDestination.resolve(url: "/settings/updates") == .updates)
+        #expect(NotificationDestination.resolve(url: "/settings/connections") == .downloadClient)
     }
 
     @Test func legacySettingsTabsStillRoute() {

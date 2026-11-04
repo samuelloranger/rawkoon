@@ -29,6 +29,8 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
     case alerts
     /// `/settings/updates` (app updates).
     case updates
+    /// `/settings/connections` (download client offline).
+    case downloadClient
 
     var id: String {
         switch self {
@@ -50,6 +52,8 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
             "alerts"
         case .updates:
             "updates"
+        case .downloadClient:
+            "download-client"
         }
     }
 
@@ -62,14 +66,23 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
         case let .media(libraryId, season, episode, focusManagement)?:
             .media(libraryId: libraryId, season: season, episode: episode, focusManagement: focusManagement)
         case let .book(bookId)?: .book(bookId: bookId)
-        case .requests?: .requests
-        case .inbox?: .inbox
         case let .calendar(date)?: .calendar(date: date)
-        case .watchlist?: .watchlist
-        case .reencode?: .reencode
-        case .alerts?: .alerts
-        case .updates?: .updates
+        case let route?: page(route)
         case nil: nil
+        }
+    }
+
+    /// The routes without parameters, which map one to one.
+    private static func page(_ route: NotificationRoute) -> NotificationDestination? {
+        switch route {
+        case .requests: .requests
+        case .inbox: .inbox
+        case .watchlist: .watchlist
+        case .reencode: .reencode
+        case .alerts: .alerts
+        case .updates: .updates
+        case .downloadClient: .downloadClient
+        case .media, .book, .calendar: nil
         }
     }
 

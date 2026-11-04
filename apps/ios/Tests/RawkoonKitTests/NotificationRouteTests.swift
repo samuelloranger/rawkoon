@@ -33,6 +33,7 @@ final class NotificationRouteTests: XCTestCase {
         XCTAssertEqual(NotificationRoute.parse("/settings/reencode"), .reencode)
         XCTAssertEqual(NotificationRoute.parse("/settings/alerts"), .alerts)
         XCTAssertEqual(NotificationRoute.parse("/settings/updates"), .updates)
+        XCTAssertEqual(NotificationRoute.parse("/settings/connections"), .downloadClient)
     }
 
     func testInboxAndWatchlistPaths() {

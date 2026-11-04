@@ -4861,6 +4861,16 @@
         }
       }
     },
+    "Download client offline": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Client de téléchargement hors ligne"
+          }
+        }
+      }
+    },
     "Download client offline.": {
       "localizations": {
         "fr": {

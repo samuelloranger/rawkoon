@@ -612,6 +612,7 @@
         "library_failed": "Échec du téléchargement",
         "library_grab_skipped": "Recherche abandonnée",
         "library_attention": "À vérifier",
+        "download_client_offline": "Client de téléchargement hors ligne",
         "book_downloaded": "Téléchargement terminé",
         "book_grabbed": "Version récupérée (dans l’app, sans push)",
         "book_failed": "Échec de l'import",

@@ -169,6 +169,16 @@ const COPY = {
     en: (p) => String(p.detail),
     fr: (p) => String(p.detail),
   },
+  downloadClientOfflineTitle: {
+    en: () => "Download client offline",
+    fr: () => "Client de téléchargement hors ligne",
+  },
+  downloadClientOfflineBody: {
+    en: (p) =>
+      `${p.client} can't reach any peer. Downloads are on hold and no release gets blocklisted until it reconnects. Check its network or VPN.`,
+    fr: (p) =>
+      `${p.client} n'atteint aucun pair. Les téléchargements sont en attente et aucune version n'est bloquée avant son retour. Vérifiez son réseau ou son VPN.`,
+  },
   requestPendingTitle: {
     en: (p) => `${p.kind} requested`,
     fr: (p) => `${p.kind} demandé`,
@@ -336,6 +346,7 @@ export function preferenceKeyForNotificationType(
     library_post_process_failed: "library_failed",
     library_grab_skipped: "library_grab_skipped",
     library_attention: "library_attention",
+    download_client_offline: "download_client_offline",
     book_downloaded: "book_downloaded",
     book_grabbed: "book_grabbed",
     book_import_failed: "book_failed",

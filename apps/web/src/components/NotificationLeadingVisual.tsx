@@ -12,6 +12,7 @@ import {
   Settings,
   Leaf,
   Inbox,
+  WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NotificationType } from "@rawkoon/shared/types";
@@ -53,6 +54,7 @@ const typeConfig: Record<NotificationType, TypeStyle> = {
   library_post_process_failed: failStyle,
   library_grab_skipped: failStyle,
   library_attention: failStyle,
+  download_client_offline: { icon: <WifiOff size={16} />, bg: "bg-red-900/30" },
   library_transcode_finished: libraryStyle,
   library_transcode_failed: failStyle,
   book_grabbed: grabStyle,

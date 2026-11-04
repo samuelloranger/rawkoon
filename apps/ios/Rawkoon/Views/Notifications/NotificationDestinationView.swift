@@ -58,6 +58,8 @@ struct NotificationDestinationView: View {
             SettingsAlertsView()
         case .updates:
             ReleasesAdminView()
+        case .downloadClient:
+            DownloadClientEditView()
         case .requests, .inbox, .calendar, .watchlist:
             // Tab content: `navigate(toNotificationUrl:)` switches tabs instead of presenting these.
             EmptyView()
@@ -125,7 +127,7 @@ struct NotificationDestinationView: View {
                 bookItem = model.library.first { $0.bookId == bookId }
                 unreachable = bookItem == nil && model.isOffline
             }
-        case .requests, .inbox, .calendar, .watchlist, .reencode, .alerts, .updates:
+        case .requests, .inbox, .calendar, .watchlist, .reencode, .alerts, .updates, .downloadClient:
             break
         }
     }

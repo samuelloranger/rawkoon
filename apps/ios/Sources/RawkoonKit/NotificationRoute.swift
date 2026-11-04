@@ -25,6 +25,8 @@ public enum NotificationRoute: Equatable, Sendable {
     case alerts
     /// `/settings/updates`, or the old `/settings?tab=releases`.
     case updates
+    /// `/settings/connections`, where the download client is set up.
+    case downloadClient
 
     public static func parse(_ url: String?) -> NotificationRoute? {
         guard let url, !url.isEmpty, let components = URLComponents(string: url) else { return nil }
@@ -61,6 +63,7 @@ public enum NotificationRoute: Equatable, Sendable {
         case ("settings", "reencode"): .reencode
         case ("settings", "alerts"): .alerts
         case ("settings", "updates"): .updates
+        case ("settings", "connections"): .downloadClient
         default: nil
         }
     }

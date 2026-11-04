@@ -64,6 +64,12 @@ export interface DownloadClientAdapter {
   resume(hash: string): Promise<void>;
   remove(hash: string, deleteData: boolean): Promise<void>;
   /**
+   * Why the client cannot reach any peer right now, or null when it can. A stall
+   * during such an outage is the client's fault, not the release's. Absent on
+   * clients that do not report their connectivity.
+   */
+  networkProblem?(): Promise<string | null>;
+  /**
    * Take over a torrent the client already holds (an add answered "duplicate"):
    * make it ours (category/label) and report whether it has finished. Null when
    * the torrent is absent or could not be claimed. Absent on clients that do

@@ -5,6 +5,7 @@ export type NotificationPreferenceKey =
   | "library_failed"
   | "library_grab_skipped"
   | "library_attention"
+  | "download_client_offline"
   | "book_downloaded"
   | "book_grabbed"
   | "book_failed"
@@ -27,6 +28,7 @@ export const NOTIFICATION_PREFERENCE_KEYS: NotificationPreferenceKey[] = [
   "library_failed",
   "library_grab_skipped",
   "library_attention",
+  "download_client_offline",
   "book_downloaded",
   "book_grabbed",
   "book_failed",
