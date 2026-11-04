@@ -14,7 +14,7 @@ const pushRequestFields = z.object({
   title: z.string().min(1).max(120),
   body: z.string().min(1).max(400),
   collapseId: z.string().min(1).max(64).optional(),
-  data: z.record(z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Inferred from the fields, not the refined schema, so the size check below can
