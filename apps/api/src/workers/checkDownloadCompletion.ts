@@ -92,6 +92,8 @@ export async function reconcilePendingDownloads(
     /** File listing for the blocked-extension check; defaults to the active client. */
     listFiles?: (hash: string) => Promise<string[] | null>;
     blockedExtensions?: string[];
+    /** Why the client can't reach peers, or null; defaults to the active client. */
+    networkProblem?: () => Promise<string | null>;
   } = {},
 ): Promise<PendingReconcileResult> {
   const state = opts.state ?? pollState;
@@ -106,11 +108,13 @@ export async function reconcilePendingDownloads(
 
   let listTorrents = opts.listTorrents;
   let listFiles = opts.listFiles;
+  let networkProblem = opts.networkProblem;
   if (!listTorrents) {
     const active = await resolveActiveAdapter();
     if (!active) return result;
     listTorrents = () => active.adapter.listTorrents();
     listFiles ??= (hash) => active.adapter.listFiles(hash);
+    networkProblem ??= active.adapter.networkProblem?.bind(active.adapter);
   }
   const blocked = opts.blockedExtensions ?? [];
 
@@ -129,6 +133,27 @@ export async function reconcilePendingDownloads(
     maxAgeSecs: 604800,
   };
   const nowMs = Date.now();
+  const offline = networkProblem
+    ? await networkProblem().catch(() => null)
+    : null;
+  if (offline !== state.networkProblem) {
+    if (offline) {
+      console.warn(
+        `[reconcilePendingDownloads] ${offline}; holding stall verdicts until it recovers`,
+      );
+    } else {
+      console.info(
+        "[reconcilePendingDownloads] download client reachable again",
+      );
+    }
+    state.networkProblem = offline;
+  }
+  // No torrent can progress while the client is cut off, so the stall clock waits for it to recover.
+  if (offline) {
+    for (const track of state.stallTracks.values()) {
+      track.lastProgressAtMs = nowMs;
+    }
+  }
   const massStall = isMassStall(pending, torrents, state, nowMs, settings);
 
   for (let dh of pending) {
@@ -200,8 +225,8 @@ export async function reconcilePendingDownloads(
       }
 
       if (verdict.outcome === "fail") {
-        // Everything stalling together is a network outage, not a bad release.
-        if (verdict.failKind === "stalled" && !massStall) {
+        // Everything stalling together, or a client cut off from peers, is a network outage, not a bad release.
+        if (verdict.failKind === "stalled" && !massStall && !offline) {
           await outcome.rejectRelease(
             rejectable(dh),
             "stalled",
