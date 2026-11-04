@@ -5,9 +5,11 @@ import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/typ
 // release's fault: reconcile must neither blocklist it nor let the outage eat
 // its stall timeout.
 
-const { reconcilePendingDownloads, createReconcileState } = await import(
-  "@rawkoon/api/workers/checkDownloadCompletion"
-);
+const {
+  reconcilePendingDownloads,
+  createReconcileState,
+  OFFLINE_NOTIFY_AFTER_MS,
+} = await import("@rawkoon/api/workers/checkDownloadCompletion");
 
 const HASH = "b".repeat(40);
 const settings = { stallTimeoutSecs: 60, maxAgeSecs: 3600 };
@@ -82,6 +84,41 @@ describe("reconcilePendingDownloads with an offline client", () => {
     await reconcilePendingDownloads([row], opts);
     expect(rejected).toEqual([]);
     expect(failed).toEqual([]);
+  });
+
+  it("tells admins once, only after the outage outlasts the notify delay", async () => {
+    const state = createReconcileState();
+    let problem: string | null = "download client cannot reach any peer";
+    let notified = 0;
+    const opts = {
+      settings,
+      state,
+      listTorrents,
+      outcome,
+      networkProblem: () => Promise.resolve(problem),
+      notifyOffline: () => {
+        notified += 1;
+        return Promise.resolve();
+      },
+    };
+
+    await reconcilePendingDownloads([row], opts);
+    expect(notified).toBe(0);
+
+    state.offlineSinceMs = Date.now() - OFFLINE_NOTIFY_AFTER_MS - 1;
+    await reconcilePendingDownloads([row], opts);
+    await reconcilePendingDownloads([row], opts);
+    expect(notified).toBe(1);
+
+    // A later outage is a new one and gets its own notification.
+    problem = null;
+    await reconcilePendingDownloads([row], opts);
+    expect(state.offlineSinceMs).toBeNull();
+    problem = "download client is disconnected";
+    await reconcilePendingDownloads([row], opts);
+    state.offlineSinceMs = Date.now() - OFFLINE_NOTIFY_AFTER_MS - 1;
+    await reconcilePendingDownloads([row], opts);
+    expect(notified).toBe(2);
   });
 
   it("fails without blocklisting a release that hits max age while the client is offline", async () => {

@@ -112,8 +112,10 @@ export type ReconcileState = {
   knownPendingIds: Set<number>;
   /** Rows whose file list was already checked clean, so the client is asked once. */
   filesChecked: Set<number>;
-  /** The client's last reported network problem, so a change is logged once. */
-  networkProblem: string | null;
+  /** When the client was first seen unable to reach peers; null while it can. */
+  offlineSinceMs: number | null;
+  /** Whether admins were told about the current outage, so it is said once. */
+  offlineNotified: boolean;
 };
 
 export function createReconcileState(): ReconcileState {
@@ -124,7 +126,8 @@ export function createReconcileState(): ReconcileState {
     nextPollAtMs: 0,
     knownPendingIds: new Set(),
     filesChecked: new Set(),
-    networkProblem: null,
+    offlineSinceMs: null,
+    offlineNotified: false,
   };
 }
 

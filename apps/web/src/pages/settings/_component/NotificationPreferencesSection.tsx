@@ -7,6 +7,7 @@ import {
   Inbox,
   Sparkles,
   Upload,
+  WifiOff,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ export const NOTIFICATION_PREFERENCE_GROUPS: {
       library_failed: AlertTriangle,
       library_grab_skipped: AlertTriangle,
       library_attention: AlertTriangle,
+      download_client_offline: WifiOff,
     },
   },
   {

@@ -612,6 +612,7 @@
         "library_failed": "Download failed",
         "library_grab_skipped": "Search gave up",
         "library_attention": "Needs attention",
+        "download_client_offline": "Download client offline",
         "book_downloaded": "Download finished",
         "book_grabbed": "Release grabbed (in the app, no push)",
         "book_failed": "Import failed",

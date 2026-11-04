@@ -94,6 +94,8 @@ export async function reconcilePendingDownloads(
     blockedExtensions?: string[];
     /** Why the client can't reach peers, or null; defaults to the active client. */
     networkProblem?: () => Promise<string | null>;
+    /** Tells admins the client is offline; defaults to the active client's notifier. */
+    notifyOffline?: () => Promise<void>;
   } = {},
 ): Promise<PendingReconcileResult> {
   const state = opts.state ?? pollState;
@@ -109,12 +111,19 @@ export async function reconcilePendingDownloads(
   let listTorrents = opts.listTorrents;
   let listFiles = opts.listFiles;
   let networkProblem = opts.networkProblem;
+  let notifyOffline = opts.notifyOffline;
   if (!listTorrents) {
     const active = await resolveActiveAdapter();
     if (!active) return result;
     listTorrents = () => active.adapter.listTorrents();
     listFiles ??= (hash) => active.adapter.listFiles(hash);
     networkProblem ??= active.adapter.networkProblem?.bind(active.adapter);
+    notifyOffline ??= async () => {
+      const { notifyAdminsDownloadClientOffline } = await import(
+        "@rawkoon/api/workers/notifyDownloadClientOffline"
+      );
+      await notifyAdminsDownloadClientOffline(active.adapter.type);
+    };
   }
   const blocked = opts.blockedExtensions ?? [];
 
@@ -136,18 +145,7 @@ export async function reconcilePendingDownloads(
   const offline = networkProblem
     ? await networkProblem().catch(() => null)
     : null;
-  if (offline !== state.networkProblem) {
-    if (offline) {
-      console.warn(
-        `[reconcilePendingDownloads] ${offline}; holding stall verdicts until it recovers`,
-      );
-    } else {
-      console.info(
-        "[reconcilePendingDownloads] download client reachable again",
-      );
-    }
-    state.networkProblem = offline;
-  }
+  await trackClientNetwork(state, offline, nowMs, notifyOffline);
   // No torrent can progress while the client is cut off, so the stall clock waits for it to recover.
   if (offline) {
     for (const track of state.stallTracks.values()) {
@@ -258,6 +256,48 @@ export async function reconcilePendingDownloads(
   }
 
   return result;
+}
+
+/** A VPN reconnect clears within minutes; only an outage outlasting this is worth a notification. */
+export const OFFLINE_NOTIFY_AFTER_MS = 10 * 60 * 1000;
+
+/** Logs outage transitions and tells admins once per outage that outlasts OFFLINE_NOTIFY_AFTER_MS. */
+async function trackClientNetwork(
+  state: ReconcileState,
+  offline: string | null,
+  nowMs: number,
+  notifyOffline: (() => Promise<void>) | undefined,
+): Promise<void> {
+  if (!offline) {
+    if (state.offlineSinceMs !== null) {
+      console.info(
+        "[reconcilePendingDownloads] download client reachable again",
+      );
+    }
+    state.offlineSinceMs = null;
+    state.offlineNotified = false;
+    return;
+  }
+  if (state.offlineSinceMs === null) {
+    console.warn(
+      `[reconcilePendingDownloads] ${offline}; holding stall verdicts until it recovers`,
+    );
+    state.offlineSinceMs = nowMs;
+  }
+  if (
+    state.offlineNotified ||
+    !notifyOffline ||
+    nowMs - state.offlineSinceMs < OFFLINE_NOTIFY_AFTER_MS
+  ) {
+    return;
+  }
+  state.offlineNotified = true;
+  await notifyOffline().catch((error) => {
+    console.warn(
+      "[reconcilePendingDownloads] offline notification failed:",
+      error,
+    );
+  });
 }
 
 /** In-flight reconcile: overlapping triggers must coalesce, or two passes import the same download twice via the forced recovery branch. */

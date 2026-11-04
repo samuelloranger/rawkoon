@@ -5,6 +5,7 @@ struct NotificationsSettingsView: View {
 
     private static let allKeys: [String] = [
         "library_downloaded", "library_grabbed", "library_failed", "library_grab_skipped", "library_attention",
+        "download_client_offline",
         "book_downloaded", "book_grabbed", "book_failed", "book_search_skipped", "book_author_releases",
         "request_pending", "request_decided", "request_available",
         "movie_release_reminder", "app_update", "github_release",
@@ -24,6 +25,7 @@ struct NotificationsSettingsView: View {
         Row(key: "library_failed", label: "Download failed"),
         Row(key: "library_grab_skipped", label: "Search gave up"),
         Row(key: "library_attention", label: "Needs attention"),
+        Row(key: "download_client_offline", label: "Download client offline"),
     ]
 
     private let bookRows: [Row] = [
