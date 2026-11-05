@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -133,6 +133,7 @@ export function MediaPostProcessingSettingsBody({
   type MediaSettingsFormValues = z.infer<typeof mediaSettingsSchema>;
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors },
@@ -268,16 +269,24 @@ export function MediaPostProcessingSettingsBody({
             >
               {t("settings.mediaLibrary.fileOperation")}
             </label>
-            <select
-              id="media-post-processing-settings-body-file-operation"
-              {...register("fileOperation")}
-              className={SELECT_CLASS}
-            >
-              <option value="hardlink">
-                {t("settings.mediaLibrary.hardlink")}
-              </option>
-              <option value="move">{t("settings.mediaLibrary.move")}</option>
-            </select>
+            <Controller
+              control={control}
+              name="fileOperation"
+              render={({ field }) => (
+                <select
+                  id="media-post-processing-settings-body-file-operation"
+                  {...field}
+                  className={SELECT_CLASS}
+                >
+                  <option value="hardlink">
+                    {t("settings.mediaLibrary.hardlink")}
+                  </option>
+                  <option value="move">
+                    {t("settings.mediaLibrary.move")}
+                  </option>
+                </select>
+              )}
+            />
             {errors.fileOperation && (
               <p className="mt-1 text-sm text-red-400">
                 {errors.fileOperation.message}
@@ -333,34 +342,54 @@ export function MediaPostProcessingSettingsBody({
           title={t("settings.library.defaults.title")}
           description={t("settings.library.defaults.description")}
         >
-          <ProfileSelect
-            id="media-post-processing-settings-body-default-movie-quality-profile-id"
-            label={t("settings.mediaLibrary.defaultMovieQualityProfile")}
-            noneLabel={t(
-              "settings.mediaLibrary.defaultMovieQualityProfileNone",
+          <Controller
+            control={control}
+            name="defaultMovieQualityProfileId"
+            render={({ field }) => (
+              <ProfileSelect
+                id="media-post-processing-settings-body-default-movie-quality-profile-id"
+                label={t("settings.mediaLibrary.defaultMovieQualityProfile")}
+                noneLabel={t(
+                  "settings.mediaLibrary.defaultMovieQualityProfileNone",
+                )}
+                hint={t("settings.mediaLibrary.defaultMovieQualityProfileHint")}
+                profiles={profilesData?.profiles ?? []}
+                error={errors.defaultMovieQualityProfileId?.message}
+                registration={field}
+              />
             )}
-            hint={t("settings.mediaLibrary.defaultMovieQualityProfileHint")}
-            profiles={profilesData?.profiles ?? []}
-            error={errors.defaultMovieQualityProfileId?.message}
-            registration={register("defaultMovieQualityProfileId")}
           />
-          <ProfileSelect
-            id="media-post-processing-settings-body-default-show-quality-profile-id"
-            label={t("settings.mediaLibrary.defaultShowQualityProfile")}
-            noneLabel={t("settings.mediaLibrary.defaultShowQualityProfileNone")}
-            hint={t("settings.mediaLibrary.defaultShowQualityProfileHint")}
-            profiles={profilesData?.profiles ?? []}
-            error={errors.defaultShowQualityProfileId?.message}
-            registration={register("defaultShowQualityProfileId")}
+          <Controller
+            control={control}
+            name="defaultShowQualityProfileId"
+            render={({ field }) => (
+              <ProfileSelect
+                id="media-post-processing-settings-body-default-show-quality-profile-id"
+                label={t("settings.mediaLibrary.defaultShowQualityProfile")}
+                noneLabel={t(
+                  "settings.mediaLibrary.defaultShowQualityProfileNone",
+                )}
+                hint={t("settings.mediaLibrary.defaultShowQualityProfileHint")}
+                profiles={profilesData?.profiles ?? []}
+                error={errors.defaultShowQualityProfileId?.message}
+                registration={field}
+              />
+            )}
           />
-          <ProfileSelect
-            id="media-post-processing-settings-body-default-book-quality-profile-id"
-            label={t("settings.books.files.defaultProfile")}
-            noneLabel={t("settings.books.files.noDefaultProfile")}
-            hint={t("settings.books.files.defaultProfileHint")}
-            profiles={bookProfilesData?.profiles ?? []}
-            error={errors.defaultBookQualityProfileId?.message}
-            registration={register("defaultBookQualityProfileId")}
+          <Controller
+            control={control}
+            name="defaultBookQualityProfileId"
+            render={({ field }) => (
+              <ProfileSelect
+                id="media-post-processing-settings-body-default-book-quality-profile-id"
+                label={t("settings.books.files.defaultProfile")}
+                noneLabel={t("settings.books.files.noDefaultProfile")}
+                hint={t("settings.books.files.defaultProfileHint")}
+                profiles={bookProfilesData?.profiles ?? []}
+                error={errors.defaultBookQualityProfileId?.message}
+                registration={field}
+              />
+            )}
           />
         </CardSection>
 
@@ -401,23 +430,29 @@ export function MediaPostProcessingSettingsBody({
             >
               {t("settings.mediaLibrary.rssPoll.title")}
             </label>
-            <select
-              id="media-post-processing-settings-body-rss-poll-interval"
-              {...register("rssPollIntervalMinutes")}
-              className={SELECT_CLASS}
-            >
-              {RSS_POLL_INTERVAL_MINUTES.map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {minutes === DEFAULT_RSS_POLL_INTERVAL_MINUTES
-                    ? t("settings.mediaLibrary.rssPoll.optionDefault", {
-                        count: minutes,
-                      })
-                    : t("settings.mediaLibrary.rssPoll.option", {
-                        count: minutes,
-                      })}
-                </option>
-              ))}
-            </select>
+            <Controller
+              control={control}
+              name="rssPollIntervalMinutes"
+              render={({ field }) => (
+                <select
+                  id="media-post-processing-settings-body-rss-poll-interval"
+                  {...field}
+                  className={SELECT_CLASS}
+                >
+                  {RSS_POLL_INTERVAL_MINUTES.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {minutes === DEFAULT_RSS_POLL_INTERVAL_MINUTES
+                        ? t("settings.mediaLibrary.rssPoll.optionDefault", {
+                            count: minutes,
+                          })
+                        : t("settings.mediaLibrary.rssPoll.option", {
+                            count: minutes,
+                          })}
+                    </option>
+                  ))}
+                </select>
+              )}
+            />
             <p className="mt-1.5 text-xs text-neutral-400">
               {t("settings.mediaLibrary.rssPoll.description")}
             </p>

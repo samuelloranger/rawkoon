@@ -3,6 +3,13 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+// Motion 14 uses happy-dom's Web Animations API, whose canceled `finished`
+// promise rejects during component cleanup. Use Motion's JS fallback in tests.
+Object.defineProperty(Element.prototype, "animate", {
+  configurable: true,
+  value: undefined,
+});
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),
