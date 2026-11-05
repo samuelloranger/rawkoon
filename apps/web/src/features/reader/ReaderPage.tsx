@@ -178,6 +178,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
             void persistRef.current();
           },
           timelineItemChanged: () => {},
+          viewportChanged: () => {},
           tap: (e) => handlePointer(e.x),
           click: (e) => handlePointer(e.x),
           zoom: () => {},
