@@ -99,7 +99,7 @@ struct ReencodeSheet: View {
                 }
                 if let errorText {
                     Section {
-                        Text(verbatim: errorText).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                        Text(verbatim: errorText).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                     }
                 }
                 if estimateFailed, shownEstimate == nil {

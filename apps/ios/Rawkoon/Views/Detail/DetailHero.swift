@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Cinematic detail header: a 260pt backdrop wash, the poster, a Fraunces title,
+/// Cinematic detail header: a 260pt backdrop wash, the poster, a Bricolage Grotesque title,
 /// a status pill, a mono meta line, and the tagline. The watchlist action lives
 /// in the navigation toolbar so the artwork and identity stay the only focus
 /// here. The hero is laid out full-width by its container (the scroll VStack has

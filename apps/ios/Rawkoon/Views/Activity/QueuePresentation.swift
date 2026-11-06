@@ -18,7 +18,7 @@ extension QueueStatus {
         case .waiting: Theme.muted
         case .importing: Theme.seed
         case .stalled: Theme.apricotSoft
-        case .failed: Theme.terracotta
+        case .failed: Theme.danger
         }
     }
 }

@@ -345,7 +345,7 @@ function HeroCarousel({
                           disabled={
                             addToLibrary.isPending || createRequest.isPending
                           }
-                          className={`${buttonBase} bg-primary-500 text-white hover:bg-primary-400 disabled:opacity-60 ${showSearchHint ? "rounded-r-none pr-4" : ""}`}
+                          className={`${buttonBase} bg-primary-500 text-neutral-950 hover:bg-primary-400 disabled:opacity-60 ${showSearchHint ? "rounded-r-none pr-4" : ""}`}
                         >
                           {t("dashboard.hero.add")}
                         </button>
@@ -353,7 +353,7 @@ function HeroCarousel({
                           <AddOnlyMenu
                             onAddOnly={() => onAdd(false)}
                             disabled={addToLibrary.isPending}
-                            className="h-10 rounded-r-full border-l border-white/25 bg-primary-500 px-2.5 text-white hover:bg-primary-400"
+                            className="h-10 rounded-r-full border-l border-white/25 bg-primary-500 px-2.5 text-neutral-950 hover:bg-primary-400"
                           />
                         )}
                       </div>
@@ -366,7 +366,7 @@ function HeroCarousel({
                   <Link
                     to="/library/$libraryId"
                     params={{ libraryId: String(item.library_id) }}
-                    className={`${buttonBase} ${source === "arrivals" ? "bg-primary-500 text-white hover:bg-primary-400" : "bg-white/15 text-white hover:bg-white/25"}`}
+                    className={`${buttonBase} ${source === "arrivals" ? "bg-primary-500 text-neutral-950 hover:bg-primary-400" : "bg-white/15 text-white hover:bg-white/25"}`}
                   >
                     {t("dashboard.hero.details")}
                   </Link>

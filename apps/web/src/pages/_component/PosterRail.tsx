@@ -99,7 +99,7 @@ export function PosterRail({
                   transition={{ type: "spring", stiffness: 260, damping: 22 }}
                 >
                   {item.badge && (
-                    <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
+                    <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-950 shadow">
                       {item.badge}
                     </span>
                   )}

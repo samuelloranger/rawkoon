@@ -66,7 +66,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
               className="h-7 w-7 transition-transform duration-200 group-hover:scale-110"
             />
             {!isHorizontal && (
-              <span className="text-lg font-bold tracking-tight text-white">
+              <span className="text-lg font-display font-semibold tracking-tight text-neutral-50">
                 Rawkoon
               </span>
             )}
@@ -206,7 +206,7 @@ export function Sidebar({ onOpenQuickActions, position }: SidebarProps) {
                   alt=""
                   className="h-7 w-7 transition-transform duration-200 group-hover:scale-110"
                 />
-                <span className="text-lg font-bold tracking-tight text-white">
+                <span className="text-lg font-display font-semibold tracking-tight text-neutral-50">
                   Rawkoon
                 </span>
               </Link>

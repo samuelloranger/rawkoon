@@ -211,12 +211,12 @@ struct AiPickBanner: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(
-                (isError ? Theme.terracotta : Theme.apricot).opacity(0.12),
+                (isError ? Theme.danger : Theme.apricot).opacity(0.12),
                 in: RoundedRectangle(cornerRadius: 12)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isError ? Theme.terracotta.opacity(0.4) : Theme.apricotSoft, lineWidth: 1)
+                    .strokeBorder(isError ? Theme.danger.opacity(0.4) : Theme.apricotSoft, lineWidth: 1)
             )
     }
 }

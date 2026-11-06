@@ -60,7 +60,7 @@ struct BooksProviderView: View {
                         .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let audnexusError {
-                        Text(audnexusError).foregroundStyle(Theme.terracotta)
+                        Text(audnexusError).foregroundStyle(Theme.danger)
                             .listRowBackground(Theme.raised)
                     }
                 } header: {
@@ -75,7 +75,7 @@ struct BooksProviderView: View {
                         .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let googleError {
-                        Text(googleError).foregroundStyle(Theme.terracotta)
+                        Text(googleError).foregroundStyle(Theme.danger)
                             .listRowBackground(Theme.raised)
                     }
                 } header: {
@@ -92,7 +92,7 @@ struct BooksProviderView: View {
                         .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nytError {
-                        Text(nytError).foregroundStyle(Theme.terracotta)
+                        Text(nytError).foregroundStyle(Theme.danger)
                             .listRowBackground(Theme.raised)
                     }
                 } header: {

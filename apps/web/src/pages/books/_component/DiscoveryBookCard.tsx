@@ -37,7 +37,7 @@ export function DiscoveryBookCard({
           #{book.rank}
         </span>
         {book.alreadyInLibrary && (
-          <span className="absolute right-1.5 top-1.5 rounded-md bg-primary-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          <span className="absolute right-1.5 top-1.5 rounded-md bg-primary-500/90 px-1.5 py-0.5 text-[10px] font-medium text-neutral-950">
             {t("books.explore.inLibrary")}
           </span>
         )}

@@ -114,7 +114,7 @@ struct MediaLibrarySettingsView: View {
                             .listRowBackground(Theme.raised)
                     }
                     if let scanError {
-                        Text(scanError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                        Text(scanError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                     }
                 } header: { Text("Scan") }
 
@@ -130,7 +130,7 @@ struct MediaLibrarySettingsView: View {
                 } header: { Text("Language reindex") }
 
                 if let saveError {
-                    Section { Text(saveError).foregroundStyle(Theme.terracotta) }
+                    Section { Text(saveError).foregroundStyle(Theme.danger) }
                         .listRowBackground(Theme.raised)
                 }
             }

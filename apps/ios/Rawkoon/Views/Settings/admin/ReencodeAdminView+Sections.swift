@@ -141,7 +141,7 @@ extension ReencodeAdminView {
                     }
                     Text(verbatim: historyLine(job)).font(.footnote).foregroundStyle(Theme.muted)
                     if job.status == "failed", let error = job.error {
-                        Text(verbatim: error).font(.caption).foregroundStyle(Theme.terracotta)
+                        Text(verbatim: error).font(.caption).foregroundStyle(Theme.danger)
                     }
                 }
                 .listRowBackground(Theme.raised)
@@ -228,7 +228,7 @@ extension ReencodeAdminView {
     func resultBadge(_ job: TranscodeJob) -> some View {
         switch job.status {
         case "done": StatusBadge(text: (job.sourceNlink ?? 1) > 1 ? "Replaced · seeding" : "Replaced", tint: Theme.seed)
-        case "failed": StatusBadge(text: "Failed", tint: Theme.terracotta)
+        case "failed": StatusBadge(text: "Failed", tint: Theme.danger)
         default: StatusBadge(text: "Cancelled", tint: Theme.muted)
         }
     }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A 2:3 poster card for the discover triage deck: cover fills the frame, a
-/// bottom gradient scrim carries the title (Fraunces) and a mono metadata
+/// bottom gradient scrim carries the title (Bricolage Grotesque) and a mono metadata
 /// line, and a small deck-level label pill ("For you" / "Trending now") sits
 /// top-left. One accessibility element — the action bar has its own labels.
 struct DeckCardView: View {

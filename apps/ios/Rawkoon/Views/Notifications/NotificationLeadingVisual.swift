@@ -28,7 +28,7 @@ private let typeStyles: [String: NotificationTypeStyle] = [
     "library_post_process_failed": failStyle,
     "library_grab_skipped": failStyle,
     "library_attention": failStyle,
-    "download_client_offline": NotificationTypeStyle(systemImage: "wifi.slash", tint: Theme.terracotta),
+    "download_client_offline": NotificationTypeStyle(systemImage: "wifi.slash", tint: Theme.danger),
     "library_transcode_finished": libraryStyle,
     "library_transcode_failed": failStyle,
     "book_grabbed": grabStyle,

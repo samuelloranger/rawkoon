@@ -1,48 +1,47 @@
 import SwiftUI
 import UIKit
 
-/// Cozy Dusk — the Rawkoon design system on iOS.
+/// Paper Noir — the Rawkoon design system on iOS.
 ///
-/// Palette and typography mirror `apps/web/src/index.css` so the native app and
+/// Paper Noir palette and Bricolage typography mirror `apps/web/src/index.css` so the native app and
 /// the web PWA read as one product. The app is dark-only by design: audiobooks
 /// and late-night queue-watching live at night.
 enum Theme {
     // MARK: Surfaces
 
-    static let base = Color(hex: 0x1C1715) // app background
-    static let raised = Color(hex: 0x241E1B) // cards, rows, sheets
-    static let inset = Color(hex: 0x171311) // fields, insets
-    static let well = Color(hex: 0x141010) // grooves & tracks
-    static let border = Color(hex: 0x322A25)
-    static let borderStrong = Color(hex: 0x3A2F27)
-    static let tabBar = Color(hex: 0x2A2320) // floating tab bar
-    static let tabPill = Color(hex: 0xF4ECE4).opacity(0.13) // active tab pill
-    static let badge = Color(hex: 0xE5484D) // unread badge
+    static let base = Color(hex: 0x201F1C) // app background
+    static let raised = Color(hex: 0x2C2B27) // cards, rows, sheets
+    static let inset = Color(hex: 0x171714) // fields, insets
+    static let well = Color(hex: 0x141411) // grooves & tracks
+    static let border = Color(hex: 0x4C4941)
+    static let borderStrong = Color(hex: 0x5A554C)
+    static let tabBar = Color(hex: 0x302F2A) // floating tab bar
+    static let tabPill = Color(hex: 0xF3EEE5).opacity(0.13) // active tab pill
+    static let danger = Color(hex: 0xDF9B91) // errors retain a semantic red
+    static let badge = Color(hex: 0xDF9B91) // unread badge
 
-    // MARK: Accent
+    // MARK: Accent (legacy names: parchment and bronze)
 
-    static let apricot = Color(hex: 0xE8A06A) // primary · play · active
-    static let apricotSoft = Color(hex: 0xF0BF93)
-    static let terracotta = Color(hex: 0xCF6A4E) // pressed · progress start
-    static let terracottaDeep = Color(hex: 0xAD5440)
+    static let apricot = Color(hex: 0xE6D8BF) // primary · play · active
+    static let apricotSoft = Color(hex: 0xF2EADC)
+    static let terracotta = Color(hex: 0xBDA586) // pressed · progress start
+    static let terracottaDeep = Color(hex: 0xA78D70)
 
     // MARK: Semantic
 
-    static let seed = Color(hex: 0x86B98A) // in library · seeders
-    static let importing = Color(hex: 0x8FB6D6) // importing / renaming
+    static let seed = Color(hex: 0xA8BBA0) // in library · seeders
+    static let importing = Color(hex: 0xA7B9CC) // importing / renaming
 
     // MARK: Text
 
-    static let textStrong = Color(hex: 0xF4ECE4) // titles
-    static let text = Color(hex: 0xE3D8CF) // body
-    static let muted = Color(hex: 0xAA9A8C) // secondary · captions
-    /// Faintest readable text. Nudged from 0x9D8775 for a safer WCAG AA margin
-    /// (was ~4.8:1 against `raised`, right at the edge; now ~6:1 against both
-    /// `base` and `raised`) — still reads as the dimmest tone in the palette.
-    static let faint = Color(hex: 0xAE9885)
+    static let textStrong = Color(hex: 0xF3EEE5) // titles
+    static let text = Color(hex: 0xDDD7CC) // body
+    static let muted = Color(hex: 0xB6AD9E) // secondary · captions
+    /// Secondary text with contrast against both Paper Noir surfaces.
+    static let faint = Color(hex: 0xB0A695)
 
     /// Ink used on top of the apricot accent (dark brown, high contrast).
-    static let onAccent = Color(hex: 0x2A1A10)
+    static let onAccent = Color(hex: 0x25221C)
 
     // MARK: Gradients
 
@@ -62,14 +61,14 @@ enum Theme {
 // MARK: - Typography
 
 extension Font {
-    /// Fraunces — the display serif. Titles, headers, Now Playing only; never
-    /// body copy. Falls back to the system serif design if the bundled face is
+    /// Bricolage Grotesque — the Paper Noir display face. Titles, headers, Now Playing only; never
+    /// body copy. Falls back to the system design if the bundled face is
     /// unavailable, so the app is legible even before the font registers.
     static func display(_ size: CGFloat, weight: Weight = .semibold) -> Font {
-        if UIFont(name: "Fraunces", size: size) != nil {
-            return .custom("Fraunces", size: size).weight(weight)
+        if UIFont(name: "BricolageGrotesque-SemiBold", size: size) != nil {
+            return .custom("BricolageGrotesque-SemiBold", size: size).weight(weight)
         }
-        return .system(size: size, weight: weight, design: .serif)
+        return .system(size: size, weight: weight, design: .default)
     }
 
     /// Peer-level section headers across the app (Similar, Files, Chapters,
@@ -98,7 +97,7 @@ extension Color {
 
 enum Appearance {
     /// Applies the Cozy Dusk look to the UIKit-backed bars that SwiftUI wraps:
-    /// large navigation titles in Fraunces, apricot tint. Call once at launch.
+    /// large navigation titles in Bricolage Grotesque, parchment tint. Call once at launch.
     static func apply() {
         // Transparent so iOS 26's Liquid Glass bar and scroll-edge effect show;
         // an opaque ground hides both.
@@ -108,11 +107,11 @@ enum Appearance {
         let strong = UIColor(Theme.textStrong)
         // Scaled like the segmented labels below, so titles follow Dynamic Type.
         let large = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(
-            for: UIFont(name: "Fraunces", size: 34)?.withWeight(.semibold)
+            for: UIFont(name: "BricolageGrotesque-SemiBold", size: 34)?.withWeight(.semibold)
                 ?? UIFont.systemFont(ofSize: 34, weight: .semibold)
         )
         let inline = UIFontMetrics(forTextStyle: .headline).scaledFont(
-            for: UIFont(name: "Fraunces", size: 17)?.withWeight(.semibold)
+            for: UIFont(name: "BricolageGrotesque-SemiBold", size: 17)?.withWeight(.semibold)
                 ?? UIFont.systemFont(ofSize: 17, weight: .semibold)
         )
         nav.largeTitleTextAttributes = [.foregroundColor: strong, .font: large]

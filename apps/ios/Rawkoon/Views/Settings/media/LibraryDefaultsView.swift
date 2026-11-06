@@ -61,7 +61,7 @@ struct LibraryDefaultsView: View {
                     Text("A new title uses its default profile unless you pick another when adding it. Without one, a new title accepts any release.")
                 }
                 if let saveError {
-                    Section { Text(saveError).foregroundStyle(Theme.terracotta) }
+                    Section { Text(saveError).foregroundStyle(Theme.danger) }
                         .listRowBackground(Theme.raised)
                 }
             }

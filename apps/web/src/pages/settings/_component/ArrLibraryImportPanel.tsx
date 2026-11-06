@@ -188,7 +188,7 @@ export function ArrLibraryImportPanel() {
                     className={cn(
                       "flex-1 rounded-none text-xs capitalize",
                       source === s
-                        ? "bg-primary-600 text-white hover:bg-primary-700"
+                        ? "bg-primary-600 text-neutral-950 hover:bg-primary-700"
                         : "bg-neutral-900 text-neutral-400 hover:bg-neutral-800",
                     )}
                   >

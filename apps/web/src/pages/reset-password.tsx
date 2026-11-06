@@ -99,7 +99,7 @@ function ResetPasswordPage() {
           <div className="text-center">
             <Link
               to="/login"
-              className="focus-ring inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+              className="focus-ring inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-neutral-950 bg-primary-600 hover:bg-primary-700"
             >
               {t("resetPassword.goToLogin")}
             </Link>
@@ -209,7 +209,7 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={resetPasswordMutation.isPending}
-              className="focus-ring group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="focus-ring group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-neutral-950 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {resetPasswordMutation.isPending
                 ? t("common.loading")

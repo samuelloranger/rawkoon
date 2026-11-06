@@ -73,7 +73,7 @@ export function DiscoverActionBar({
           onClick={onAdd}
           className={cn(
             btn,
-            "h-14 w-14 bg-primary-500 text-white shadow-lg shadow-primary-900/40",
+            "h-14 w-14 bg-primary-500 text-neutral-950 shadow-lg shadow-primary-900/40",
           )}
         >
           <Plus className="h-6 w-6" />

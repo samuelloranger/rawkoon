@@ -26,7 +26,7 @@ export function DiscoverExhausted({ onReload }: { onReload?: () => void }) {
           <button
             type="button"
             onClick={onReload}
-            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white"
+            className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-950"
           >
             Show more picks
           </button>
@@ -54,7 +54,7 @@ export function DiscoverNotConfigured() {
       </p>
       <Link
         to="/settings/connections"
-        className="mt-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white"
+        className="mt-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-950"
       >
         Open Settings
       </Link>

@@ -3,13 +3,13 @@ import UIKit
 import WidgetKit
 
 private enum WidgetPalette {
-    static let surface = Color(red: 0x24 / 255, green: 0x1E / 255, blue: 0x1B / 255)
-    static let well = Color(red: 0x14 / 255, green: 0x10 / 255, blue: 0x10 / 255)
-    static let strong = Color(red: 0xF4 / 255, green: 0xEC / 255, blue: 0xE4 / 255)
-    static let muted = Color(red: 0xAA / 255, green: 0x9A / 255, blue: 0x8C / 255)
-    static let apricot = Color(red: 0xE8 / 255, green: 0xA0 / 255, blue: 0x6A / 255)
-    static let terracotta = Color(red: 0xCF / 255, green: 0x6A / 255, blue: 0x4E / 255)
-    static let seed = Color(red: 0x86 / 255, green: 0xB9 / 255, blue: 0x8A / 255)
+    static let surface = Color(red: 0x2C / 255, green: 0x2B / 255, blue: 0x27 / 255)
+    static let well = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x11 / 255)
+    static let strong = Color(red: 0xF3 / 255, green: 0xEE / 255, blue: 0xE5 / 255)
+    static let muted = Color(red: 0xB6 / 255, green: 0xAD / 255, blue: 0x9E / 255)
+    static let apricot = Color(red: 0xE6 / 255, green: 0xD8 / 255, blue: 0xBF / 255)
+    static let terracotta = Color(red: 0xBD / 255, green: 0xA5 / 255, blue: 0x86 / 255)
+    static let seed = Color(red: 0xA8 / 255, green: 0xBB / 255, blue: 0xA0 / 255)
 }
 
 private struct HomeEntry: TimelineEntry {
@@ -234,7 +234,7 @@ private struct WatchWidgetView: View {
             Spacer(minLength: 0)
             if let pick = entry.pick {
                 Text(pick.media.title)
-                    .font(.system(family == .systemSmall ? .subheadline : .title3, design: .serif, weight: .semibold))
+                    .font(.custom("BricolageGrotesque-SemiBold", size: family == .systemSmall ? 15 : 20, relativeTo: .headline))
                     .foregroundStyle(WidgetPalette.strong)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -290,7 +290,7 @@ private struct SuggestionWidgetView: View {
                 if family == .systemSmall {
                     Artwork(data: suggestion.media.artwork).frame(maxWidth: 43, maxHeight: 64, alignment: .leading)
                     Text(suggestion.media.title)
-                        .font(.system(.caption, design: .serif, weight: .semibold))
+                        .font(.custom("BricolageGrotesque-SemiBold", size: 12, relativeTo: .caption))
                         .foregroundStyle(WidgetPalette.strong)
                         .lineLimit(2)
                 } else {
@@ -298,7 +298,7 @@ private struct SuggestionWidgetView: View {
                         Artwork(data: suggestion.media.artwork).frame(maxWidth: 73)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(suggestion.media.title)
-                                .font(.system(.headline, design: .serif, weight: .semibold))
+                                .font(.custom("BricolageGrotesque-SemiBold", size: 17, relativeTo: .headline))
                                 .foregroundStyle(WidgetPalette.strong)
                                 .lineLimit(3)
                             Text(suggestion.media.detail)

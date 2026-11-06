@@ -4,8 +4,8 @@
   "description": "Self-hosted movie & TV library and download manager",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1C1715",
-  "theme_color": "#CF6A4E",
+  "background_color": "#201F1C",
+  "theme_color": "#201F1C",
   "orientation": "portrait",
   "scope": "/",
   "lang": "en",
@@ -18,7 +18,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

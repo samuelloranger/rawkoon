@@ -47,7 +47,9 @@ GPL-3.0. Published as `ghcr.io/samuelloranger/rawkoon`. Live docs: https://samlo
 ## Brand Commitments
 
 - Name: Rawkoon.
-- Logo: `apps/web/public/icon.svg`.
+- Logo masters: `assets/brand/`; production icon: `apps/web/public/icon.svg`.
+- Selected identity: Paper Noir (parchment on charcoal), raccoon icon and Bricolage Grotesque display typography. No inverse/light-background logos.
+- Android TV: `rawkoon-tv` shares the same identity and uses native D-pad navigation.
 - Web and iPhone are the full product. Native structure on iOS (TabView, NavigationStack, sheets, system controls); the same product in the browser. Do not fork a second identity across any surface.
 
 ## Evidence on Hand

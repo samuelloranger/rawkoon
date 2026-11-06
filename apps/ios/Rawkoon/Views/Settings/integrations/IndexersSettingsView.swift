@@ -42,7 +42,7 @@ struct IndexersSettingsView: View {
                 .background(Theme.base)
         case let .failed(message):
             VStack(spacing: 12) {
-                Text(message).foregroundStyle(Theme.terracotta)
+                Text(message).foregroundStyle(Theme.danger)
                 Button("Retry") { Task { await loadActiveManager() } }.tint(Theme.apricot)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -173,7 +173,7 @@ struct IndexerListSection: View {
                     Spacer()
                 }
             } else if let errorMessage, indexers.isEmpty {
-                Text(errorMessage).foregroundStyle(Theme.terracotta)
+                Text(errorMessage).foregroundStyle(Theme.danger)
             } else if indexers.isEmpty {
                 Text("No indexers are configured yet.").foregroundStyle(Theme.muted)
             }

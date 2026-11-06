@@ -278,7 +278,7 @@ private struct CreateApiKeySheet: View {
                 }
             }
             if let error {
-                Section { Text(error).foregroundStyle(Theme.terracotta) }.listRowBackground(Theme.raised)
+                Section { Text(error).foregroundStyle(Theme.danger) }.listRowBackground(Theme.raised)
             }
         }
         .scrollContentBackground(.hidden)

@@ -62,7 +62,7 @@ struct AiUsageView: View {
         } else if let statsError {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(statsError).foregroundStyle(Theme.terracotta)
+                    Text(statsError).foregroundStyle(Theme.danger)
                     Button("Retry") { Task { await loadStats() } }.tint(Theme.apricot)
                 }
             }

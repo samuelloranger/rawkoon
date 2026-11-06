@@ -55,13 +55,19 @@ async function generateIcons() {
       await sharp(svgPath)
         .resize(size, size, {
           fit: "contain",
-          background: { r: 255, g: 255, b: 255, alpha: 1 },
+          background: { r: 32, g: 31, b: 28, alpha: 1 },
         })
         .png()
         .toFile(outputPath);
 
       console.log(`✓ Generated ${name} (${size}x${size})`);
     }
+
+    await sharp(path.join(publicDir, "icon-maskable.svg"))
+      .resize(512, 512)
+      .flatten({ background: "#201F1C" })
+      .png()
+      .toFile(path.join(publicDir, "icon-maskable-512.png"));
 
     console.log("\n✓ All icons generated successfully!");
     console.log("Icons are ready in the public directory.");

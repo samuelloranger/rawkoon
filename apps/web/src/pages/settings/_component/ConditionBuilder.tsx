@@ -292,7 +292,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
             className={cn(
               "flex h-4 w-4 items-center justify-center rounded border transition-colors",
               negate
-                ? "text-white border-primary-400 bg-primary-400"
+                ? "text-neutral-950 border-primary-400 bg-primary-400"
                 : "border-neutral-600 group-hover:border-neutral-400",
             )}
           >

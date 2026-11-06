@@ -192,7 +192,7 @@ export function TrackerPrioritySection({
             className={cn(
               "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
               preferOverQuality
-                ? "text-white border-primary-400 bg-primary-400"
+                ? "text-neutral-950 border-primary-400 bg-primary-400"
                 : "border-neutral-600 group-hover:border-neutral-400",
             )}
           >

@@ -94,7 +94,7 @@ struct HealthSettingsView: View {
                         .foregroundStyle(Theme.muted)
                 }
                 if let error = health.error, !error.isEmpty {
-                    Text(verbatim: error).font(.footnote).foregroundStyle(Theme.terracotta)
+                    Text(verbatim: error).font(.footnote).foregroundStyle(Theme.danger)
                 }
                 if health.issueCount == 0 {
                     Label("No issues found", systemImage: "checkmark.circle.fill")
@@ -281,7 +281,7 @@ struct HealthSettingsView: View {
                         LabeledContent("Grabbed") { Text("\(grabbed)").foregroundStyle(Theme.muted) }
                     }
                     if let error = run.error, !error.isEmpty {
-                        Text(verbatim: error).font(.footnote).foregroundStyle(Theme.terracotta)
+                        Text(verbatim: error).font(.footnote).foregroundStyle(Theme.danger)
                     }
                 } else {
                     Text("The RSS check hasn't run yet.").font(.subheadline).foregroundStyle(Theme.muted)

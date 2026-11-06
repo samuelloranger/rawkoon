@@ -106,7 +106,7 @@ struct BooksSettingsView: View {
                 .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
             if let orderError {
-                Text(orderError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                Text(orderError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
             }
         } header: {
             Text("Metadata sources")
@@ -126,7 +126,7 @@ struct BooksSettingsView: View {
                 .requiresConnection(model.isOffline)
                 .listRowBackground(Theme.raised)
             if let filesError {
-                Text(filesError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                Text(filesError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
             }
         } header: {
             Text("Files")

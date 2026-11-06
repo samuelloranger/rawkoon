@@ -62,7 +62,7 @@ struct AiProviderConfigSections: View {
             Text("Tests the saved configuration.")
         }
         if let saveError = config.saveError {
-            Section { Text(saveError).foregroundStyle(Theme.terracotta) }
+            Section { Text(saveError).foregroundStyle(Theme.danger) }
                 .listRowBackground(Theme.raised)
         }
     }
