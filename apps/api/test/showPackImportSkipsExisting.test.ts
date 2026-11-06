@@ -27,11 +27,14 @@ mock.module("@rawkoon/api/db", () => ({
       updateMany: async () => ({}),
     },
     mediaFile: {
-      findMany: async () =>
-        filesFor.map((episodeId) => ({
-          episodeId,
-          filePath: `/lib/${episodeId}.mkv`,
-        })),
+      findMany: async (args: { where?: { filePath?: unknown } }) =>
+        args.where?.filePath
+          ? []
+          : filesFor.map((episodeId) => ({
+              episodeId,
+              filePath: `/lib/${episodeId}.mkv`,
+            })),
+      deleteMany: async () => ({ count: 0 }),
       findFirst: async () => null,
       create: async (a: { data: { episodeId: number; filePath: string } }) => {
         createdFiles.push(a.data);
