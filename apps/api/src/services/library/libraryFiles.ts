@@ -1,4 +1,5 @@
 import type { NormalizedTorrent } from "@rawkoon/api/services/downloadClient/types";
+import type { ParsedQualityFields } from "@rawkoon/shared/types";
 
 import { prisma } from "@rawkoon/api/db";
 import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloads/downloadOutcome";
@@ -13,6 +14,9 @@ export type LiveDownload = {
   download_speed: number;
   eta_seconds: number | null;
   state: string;
+  /** Connected seeds and peers right now. */
+  seeds: number;
+  peers: number;
 };
 
 async function mediaExists(id: number): Promise<boolean> {
@@ -41,19 +45,19 @@ export async function getDownloadHistoryWithLive(id: number) {
     take: MEDIA_HISTORY_LIMIT,
   });
 
-  // Best-effort live numbers: progress for in-flight rows, ratio/seed time for held ones.
-  const activeHashes = items
-    .filter((h) => !h.completedAt && !h.failed && h.torrentHash)
-    .map((h) => h.torrentHash as string);
-  const heldHashes = items
-    .filter(
-      (h) => h.completedAt && !h.failed && !h.seedReleasedAt && h.torrentHash,
-    )
-    .map((h) => h.torrentHash as string);
+  // Released torrents use their stored size; held torrents provide current stats.
+  const pollableHashes = items
+    .filter((h) => h.torrentHash && !h.seedReleasedAt)
+    .map((h) => (h.torrentHash as string).toLowerCase());
+  const inFlight = new Set(
+    items
+      .filter((h) => !h.completedAt && !h.failed && h.torrentHash)
+      .map((h) => (h.torrentHash as string).toLowerCase()),
+  );
   const torrentByHash = new Map<string, NormalizedTorrent>();
   const liveByHash = new Map<string, LiveDownload>();
 
-  if (activeHashes.length + heldHashes.length > 0) {
+  if (pollableHashes.length > 0) {
     const { resolveActiveAdapter } = await import(
       "@rawkoon/api/services/downloadClient/registry"
     );
@@ -61,19 +65,19 @@ export async function getDownloadHistoryWithLive(id: number) {
     if (active) {
       try {
         const torrents = await active.adapter.listTorrents();
-        const inFlight = new Set(
-          activeHashes.map((hash) => hash.toLowerCase()),
-        );
-        const held = new Set(heldHashes.map((hash) => hash.toLowerCase()));
+        const pollable = new Set(pollableHashes);
         for (const torrent of torrents) {
           const key = torrent.hash.toLowerCase();
-          if (held.has(key)) torrentByHash.set(key, torrent);
+          if (!pollable.has(key)) continue;
+          torrentByHash.set(key, torrent);
           if (!inFlight.has(key)) continue;
           liveByHash.set(key, {
             progress: torrent.progress,
             download_speed: torrent.dlSpeed,
             eta_seconds: estimateEtaSeconds(torrent),
             state: torrent.state,
+            seeds: torrent.seeds,
+            peers: torrent.peers,
           });
         }
       } catch {
@@ -83,6 +87,37 @@ export async function getDownloadHistoryWithLive(id: number) {
   }
 
   return { items, torrentByHash, liveByHash };
+}
+
+/** Row size: the client's torrent while it holds it, else the size stamped at release. */
+export function sizeBytesForRow(
+  row: { seedReleasedBytes: bigint | null },
+  torrent: NormalizedTorrent | undefined,
+): number | null {
+  if (torrent && torrent.sizeBytes > 0) return torrent.sizeBytes;
+  return row.seedReleasedBytes != null ? Number(row.seedReleasedBytes) : null;
+}
+
+/** Parsed quality of a stored `qualityParsed` JSON, tolerating older shapes; null when unusable. */
+export function parsedQualityFromStored(
+  json: unknown,
+): ParsedQualityFields | null {
+  if (json == null || typeof json !== "object") return null;
+  const q = json as Record<string, unknown>;
+  const rawResolution = q.resolution;
+  const resolution =
+    typeof rawResolution === "number"
+      ? rawResolution
+      : typeof rawResolution === "string" && /^\d{3,4}p?$/i.test(rawResolution)
+        ? Number.parseInt(rawResolution, 10)
+        : null;
+  const source = typeof q.source === "string" ? q.source : null;
+  const codec = typeof q.codec === "string" ? q.codec : null;
+  const hdr = typeof q.hdr === "string" ? q.hdr : null;
+  if (resolution == null && source == null && codec == null && hdr == null) {
+    return null;
+  }
+  return { resolution, source, codec, hdr };
 }
 
 function resolveAlertsAndDeleteHistory(ids: number[]) {

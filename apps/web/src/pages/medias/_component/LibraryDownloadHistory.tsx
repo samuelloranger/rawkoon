@@ -3,6 +3,7 @@ import { SeedChip } from "@/features/seeding/components/SeedChip";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { isRemovableDownloadHistoryEntry } from "@rawkoon/shared";
+import { formatBytes } from "@/lib/utils/format";
 import { useLibraryDownloads } from "@/features/medias/hooks/useLibraryDownloads";
 import { useDeleteLibraryDownloadEntry } from "@/features/medias/hooks/useDeleteLibraryDownloadEntry";
 import { useClearLibraryFailedDownloads } from "@/features/medias/hooks/useClearLibraryFailedDownloads";
@@ -85,6 +86,16 @@ export function LibraryDownloadHistory({
               const inProgress = isDownloadInProgress(row);
               const live = row.live ?? null;
               const paused = isPausedState(live?.state);
+              const quality = row.quality_parsed ?? null;
+              const qualityParts = quality
+                ? [
+                    quality.resolution != null
+                      ? `${quality.resolution}p`
+                      : null,
+                    quality.source,
+                    quality.codec,
+                  ].filter(Boolean)
+                : [];
 
               return (
                 <div
@@ -221,9 +232,39 @@ export function LibraryDownloadHistory({
                   </div>
                   <SeedChip seed={row.seed} />
 
-                  <div className="flex items-center gap-3 text-[10px] text-neutral-400">
-                    {row.indexer && <span>{row.indexer}</span>}
-                    <span className="flex items-center gap-1">
+                  {/* Release-search-card chips: torrent site, size, quality, live seeds/peers. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {row.indexer && (
+                      <span className="inline-flex items-center rounded-md bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-neutral-400">
+                        {row.indexer}
+                      </span>
+                    )}
+                    {row.size_bytes != null && row.size_bytes > 0 && (
+                      <span className="inline-flex items-center rounded-md bg-sky-950/40 px-2 py-0.5 text-[10px] font-medium text-sky-300">
+                        {formatBytes(row.size_bytes)}
+                      </span>
+                    )}
+                    {qualityParts.length > 0 && (
+                      <span className="inline-flex items-center rounded-md bg-primary-950/40 px-2 py-0.5 text-[10px] font-medium text-primary-200">
+                        {qualityParts.join(" · ")}
+                      </span>
+                    )}
+                    {quality?.hdr && (
+                      <span className="inline-flex items-center rounded-md bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                        {quality.hdr}
+                      </span>
+                    )}
+                    {inProgress &&
+                      live &&
+                      (live.seeds != null || live.peers != null) && (
+                        <span className="inline-flex items-center rounded-md bg-emerald-950/40 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                          {t("medias.interactive.seedersLeechers", {
+                            seeders: live.seeds ?? "-",
+                            leechers: live.peers ?? "-",
+                          })}
+                        </span>
+                      )}
+                    <span className="flex items-center gap-1 text-[10px] text-neutral-400">
                       <Clock size={8} />
                       {new Date(row.grabbed_at).toLocaleString(undefined, {
                         dateStyle: "short",

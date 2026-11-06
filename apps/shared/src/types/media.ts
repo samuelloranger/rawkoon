@@ -75,7 +75,7 @@ export interface ScoreBreakdownDto {
   matched_formats: string[];
 }
 
-interface ParsedQualityFields {
+export interface ParsedQualityFields {
   resolution: number | null;
   source: string | null;
   codec: string | null;

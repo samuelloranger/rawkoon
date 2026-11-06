@@ -1,4 +1,8 @@
-import type { IndexerManagerType, LanguageFallbackSummary } from "./media";
+import type {
+  IndexerManagerType,
+  LanguageFallbackSummary,
+  ParsedQualityFields,
+} from "./media";
 import type { DownloadSeedState } from "./seeding";
 
 /** Acquisition lifecycle only; whether a show is still airing is `AiringState`. */
@@ -246,6 +250,10 @@ export interface LibraryDownloadHistoryItem {
   post_process_error?: string | null;
   post_process_destination_path?: string | null;
   ai_picked?: boolean;
+  /** Torrent size — the client's number while it holds it, else the size recorded at release. Null when never known. */
+  size_bytes?: number | null;
+  /** Quality parsed from the grabbed release title. */
+  quality_parsed?: ParsedQualityFields | null;
   /** Where this row's torrent stands: seeding, released, or blocklisted. */
   seed?: DownloadSeedState | null;
   live?: {
@@ -253,6 +261,9 @@ export interface LibraryDownloadHistoryItem {
     download_speed: number;
     eta_seconds: number | null;
     state: string;
+    /** Connected seeds/peers right now; null when the client doesn't report them. */
+    seeds?: number | null;
+    peers?: number | null;
   } | null;
 }
 
@@ -346,6 +357,9 @@ export interface DownloadProgressItem {
   state: string;
   downloadSpeed: number;
   etaSeconds: number | null;
+  /** Connected seeds/peers right now; null when the client doesn't report them. */
+  seeds?: number | null;
+  peers?: number | null;
 }
 
 /**
