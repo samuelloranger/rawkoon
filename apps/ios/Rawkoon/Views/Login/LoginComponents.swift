@@ -196,7 +196,7 @@ struct LoginErrorText: View {
         if let errorMessage = model.errorMessage {
             Text(errorMessage)
                 .font(.footnote)
-                .foregroundStyle(Theme.terracotta)
+                .foregroundStyle(Theme.danger)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 12)

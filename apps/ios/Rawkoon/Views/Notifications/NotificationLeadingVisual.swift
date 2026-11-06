@@ -9,7 +9,7 @@ private struct NotificationTypeStyle {
 
 private let libraryStyle = NotificationTypeStyle(systemImage: "arrow.down.circle", tint: Theme.seed)
 private let grabStyle = NotificationTypeStyle(systemImage: "arrow.up.circle", tint: Theme.importing)
-private let failStyle = NotificationTypeStyle(systemImage: "exclamationmark.triangle", tint: Theme.terracotta)
+private let failStyle = NotificationTypeStyle(systemImage: "exclamationmark.triangle", tint: Theme.danger)
 private let bookStyle = NotificationTypeStyle(systemImage: "book", tint: Theme.apricot)
 private let requestStyle = NotificationTypeStyle(systemImage: "tray.and.arrow.down", tint: Theme.apricotSoft)
 

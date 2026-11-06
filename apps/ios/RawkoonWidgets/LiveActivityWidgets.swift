@@ -9,6 +9,7 @@ import WidgetKit
         static let strong = Color(red: 0.953, green: 0.933, blue: 0.898)
         static let muted = Color(red: 0.714, green: 0.678, blue: 0.620)
         static let apricot = Color(red: 0.902, green: 0.847, blue: 0.749)
+        static let danger = Color(red: 0.875, green: 0.608, blue: 0.569)
         static let terracotta = Color(red: 0.741, green: 0.647, blue: 0.525)
     }
 
@@ -75,7 +76,7 @@ import WidgetKit
                     .monospacedDigit()
             } else {
                 Image(systemName: state.symbol)
-                    .foregroundStyle(state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot)
+                    .foregroundStyle(state.status == "failed" ? LivePalette.danger : LivePalette.apricot)
                     .accessibilityLabel(Text(state.label))
             }
         }
@@ -93,7 +94,7 @@ import WidgetKit
                         Spacer()
                         Image(systemName: context.state.symbol)
                             .foregroundStyle(
-                                context.state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot
+                                context.state.status == "failed" ? LivePalette.danger : LivePalette.apricot
                             )
                             .accessibilityHidden(true)
                     }
