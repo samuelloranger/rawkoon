@@ -59,6 +59,8 @@ export function buildProgressPayload(
       state: torrent.state,
       downloadSpeed: torrent.dlSpeed,
       etaSeconds: estimateEtaSeconds(torrent),
+      seeds: torrent.seeds,
+      peers: torrent.peers,
     };
     const list = grouped.get(row.mediaId);
     if (list) list.push(item);

@@ -15,8 +15,10 @@ import {
   getDownloadHistoryWithLive,
   listEpisodesForMedia,
   listMediaFiles,
+  parsedQualityFromStored,
   performDownloadAction,
   removeDownloadHistoryEntry,
+  sizeBytesForRow,
   updateMediaFileReleaseGroup,
 } from "@rawkoon/api/services/library/libraryFiles";
 import { rescanLibraryItem } from "@rawkoon/api/services/library/rescan";
@@ -70,31 +72,33 @@ export const libraryFilesRoutes = new Hono<Env>()
       const { items, torrentByHash, liveByHash } = history;
 
       return ok({
-        items: items.map((h) => ({
-          id: h.id,
-          release_title: h.releaseTitle,
-          indexer: h.indexer,
-          torrent_hash: h.torrentHash,
-          grabbed_at: h.grabbedAt.toISOString(),
-          completed_at: h.completedAt?.toISOString() ?? null,
-          failed: h.failed,
-          fail_reason: h.failReason,
-          episode_id: h.episodeId,
-          post_process_error: h.postProcessError,
-          post_process_destination_path: h.postProcessDestinationPath,
-          ai_picked: h.aiPicked,
-          seed: seedStateForRow(
-            h,
-            h.torrentHash
-              ? torrentByHash.get(h.torrentHash.toLowerCase())
-              : undefined,
-          ),
-          // Only active rows are in liveByHash; completed/failed rows resolve to null.
-          live:
-            h.torrentHash != null
-              ? (liveByHash.get(h.torrentHash.toLowerCase()) ?? null)
-              : null,
-        })),
+        items: items.map((h) => {
+          const torrent = h.torrentHash
+            ? torrentByHash.get(h.torrentHash.toLowerCase())
+            : undefined;
+          return {
+            id: h.id,
+            release_title: h.releaseTitle,
+            indexer: h.indexer,
+            torrent_hash: h.torrentHash,
+            grabbed_at: h.grabbedAt.toISOString(),
+            completed_at: h.completedAt?.toISOString() ?? null,
+            failed: h.failed,
+            fail_reason: h.failReason,
+            episode_id: h.episodeId,
+            post_process_error: h.postProcessError,
+            post_process_destination_path: h.postProcessDestinationPath,
+            ai_picked: h.aiPicked,
+            size_bytes: sizeBytesForRow(h, torrent),
+            quality_parsed: parsedQualityFromStored(h.qualityParsed),
+            seed: seedStateForRow(h, torrent),
+            // Only active rows are in liveByHash; completed/failed rows resolve to null.
+            live:
+              h.torrentHash != null
+                ? (liveByHash.get(h.torrentHash.toLowerCase()) ?? null)
+                : null,
+          };
+        }),
       });
     } catch {
       return serverError("Failed to fetch download history");

@@ -30,6 +30,10 @@ export function mergeDownloadProgress(
           download_speed: live.downloadSpeed,
           eta_seconds: live.etaSeconds,
           state: live.state,
+          seeds:
+            live.seeds === undefined ? (row.live?.seeds ?? null) : live.seeds,
+          peers:
+            live.peers === undefined ? (row.live?.peers ?? null) : live.peers,
         },
       };
     }),

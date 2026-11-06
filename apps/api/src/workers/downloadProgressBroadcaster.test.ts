@@ -84,6 +84,8 @@ describe("buildProgressPayload", () => {
         state: "downloading",
         downloadSpeed: 500,
         etaSeconds: 1800,
+        seeds: 1,
+        peers: 1,
       },
       {
         id: 2,
@@ -91,6 +93,8 @@ describe("buildProgressPayload", () => {
         state: "stalled",
         downloadSpeed: 0,
         etaSeconds: null,
+        seeds: 1,
+        peers: 1,
       },
     ]);
     expect(grouped.get(20)).toEqual([
@@ -100,6 +104,8 @@ describe("buildProgressPayload", () => {
         state: "downloading",
         downloadSpeed: 200,
         etaSeconds: 2500,
+        seeds: 1,
+        peers: 1,
       },
     ]);
   });
