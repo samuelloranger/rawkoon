@@ -250,6 +250,8 @@ nonisolated struct DownloadProgressItemDTO: Decodable, Sendable {
     let state: String
     let downloadSpeed: Double
     let etaSeconds: Int?
+    let seeds: Int?
+    let peers: Int?
 }
 
 /// A download row's id paired with its latest live progress — what the detail
@@ -287,7 +289,9 @@ enum LibraryEvent: Sendable {
                         progress: item.progress,
                         downloadSpeed: item.downloadSpeed,
                         etaSeconds: item.etaSeconds,
-                        state: item.state
+                        state: item.state,
+                        seeds: item.seeds,
+                        peers: item.peers
                     )
                 )
             }

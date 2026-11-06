@@ -61,6 +61,10 @@ struct DetailDownloadRow: View {
                 }
             }
 
+            if hasReleaseDetails {
+                releaseDetails
+            }
+
             if let live = row.live {
                 DuskProgress(value: live.progress)
                 HStack(spacing: 10) {
@@ -109,6 +113,74 @@ struct DetailDownloadRow: View {
         }
         .padding(10)
         .background(Theme.well, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var quality: ParsedQuality? {
+        row.qualityParsed
+    }
+
+    /// Source and codec only; resolution is the anchor run, as in the release-search rows.
+    private var secondarySpec: String? {
+        let parts = [quality?.source, quality?.codec].compactMap(\.self).filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var sizeText: String? {
+        guard let bytes = row.sizeBytes, bytes > 0 else { return nil }
+        return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
+
+    private var hdrText: String? {
+        guard let hdr = quality?.hdr, !hdr.isEmpty else { return nil }
+        return hdr
+    }
+
+    /// Live swarm counts, only while the grab is still downloading.
+    private var swarm: (seeds: Int?, peers: Int?)? {
+        guard isActive, let live = row.live, live.seeds != nil || live.peers != nil else { return nil }
+        return (live.seeds, live.peers)
+    }
+
+    private var hasReleaseDetails: Bool {
+        quality?.resolution != nil || secondarySpec != nil || hdrText != nil || sizeText != nil || swarm != nil
+    }
+
+    /// Release-search footer styling: resolution, source · codec, HDR, size, live seeds/peers.
+    private var releaseDetails: some View {
+        ReleaseFlowLayout(spacing: 8) {
+            if let resolution = quality?.resolution {
+                detailRun("\(resolution)p", Theme.text, weight: .semibold)
+            }
+            if let secondarySpec {
+                detailRun(secondarySpec, Theme.muted)
+            }
+            if let hdrText {
+                detailRun(hdrText, Theme.apricotSoft)
+            }
+            if let sizeText {
+                detailRun(sizeText, Theme.text)
+            }
+            if let swarm {
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 8, weight: .bold))
+                    Text(verbatim: swarm.seeds.map(String.init) ?? "-")
+                    Text(verbatim: "/\(swarm.peers.map(String.init) ?? "-")")
+                        .foregroundStyle(Theme.muted)
+                }
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(Theme.seed)
+                .fixedSize()
+            }
+        }
+    }
+
+    private func detailRun(_ text: String, _ color: Color, weight: Font.Weight = .regular) -> some View {
+        Text(verbatim: text)
+            .font(.system(.caption2, design: .monospaced).weight(weight))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .fixedSize()
     }
 
     private var metaLine: Text {

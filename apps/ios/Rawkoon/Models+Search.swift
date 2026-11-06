@@ -219,6 +219,9 @@ nonisolated struct DownloadHistoryItem: Decodable, Identifiable, Sendable {
     let postProcessDestinationPath: String?
     let live: LiveDownload?
     let aiPicked: Bool?
+    /// Torrent size: the client's number while it holds it, else the size recorded at release.
+    var sizeBytes: Int?
+    var qualityParsed: ParsedQuality?
 }
 
 nonisolated struct LiveDownload: Decodable, Sendable {
@@ -226,6 +229,9 @@ nonisolated struct LiveDownload: Decodable, Sendable {
     let downloadSpeed: Double // bytes/s
     let etaSeconds: Int?
     let state: String
+    /// Connected seeds/peers right now; nil when the server or client doesn't report them.
+    var seeds: Int?
+    var peers: Int?
 }
 
 nonisolated struct SpeedResponse: Decodable, Sendable {

@@ -15,13 +15,22 @@ nonisolated func downloadProgressMap(_ items: [DownloadProgressEntry]) -> [Int: 
 
 /// Overlay pushed live progress onto the rows the view already holds, keyed by
 /// id. A row with no pushed entry is returned unchanged. Never reorders.
+/// Seeds/peers missing from a push (older servers) keep the row's last known counts.
 nonisolated func overlayDownloadProgress(
     _ rows: [DownloadHistoryItem],
     progress: [Int: LiveDownload]
 ) -> [DownloadHistoryItem] {
     guard !progress.isEmpty else { return rows }
     return rows.map { row in
-        guard let live = progress[row.id] else { return row }
+        guard let pushed = progress[row.id] else { return row }
+        let live = LiveDownload(
+            progress: pushed.progress,
+            downloadSpeed: pushed.downloadSpeed,
+            etaSeconds: pushed.etaSeconds,
+            state: pushed.state,
+            seeds: pushed.seeds ?? row.live?.seeds,
+            peers: pushed.peers ?? row.live?.peers
+        )
         return DownloadHistoryItem(
             id: row.id,
             releaseTitle: row.releaseTitle,
@@ -34,7 +43,9 @@ nonisolated func overlayDownloadProgress(
             postProcessError: row.postProcessError,
             postProcessDestinationPath: row.postProcessDestinationPath,
             live: live,
-            aiPicked: row.aiPicked
+            aiPicked: row.aiPicked,
+            sizeBytes: row.sizeBytes,
+            qualityParsed: row.qualityParsed
         )
     }
 }
