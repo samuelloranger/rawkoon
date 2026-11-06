@@ -29,6 +29,11 @@ type FileRow = {
 let rows: FileRow[] = [];
 let root = "";
 const deleted: number[] = [];
+const originalRemaps = {
+  MEDIA_PATH_FROM: Bun.env.MEDIA_PATH_FROM,
+  MEDIA_PATH_TO: Bun.env.MEDIA_PATH_TO,
+  MEDIA_PATH_REMAP: Bun.env.MEDIA_PATH_REMAP,
+};
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -39,12 +44,14 @@ mock.module("@rawkoon/api/db", () => ({
         where: {
           mediaId?: number;
           episodeId?: number;
-          filePath: string | { not: string };
+          filePath: string | { not: string } | { in: string[] };
         };
       }) =>
         rows.filter((row) => {
           if (typeof where.filePath === "string")
             return row.filePath === where.filePath;
+          if ("in" in where.filePath)
+            return where.filePath.in.includes(row.filePath);
           return (
             row.mediaId === where.mediaId &&
             row.episodeId === where.episodeId &&
@@ -67,8 +74,17 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "pack-upgrade-"));
   rows = [];
   deleted.length = 0;
+  delete Bun.env.MEDIA_PATH_FROM;
+  delete Bun.env.MEDIA_PATH_TO;
+  delete Bun.env.MEDIA_PATH_REMAP;
 });
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+  for (const [key, value] of Object.entries(originalRemaps)) {
+    if (value === undefined) delete Bun.env[key];
+    else Bun.env[key] = value;
+  }
+});
 
 function file(
   id: number,
@@ -139,5 +155,37 @@ describe("season-pack upgrade cleanup", () => {
     await clean(file(2, "upgraded.mkv"));
     expect(existsSync(old)).toBe(false);
     expect(readFileSync(source, "utf8")).toBe("old");
+  });
+  it("removes the actual old file when its stored host path is remapped", async () => {
+    const diskPath = file(1, "old.mkv");
+    rows[0]!.filePath = "/host/old.mkv";
+    Bun.env.MEDIA_PATH_FROM = "/host";
+    Bun.env.MEDIA_PATH_TO = root;
+    await clean(file(2, "new.mkv"));
+    expect(existsSync(diskPath)).toBe(false);
+    expect(deleted).toEqual([1]);
+  });
+  it("preserves the destination when an old host-path row resolves to the same file", async () => {
+    const destination = file(2, "new.mkv", 10, 7, "new content");
+    rows.push({ id: 1, mediaId: 7, episodeId: 10, filePath: "/host/new.mkv" });
+    Bun.env.MEDIA_PATH_FROM = "/host";
+    Bun.env.MEDIA_PATH_TO = root;
+    await clean(destination);
+    expect(readFileSync(destination, "utf8")).toBe("new content");
+    expect(deleted).toEqual([1]);
+  });
+  it("preserves another episode's file referenced through a different configured alias", async () => {
+    const diskPath = file(1, "shared.mkv");
+    rows[0]!.filePath = "/first/shared.mkv";
+    rows.push({
+      id: 2,
+      mediaId: 7,
+      episodeId: 11,
+      filePath: "/second/shared.mkv",
+    });
+    Bun.env.MEDIA_PATH_REMAP = `/first:${root},/second:${root}`;
+    await clean(file(3, "new.mkv"));
+    expect(readFileSync(diskPath, "utf8")).toBe("old");
+    expect(rows.map((row) => row.id)).toEqual([2, 3]);
   });
 });

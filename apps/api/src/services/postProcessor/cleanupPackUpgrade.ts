@@ -1,5 +1,24 @@
 import { unlink } from "node:fs/promises";
+import { resolve } from "node:path";
 import { prisma } from "@rawkoon/api/db";
+import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
+
+/** Include configured host-path aliases when checking who still owns a disk file. */
+function pathAliases(stored: string, disk: string): string[] {
+  const aliases = new Set([stored, disk]);
+  const mappings = [
+    [Bun.env.MEDIA_PATH_FROM, Bun.env.MEDIA_PATH_TO],
+    ...(Bun.env.MEDIA_PATH_REMAP ?? "")
+      .split(",")
+      .map((pair) => pair.split(":")),
+  ];
+  for (const [from, to] of mappings) {
+    if (!from || !to || !disk.startsWith(to)) continue;
+    const candidate = from + disk.slice(to.length);
+    if (resolve(remapPath(candidate)) === disk) aliases.add(candidate);
+  }
+  return [...aliases];
+}
 
 /** Remove replaced episode files only after the upgraded file has been recorded. */
 export async function cleanupPackUpgrade(opts: {
@@ -16,18 +35,20 @@ export async function cleanupPackUpgrade(opts: {
     select: { id: true, filePath: true },
   });
   const removed: number[] = [];
+  const destination = resolve(remapPath(opts.destinationPath));
   for (const old of oldFiles) {
+    const diskPath = resolve(remapPath(old.filePath));
     const owners = await prisma.mediaFile.findMany({
-      where: { filePath: old.filePath },
+      where: { filePath: { in: pathAliases(old.filePath, diskPath) } },
       select: { mediaId: true, episodeId: true },
     });
     const shared = owners.some(
       (owner) =>
         owner.mediaId !== opts.mediaId || owner.episodeId !== opts.episodeId,
     );
-    if (!shared) {
+    if (!shared && diskPath !== destination) {
       try {
-        await unlink(old.filePath);
+        await unlink(diskPath);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
           console.warn(
