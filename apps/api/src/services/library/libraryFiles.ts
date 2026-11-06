@@ -45,9 +45,12 @@ export async function getDownloadHistoryWithLive(id: number) {
     take: MEDIA_HISTORY_LIMIT,
   });
 
-  // Released torrents use their stored size; held torrents provide current stats.
+  // Adopted torrents are marked released even while still downloading.
   const pollableHashes = items
-    .filter((h) => h.torrentHash && !h.seedReleasedAt)
+    .filter(
+      (h) =>
+        h.torrentHash && ((!h.completedAt && !h.failed) || !h.seedReleasedAt),
+    )
     .map((h) => (h.torrentHash as string).toLowerCase());
   const inFlight = new Set(
     items

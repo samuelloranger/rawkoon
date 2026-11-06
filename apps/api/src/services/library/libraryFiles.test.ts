@@ -162,6 +162,31 @@ describe("getDownloadHistoryWithLive", () => {
     ).toBe(2_000_000_000);
   });
 
+  it("keeps live progress and size for an adopted torrent still downloading", async () => {
+    findHistory.mockResolvedValue([
+      {
+        torrentHash: "ABC",
+        completedAt: null,
+        failed: false,
+        seedReleasedAt: new Date(),
+      },
+    ]);
+    listTorrents.mockResolvedValue([torrent({ progress: 0.4, dlSpeed: 1000 })]);
+    const result = await getDownloadHistoryWithLive(5);
+    expect(result!.liveByHash.get("abc")).toMatchObject({
+      progress: 0.4,
+      download_speed: 1000,
+      seeds: 1,
+      peers: 1,
+    });
+    expect(
+      sizeBytesForRow(
+        { seedReleasedBytes: null },
+        result!.torrentByHash.get("abc"),
+      ),
+    ).toBe(2_000_000_000);
+  });
+
   it("keeps history available when the download client is offline", async () => {
     findHistory.mockResolvedValue([
       {
