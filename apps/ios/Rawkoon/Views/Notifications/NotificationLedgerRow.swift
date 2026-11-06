@@ -81,7 +81,7 @@ struct NotificationLines {
         case "library_media_grabbed", "book_grabbed":
             (String(localized: "Grabbed"), Theme.importing)
         case "library_download_failed", "library_post_process_failed", "book_import_failed":
-            (String(localized: "Failed"), Theme.terracotta)
+            (String(localized: "Failed"), Theme.danger)
         case "request_pending":
             (String(localized: "Awaiting approval"), Theme.apricot)
         case "request_available":

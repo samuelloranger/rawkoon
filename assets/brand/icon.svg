@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Rawkoon"><rect width="512" height="512" fill="#201F1C"/><g transform="translate(-26 -4) scale(1.1015625)">
+      <defs><mask id="face" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <path d="M256 119 C225 119 203 129 181 143 L128 104 Q109 92 110 117 L115 190 C97 214 83 239 91 260 C105 299 177 352 239 377 Q256 385 273 377 C335 352 407 299 421 260 C429 239 415 214 397 190 L402 117 Q403 92 384 104 L331 143 C309 129 287 119 256 119 Z" fill="white"/>
+        <path d="M122 220 C152 196 197 200 239 231 L223 276 C190 291 146 271 121 245 Q111 233 122 220 Z" fill="black"/><path d="M122 220 C152 196 197 200 239 231 L223 276 C190 291 146 271 121 245 Q111 233 122 220 Z" transform="translate(512 0) scale(-1 1)" fill="black"/>
+        <path d="M150 235 Q173 219 195 238 Q172 252 150 235 Z" fill="white"/><path d="M150 235 Q173 219 195 238 Q172 252 150 235 Z" transform="translate(512 0) scale(-1 1)" fill="white"/>
+        <path d="M241 313 Q256 305 271 313 L261 327 Q256 333 251 327 Z" fill="black"/>
+        <path d="M134 130 L164 151 L137 170 Z" fill="black"/><path d="M134 130 L164 151 L137 170 Z" transform="translate(512 0) scale(-1 1)" fill="black"/>
+      </mask></defs><path d="M256 119 C225 119 203 129 181 143 L128 104 Q109 92 110 117 L115 190 C97 214 83 239 91 260 C105 299 177 352 239 377 Q256 385 273 377 C335 352 407 299 421 260 C429 239 415 214 397 190 L402 117 Q403 92 384 104 L331 143 C309 129 287 119 256 119 Z" fill="#E6D8BF" mask="url(#face)"/>
+    </g></svg>

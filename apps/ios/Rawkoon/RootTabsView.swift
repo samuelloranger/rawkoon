@@ -251,7 +251,7 @@ enum MiniPlayerInset {
 }
 
 /// Brand lockup shown at the top of the adaptive sidebar (iPad, Mac). Matches
-/// the login lockup: the app mark plus the Fraunces wordmark.
+/// the login lockup: the app mark plus the Bricolage Grotesque wordmark.
 private struct RawkoonSidebarHeader: View {
     var body: some View {
         HStack(spacing: 10) {

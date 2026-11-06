@@ -1,4 +1,3 @@
-import "@fontsource-variable/fraunces/index.css";
 import "@fontsource-variable/hanken-grotesk/index.css";
 // The reading face. Commissioned for screen reading, and the face Google Books
 // itself sets — which is where rawkoon's book metadata comes from.

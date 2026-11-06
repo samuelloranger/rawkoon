@@ -34,7 +34,7 @@ struct AiCallHistoryView: View {
             Section {
                 if let loadError {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(loadError).foregroundStyle(Theme.terracotta)
+                        Text(loadError).foregroundStyle(Theme.danger)
                         Button("Retry") { Task { await reload() } }.tint(Theme.apricot)
                     }
                 }
@@ -138,7 +138,7 @@ struct AiStatusCapsule: View {
         case .ok: Theme.seed
         case .invalidPick: Theme.apricot
         case .rateLimited: Theme.importing
-        case .error: Theme.terracotta
+        case .error: Theme.danger
         case .budgetSkipped, nil: Theme.muted
         }
     }
@@ -276,7 +276,7 @@ struct AiCallDetailView: View {
             }
             if let error = call.error, !error.isEmpty {
                 Section {
-                    Text(verbatim: error).foregroundStyle(Theme.terracotta)
+                    Text(verbatim: error).foregroundStyle(Theme.danger)
                 } header: {
                     Text("Error")
                 }

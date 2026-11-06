@@ -20,7 +20,7 @@ struct ExploreFilterControls: View {
             if let optionsError {
                 Text(optionsError)
                     .font(.footnote)
-                    .foregroundStyle(model.isOffline ? Theme.muted : Theme.terracotta)
+                    .foregroundStyle(model.isOffline ? Theme.muted : Theme.danger)
             }
             genreSection
             sortSection

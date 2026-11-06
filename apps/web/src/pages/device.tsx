@@ -119,7 +119,7 @@ function DevicePage() {
               type="button"
               disabled={!code || decide.isPending}
               onClick={() => decide.mutate("approve")}
-              className="focus-ring flex-1 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              className="focus-ring flex-1 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-primary-700 disabled:opacity-50"
             >
               {t("device.approve")}
             </button>

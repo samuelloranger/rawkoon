@@ -144,7 +144,7 @@ private struct CustomFormatEditorView: View {
                 .listRowBackground(Theme.raised)
             }
             if let saveError {
-                Section { Text(saveError).foregroundStyle(Theme.terracotta) }
+                Section { Text(saveError).foregroundStyle(Theme.danger) }
                     .listRowBackground(Theme.raised)
             }
         }

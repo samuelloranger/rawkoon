@@ -33,7 +33,7 @@ struct SettingsSecurityView: View {
                     Text("Password updated.").foregroundStyle(Theme.apricot).listRowBackground(Theme.raised)
                 }
                 if let passwordError {
-                    Text(passwordError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    Text(passwordError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                 }
             } header: { Text("Password") }
 
@@ -43,7 +43,7 @@ struct SettingsSecurityView: View {
                     .requiresConnection(model.isOffline)
                     .listRowBackground(Theme.raised)
                 if let calendarError {
-                    Text(calendarError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    Text(calendarError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                 }
             } header: {
                 Text("Calendar")

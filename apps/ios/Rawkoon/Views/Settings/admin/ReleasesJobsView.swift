@@ -41,7 +41,7 @@ struct ReleasesAdminView: View {
                         }
                         .listRowBackground(Theme.raised)
                         if let error = sync.lastError {
-                            Text(error).font(.footnote).foregroundStyle(Theme.terracotta)
+                            Text(error).font(.footnote).foregroundStyle(Theme.danger)
                                 .listRowBackground(Theme.raised)
                         }
                     }

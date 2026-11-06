@@ -72,7 +72,7 @@ struct ArrLibraryImportView: View {
                     .requiresConnection(model.isOffline)
                     .listRowBackground(Theme.raised)
                 if let startError {
-                    Text(startError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                    Text(startError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                 }
                 if let status, let state = status.state, state != "unknown" {
                     Text(statusLine(status)).font(.footnote).foregroundStyle(Theme.muted)

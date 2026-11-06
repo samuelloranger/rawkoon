@@ -21,3 +21,9 @@ for (const { file, size } of sizes) {
     .toFile(resolve(publicDir, file));
   console.log(`✓ Generated ${file} (${size}×${size})`);
 }
+
+await sharp(resolve(publicDir, "icon-maskable.svg"))
+  .resize(512, 512)
+  .flatten({ background: "#201F1C" })
+  .png()
+  .toFile(resolve(publicDir, "icon-maskable-512.png"));

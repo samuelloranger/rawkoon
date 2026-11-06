@@ -82,11 +82,10 @@ targets:
         # every TestFlight upload look like a duplicate build).
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        # Cozy Dusk display face. Fraunces ships as one variable TTF; iOS reads it
-        # under the family name "Fraunces". Theme.display() falls back to the
-        # system serif if this ever fails to register.
+        # Paper Noir display face, pinned to the approved semibold optical instance.
+        # Theme.display() retains a system fallback if registration fails.
         UIAppFonts:
-          - Fraunces.ttf
+          - BricolageGrotesque-SemiBold.ttf
         # Dark-only by design — audiobooks and late-night queue-watching live at
         # night, and the whole palette is built for a dim room. The phone app is
         # forced dark in SwiftUI via `.preferredColorScheme(.dark)` on the root
@@ -178,12 +177,16 @@ targets:
     sources:
       - RawkoonWidgets
       - WidgetSupport/WidgetSnapshot.swift
+      - path: Rawkoon/Fonts/BricolageGrotesque-SemiBold.ttf
+        buildPhase: resources
     dependencies:
       - package: RawkoonKit
     info:
       path: RawkoonWidgets/Info.plist
       properties:
         CFBundleDisplayName: Rawkoon Widgets
+        UIAppFonts:
+          - BricolageGrotesque-SemiBold.ttf
         # An extension must carry its parent app's version and build, or App Store Connect rejects it.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"

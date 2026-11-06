@@ -5,11 +5,12 @@ import WidgetKit
     import ActivityKit
 
     private enum LivePalette {
-        static let surface = Color(red: 0.19, green: 0.15, blue: 0.13)
-        static let strong = Color(red: 0.96, green: 0.93, blue: 0.89)
-        static let muted = Color(red: 0.67, green: 0.60, blue: 0.55)
-        static let apricot = Color(red: 0.91, green: 0.63, blue: 0.42)
-        static let terracotta = Color(red: 0.81, green: 0.42, blue: 0.31)
+        static let surface = Color(red: 0.173, green: 0.169, blue: 0.153)
+        static let strong = Color(red: 0.953, green: 0.933, blue: 0.898)
+        static let muted = Color(red: 0.714, green: 0.678, blue: 0.620)
+        static let apricot = Color(red: 0.902, green: 0.847, blue: 0.749)
+        static let danger = Color(red: 0.875, green: 0.608, blue: 0.569)
+        static let terracotta = Color(red: 0.741, green: 0.647, blue: 0.525)
     }
 
     private struct LiveProgress: View {
@@ -75,7 +76,7 @@ import WidgetKit
                     .monospacedDigit()
             } else {
                 Image(systemName: state.symbol)
-                    .foregroundStyle(state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot)
+                    .foregroundStyle(state.status == "failed" ? LivePalette.danger : LivePalette.apricot)
                     .accessibilityLabel(Text(state.label))
             }
         }
@@ -93,12 +94,12 @@ import WidgetKit
                         Spacer()
                         Image(systemName: context.state.symbol)
                             .foregroundStyle(
-                                context.state.status == "failed" ? LivePalette.terracotta : LivePalette.apricot
+                                context.state.status == "failed" ? LivePalette.danger : LivePalette.apricot
                             )
                             .accessibilityHidden(true)
                     }
                     Text(context.attributes.title)
-                        .font(.system(.headline, design: .serif, weight: .semibold))
+                        .font(.custom("BricolageGrotesque-SemiBold", size: 17, relativeTo: .headline))
                         .foregroundStyle(LivePalette.strong)
                         .lineLimit(1)
                     HStack(spacing: 0) {
@@ -192,7 +193,7 @@ import WidgetKit
                             .foregroundStyle(LivePalette.apricot)
                     }
                     Text(context.attributes.bookTitle)
-                        .font(.system(.headline, design: .serif, weight: .semibold))
+                        .font(.custom("BricolageGrotesque-SemiBold", size: 17, relativeTo: .headline))
                         .foregroundStyle(LivePalette.strong)
                         .lineLimit(1)
                     if let chapter = context.state.chapterTitle {

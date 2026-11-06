@@ -19,7 +19,7 @@ struct SettingsStateView<Content: View>: View {
             .listRowBackground(Theme.raised)
         } else if let error {
             VStack(alignment: .leading, spacing: 8) {
-                Text(error).foregroundStyle(Theme.terracotta)
+                Text(error).foregroundStyle(Theme.danger)
                 Button("Retry", action: retry).tint(Theme.apricot)
             }
             .listRowBackground(Theme.raised)

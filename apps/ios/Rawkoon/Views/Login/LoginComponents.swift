@@ -37,7 +37,7 @@ struct LoginScreen<Content: View>: View {
 struct LoginBackground: View {
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: 0x2A201B), Theme.base], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Color(hex: 0x302E28), Theme.base], startPoint: .top, endPoint: .bottom)
             Theme.duskGlow
         }
         .ignoresSafeArea()
@@ -196,7 +196,7 @@ struct LoginErrorText: View {
         if let errorMessage = model.errorMessage {
             Text(errorMessage)
                 .font(.footnote)
-                .foregroundStyle(Theme.terracotta)
+                .foregroundStyle(Theme.danger)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 12)

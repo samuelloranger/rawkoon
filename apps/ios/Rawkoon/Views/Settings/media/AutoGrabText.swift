@@ -100,7 +100,7 @@ struct GrabReadinessRowLabel: View {
         let style: (name: String, tint: Color) = switch check.status {
         case .ok: ("checkmark.circle.fill", Theme.seed)
         case .warn: ("exclamationmark.triangle.fill", Theme.apricot)
-        case .error: ("xmark.octagon.fill", Theme.terracotta)
+        case .error: ("xmark.octagon.fill", Theme.danger)
         }
         let label: LocalizedStringKey = switch check.status {
         case .ok: "OK"

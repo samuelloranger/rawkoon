@@ -260,7 +260,7 @@ extension ActivityView {
                     if let reason = row.line?.reason.text {
                         Text(verbatim: reason)
                             .font(.caption)
-                            .foregroundStyle(row.line?.status == .failed ? Theme.terracotta : Theme.muted)
+                            .foregroundStyle(row.line?.status == .failed ? Theme.danger : Theme.muted)
                             .lineLimit(2)
                     }
                 }

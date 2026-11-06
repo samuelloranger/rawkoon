@@ -82,7 +82,7 @@ export function JellyfinSignInForm({
         <button
           type="submit"
           disabled={pending || !username.trim() || !password}
-          className="focus-ring w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="focus-ring w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-neutral-950 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {pending ? t("login.loading") : submitLabel}
         </button>

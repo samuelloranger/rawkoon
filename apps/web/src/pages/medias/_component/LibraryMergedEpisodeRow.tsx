@@ -335,7 +335,7 @@ export function MergedEpisodeRow({
                 type="button"
                 onClick={handleAutoSearch}
                 disabled={searchEpMut.isPending}
-                className="rounded-md bg-primary-600/90 px-2 py-0.5 text-[9px] font-semibold text-white hover:bg-primary-600 disabled:opacity-50 transition-colors"
+                className="rounded-md bg-primary-600/90 px-2 py-0.5 text-[9px] font-semibold text-neutral-950 hover:bg-primary-600 disabled:opacity-50 transition-colors"
               >
                 {t("library.management.episodeSearch")}
               </button>

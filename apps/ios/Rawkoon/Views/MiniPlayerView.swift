@@ -27,7 +27,7 @@ struct MiniPlayerView: View {
     }
 
     private var subtitleColor: Color {
-        model.player.playbackError != nil ? Theme.terracotta : .secondary
+        model.player.playbackError != nil ? Theme.danger : .secondary
     }
 
     @ViewBuilder

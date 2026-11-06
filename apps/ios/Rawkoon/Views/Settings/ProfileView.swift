@@ -33,7 +33,7 @@ struct ProfileView: View {
                         .requiresConnection(model.isOffline)
                         .listRowBackground(Theme.raised)
                     if let nameError {
-                        Text(nameError).foregroundStyle(Theme.terracotta).listRowBackground(Theme.raised)
+                        Text(nameError).foregroundStyle(Theme.danger).listRowBackground(Theme.raised)
                     }
                 } header: { Text("Profile") }
             }

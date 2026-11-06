@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @plugin '@tailwindcss/typography';
 
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+
 @layer utilities {
   .prose :where(p):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
     margin-bottom: 0;
@@ -33,50 +42,50 @@
 
 /* Custom theme configuration */
 @theme {
-  /* Primary — warm apricot → terracotta (replaces green brand) */
-  --color-primary-50: #fdf5ef;
-  --color-primary-100: #f9e6d5;
-  --color-primary-200: #f2cdab;
-  --color-primary-300: #f0bf93;
-  --color-primary-400: #e8a06a; /* apricot accent */
-  --color-primary-500: #df8753;
-  --color-primary-600: #cf6a4e; /* terracotta */
-  --color-primary-700: #ad5440;
-  --color-primary-800: #8a4435;
-  --color-primary-900: #71382e;
-  --color-primary-950: #4f2419;
+  /* Primary — Paper Noir parchment → bronze (replaces green brand) */
+  --color-primary-50: #faf7f1;
+  --color-primary-100: #f2eadc;
+  --color-primary-200: #ede2d0;
+  --color-primary-300: #f2eadc;
+  --color-primary-400: #e6d8bf; /* parchment accent */
+  --color-primary-500: #d2bfa1;
+  --color-primary-600: #bda586; /* bronze */
+  --color-primary-700: #a78d70;
+  --color-primary-800: #8e775d;
+  --color-primary-900: #75634f;
+  --color-primary-950: #53483a;
 
   /* Neutral — warm brown (replaces cold gray; repaints all dark: surfaces) */
-  --color-neutral-50: #f4ece4; /* strong text */
-  --color-neutral-100: #e3d8cf; /* text */
-  --color-neutral-200: #d4c6b8;
-  --color-neutral-300: #b9a89a;
-  --color-neutral-400: #aa9a8c; /* muted text — 6.04:1 on surface-raised */
-  --color-neutral-500: #9d8775; /* faintest readable text — 4.82:1 on surface-raised */
-  --color-neutral-600: #463a32; /* borders only — 1.5:1, never use for text */
-  --color-neutral-700: #322a25; /* borders */
-  --color-neutral-800: #241e1b; /* raised cards/panels */
-  --color-neutral-900: #1c1715; /* app base background */
-  --color-neutral-950: #141010; /* deepest wells */
+  --color-neutral-50: #f3eee5; /* strong text */
+  --color-neutral-100: #ddd7cc; /* text */
+  --color-neutral-200: #cdc5b7;
+  --color-neutral-300: #c0b6a6;
+  --color-neutral-400: #b6ad9e; /* muted text on raised surfaces */
+  --color-neutral-500: #aaa08e; /* secondary text on raised surfaces */
+  --color-neutral-600: #625b50; /* borders only — 1.5:1, never use for text */
+  --color-neutral-700: #4c4941; /* borders */
+  --color-neutral-800: #2c2b27; /* raised cards/panels */
+  --color-neutral-900: #201f1c; /* app base background */
+  --color-neutral-950: #141411; /* deepest wells */
 
-  /* Cozy Dusk semantic tokens */
-  --color-surface-base: #1c1715;
-  --color-surface-raised: #241e1b;
-  --color-surface-inset: #171311; /* between neutral-950 and neutral-900 */
-  --color-border: #322a25;
-  --color-border-strong: #3a2f27; /* between neutral-600 and neutral-700 */
-  --color-text-strong: #f4ece4;
-  --color-text: #e3d8cf;
-  --color-text-muted: #aa9a8c;
+  /* Paper Noir semantic tokens */
+  --color-surface-base: #201f1c;
+  --color-surface-raised: #2c2b27;
+  --color-surface-inset: #171714; /* between neutral-950 and neutral-900 */
+  --color-border: #4c4941;
+  --color-border-strong: #5a554c; /* between neutral-600 and neutral-700 */
+  --color-text-strong: #f3eee5;
+  --color-text: #ddd7cc;
+  --color-text-muted: #b6ad9e;
 
   /* Custom breakpoints */
   --breakpoint-mobile-max: 945px;
 
   /* Typography (ALREADY PRESENT — keep, do not duplicate) */
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces Variable", ui-serif, Georgia, serif;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Fira Code", ui-monospace, monospace;
-  /* Long-form reading only. Fraunces is a display face and tires at 400 words. */
+  /* Long-form reading only. Bricolage Grotesque is a display face and tires at 400 words. */
   --font-reading: "Literata Variable", ui-serif, Georgia, serif;
 }
 
@@ -89,6 +98,7 @@
   h3,
   .font-display {
     font-family: var(--font-display);
+    font-variation-settings: "opsz" 72, "wdth" 100;
     font-weight: 600;
     letter-spacing: -0.01em;
   }
@@ -546,12 +556,12 @@ body {
   0% {
     transform: scale(1);
     opacity: 0.5;
-    box-shadow: 0 0 0 0 rgba(232, 160, 106, 0.7);
+    box-shadow: 0 0 0 0 rgba(230, 216, 191, 0.7);
   }
   100% {
     transform: scale(1.5);
     opacity: 0;
-    box-shadow: 0 0 0 10px rgba(232, 160, 106, 0);
+    box-shadow: 0 0 0 10px rgba(230, 216, 191, 0);
   }
 }
 
@@ -560,7 +570,7 @@ body {
     background-color: transparent;
   }
   30% {
-    background-color: rgba(232, 160, 106, 0.18);
+    background-color: rgba(230, 216, 191, 0.18);
   }
   100% {
     background-color: transparent;
@@ -594,7 +604,7 @@ body {
 
 .checkbox-ripple {
   animation: checkboxRipple 0.6s ease-out forwards;
-  background-color: rgba(232, 160, 106, 0.3);
+  background-color: rgba(230, 216, 191, 0.3);
 }
 
 .row-complete-flash {
@@ -615,11 +625,11 @@ body {
   pointer-events: none;
   background: linear-gradient(
     90deg,
-    rgba(207, 106, 78, 0) 0%,
-    rgba(207, 106, 78, 0.38) 18%,
+    rgba(189, 165, 134, 0) 0%,
+    rgba(189, 165, 134, 0.38) 18%,
     rgba(255, 255, 255, 0.92) 50%,
-    rgba(207, 106, 78, 0.38) 82%,
-    rgba(207, 106, 78, 0) 100%
+    rgba(189, 165, 134, 0.38) 82%,
+    rgba(189, 165, 134, 0) 100%
   );
   animation: torrentUploadSweep 1.2s linear infinite;
   mix-blend-mode: plus-lighter;
@@ -628,11 +638,11 @@ body {
 .dark .torrent-progress-bar-active::after {
   background: linear-gradient(
     90deg,
-    rgba(232, 160, 106, 0) 0%,
-    rgba(232, 160, 106, 0.45) 18%,
+    rgba(230, 216, 191, 0) 0%,
+    rgba(230, 216, 191, 0.45) 18%,
     rgba(255, 255, 255, 0.95) 50%,
-    rgba(232, 160, 106, 0.45) 82%,
-    rgba(232, 160, 106, 0) 100%
+    rgba(230, 216, 191, 0.45) 82%,
+    rgba(230, 216, 191, 0) 100%
   );
 }
 

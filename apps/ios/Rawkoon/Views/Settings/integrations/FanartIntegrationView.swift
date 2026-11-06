@@ -53,7 +53,7 @@ struct FanartIntegrationView: View {
                     Text("Higher-quality posters and backdrops. Leave the key blank to keep the stored one.")
                 }
                 if let saveError {
-                    Section { Text(saveError).foregroundStyle(Theme.terracotta) }
+                    Section { Text(saveError).foregroundStyle(Theme.danger) }
                         .listRowBackground(Theme.raised)
                 }
             }

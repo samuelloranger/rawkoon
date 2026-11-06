@@ -94,7 +94,7 @@ struct ToastOverlay: View {
     private func tint(for style: Toast.Style) -> Color {
         switch style {
         case .success: Theme.seed
-        case .error: Theme.terracotta
+        case .error: Theme.danger
         case .info: Theme.apricot
         }
     }

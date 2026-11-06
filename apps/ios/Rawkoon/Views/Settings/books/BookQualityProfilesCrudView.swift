@@ -170,7 +170,7 @@ private struct BookQualityProfileEditorView: View {
                     .tint(Theme.apricot).listRowBackground(Theme.raised)
             }
             if let saveError {
-                Section { Text(saveError).foregroundStyle(Theme.terracotta) }.listRowBackground(Theme.raised)
+                Section { Text(saveError).foregroundStyle(Theme.danger) }.listRowBackground(Theme.raised)
             }
         }
         .scrollContentBackground(.hidden)

@@ -293,7 +293,7 @@ export function LibraryItemRow({
               onMovieSearch(item.id);
             }}
             disabled={movieSearchPending}
-            className="flex items-center gap-1 rounded-lg bg-primary-600/90 hover:bg-primary-600 disabled:opacity-50 text-white text-xs font-medium px-2.5 py-1.5 transition-colors"
+            className="flex items-center gap-1 rounded-lg bg-primary-600/90 hover:bg-primary-600 disabled:opacity-50 text-neutral-950 text-xs font-medium px-2.5 py-1.5 transition-colors"
           >
             <Search size={11} />
             <span className="hidden sm:inline">
