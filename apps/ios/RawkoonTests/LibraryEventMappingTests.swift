@@ -47,7 +47,7 @@ struct LibraryEventMappingTests {
         let dto = try decode(#"""
         {"kind":"download-progress","mediaId":10,"ts":1,
          "downloads":[
-           {"id":100,"progress":0.25,"state":"downloading","downloadSpeed":2048,"etaSeconds":30},
+           {"id":100,"progress":0.25,"state":"downloading","downloadSpeed":2048,"etaSeconds":30,"seeds":12,"peers":4},
            {"id":101,"progress":0.9,"state":"stalled","downloadSpeed":0,"etaSeconds":null}
          ]}
         """#)
@@ -61,9 +61,12 @@ struct LibraryEventMappingTests {
         #expect(items[0].live.progress == 0.25)
         #expect(items[0].live.downloadSpeed == 2048)
         #expect(items[0].live.etaSeconds == 30)
+        #expect(items[0].live.seeds == 12)
+        #expect(items[0].live.peers == 4)
         #expect(items[1].id == 101)
         #expect(items[1].live.state == "stalled")
         #expect(items[1].live.etaSeconds == nil)
+        #expect(items[1].live.seeds == nil)
     }
 
     @Test func downloadProgressWithoutRowsIsNotProgress() throws {
