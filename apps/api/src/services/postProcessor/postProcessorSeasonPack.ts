@@ -6,6 +6,7 @@ import type {
 import { stat, rm } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
+import { cleanupPackUpgrade } from "./cleanupPackUpgrade";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
@@ -363,6 +364,13 @@ export async function postProcessSeasonPack(
             releaseTitle: dh.releaseTitle,
             fallbackSource: q.source,
           });
+          if (dh.isUpgrade) {
+            await cleanupPackUpgrade({
+              mediaId: dh.media.id,
+              episodeId: ep.id,
+              destinationPath,
+            });
+          }
         } catch (e) {
           console.warn(
             `[postProcess/pack] MediaFile upsert failed for ${fn}:`,
