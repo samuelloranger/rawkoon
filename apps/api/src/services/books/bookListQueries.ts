@@ -109,7 +109,7 @@ export async function removeBook(
 ): Promise<boolean> {
   const existing = await prisma.libraryBook.findUnique({
     where: { id },
-    select: { id: true, title: true, publishedYear: true, authors: true },
+    select: { id: true, title: true, publishedYear: true },
   });
   if (!existing) return false;
   // A grab still downloading can never import once its edition is gone.
@@ -126,7 +126,8 @@ export async function removeBook(
   // their rows (book_edition_id → NULL) so their torrents seed to target.
   await deleteLibraryBookWithRequests(id);
 
-  // Best effort: the book is already gone, so a logging failure must not fail the delete.
+  // Defence in depth: logActivity already swallows enqueue errors, but a
+  // logging failure must never fail a delete that has already happened.
   try {
     await logActivity({
       type: "book_deleted",
@@ -135,7 +136,6 @@ export async function removeBook(
         book_id: existing.id,
         title: existing.title,
         year: existing.publishedYear,
-        authors: existing.authors,
       },
     });
   } catch (error) {

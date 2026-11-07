@@ -87,7 +87,9 @@ struct ActivityPresentation {
         case "media_deleted", "book_deleted":
             symbol = "trash"
             var title = record.title ?? "a title"
-            if let year = record.year { title += " (\(year))" }
+            if let year = record.year {
+                title += " (\(year))"
+            }
             description = "Removed \(title) from the library"
             tint = Theme.terracotta
 

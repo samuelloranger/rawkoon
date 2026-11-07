@@ -31,7 +31,6 @@ const book = {
   id: 3,
   title: "Some Book",
   publishedYear: 2011,
-  authors: ["An Author"],
 };
 
 describe("removeBook activity log", () => {
@@ -54,7 +53,6 @@ describe("removeBook activity log", () => {
         book_id: 3,
         title: "Some Book",
         year: 2011,
-        authors: ["An Author"],
       },
     });
   });

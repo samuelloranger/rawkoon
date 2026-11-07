@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { dbModule } from "./mocks/prisma";
 
@@ -17,9 +20,12 @@ mock.module("@rawkoon/api/services/library/pruneLibraryDirs", () => ({
 const releaseTorrentNow = mock(async (_hash: string) => ({
   status: "released",
 }));
+const protectedHashes = mock(
+  async (..._: unknown[]): Promise<Set<string>> => new Set<string>(),
+);
 mock.module("@rawkoon/api/services/seeding/seedSweep", () => ({
   abandonPendingDownloads: async () => {},
-  protectedHashes: async () => new Set<string>(),
+  protectedHashes,
   releaseTorrentNow,
 }));
 
@@ -36,7 +42,9 @@ const existing = {
   type: "movie",
   title: "Some Title",
   year: 1999,
-  files: [{ filePath: "/nonexistent/library/a.mkv" }],
+  files: [{ filePath: "/nonexistent/library/a.mkv" }] as {
+    filePath: string;
+  }[],
   downloadHistories: [
     {
       id: 1,
@@ -56,6 +64,7 @@ describe("deleteLibraryItem activity log", () => {
     deleteLibraryMediaWithRequests.mockReset();
     deleteLibraryMediaWithRequests.mockImplementation(async () => {});
     releaseTorrentNow.mockClear();
+    protectedHashes.mockClear();
     logActivity.mockReset();
     logActivity.mockImplementation(async () => {});
   });
@@ -80,9 +89,52 @@ describe("deleteLibraryItem activity log", () => {
         year: 1999,
         delete_files: true,
         release_torrents: true,
-        files_removed: 1,
+        files_removed: 0,
         torrents_released: 1,
       },
+    });
+  });
+
+  it("counts only files that existed and were removed", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "lib-delete-"));
+    const real = join(dir, "a.mkv");
+    writeFileSync(real, "x");
+    findUnique.mockImplementation(async () => ({
+      ...existing,
+      files: [{ filePath: real }, { filePath: join(dir, "missing.mkv") }],
+    }));
+
+    await deleteLibraryItem(7, {
+      deleteFiles: true,
+      releaseTorrents: false,
+      userId: "admin-1",
+    });
+
+    expect(existsSync(real)).toBe(false);
+    const payload = (
+      logActivity.mock.calls[0]?.[0] as { payload: Record<string, unknown> }
+    ).payload;
+    expect(payload.files_removed).toBe(1);
+  });
+
+  it("still logs when a torrent step throws after the delete", async () => {
+    protectedHashes.mockImplementationOnce(async () => {
+      throw new Error("client down");
+    });
+
+    await expect(
+      deleteLibraryItem(7, {
+        deleteFiles: false,
+        releaseTorrents: true,
+        userId: "admin-1",
+      }),
+    ).rejects.toThrow("client down");
+
+    expect(deleteLibraryMediaWithRequests).toHaveBeenCalledWith(7);
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity.mock.calls[0]?.[0]).toMatchObject({
+      type: "media_deleted",
+      payload: { media_id: 7, torrents_released: 0 },
     });
   });
 
