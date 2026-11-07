@@ -84,6 +84,15 @@ struct ActivityPresentation {
             }
             tint = Theme.importing
 
+        case "media_deleted", "book_deleted":
+            symbol = "trash"
+            var title = record.title ?? "a title"
+            if let year = record.year {
+                title += " (\(year))"
+            }
+            description = "Removed \(title) from the library"
+            tint = Theme.terracotta
+
         default:
             symbol = "checkmark.circle"
             description = record.message ?? record.releaseTitle ?? titleize(type)
@@ -107,6 +116,8 @@ struct ActivityPresentation {
     static func typeLabel(for type: String) -> String {
         switch type {
         case "media_grab": "Media Grab"
+        case "media_deleted": "Media Deleted"
+        case "book_deleted": "Book Deleted"
         case "app_updated": "App Updated"
         case "cron_job_ended": "Scheduled Job"
         case "cron_job_skipped": "Job Skipped"

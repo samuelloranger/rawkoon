@@ -220,6 +220,7 @@ export const bookListRoutes = new Hono<Env>()
 
   .delete("/:id", requireAdmin, paramV(idParam), async (c) => {
     const { id } = c.req.valid("param");
-    if (!(await removeBook(id))) return notFound("Book not found");
+    if (!(await removeBook(id, c.get("user").id)))
+      return notFound("Book not found");
     return ok({ deleted: true });
   });

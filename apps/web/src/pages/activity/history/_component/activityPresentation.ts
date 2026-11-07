@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Calendar,
   Download,
+  Trash2,
 } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { Activity } from "@rawkoon/shared/types";
@@ -45,6 +46,8 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   event_updated: "dashboard.activityPage.types.event_updated",
   event_deleted: "dashboard.activityPage.types.event_deleted",
   media_grab: "dashboard.activityPage.types.media_grab",
+  media_deleted: "dashboard.activityPage.types.media_deleted",
+  book_deleted: "dashboard.activityPage.types.book_deleted",
 };
 
 function titleize(value: string): string {
@@ -242,6 +245,37 @@ export function getActivityPresentation(
       description: isRssAi
         ? t("dashboard.activity.mediaGrabRssAi", { title })
         : t("dashboard.activity.mediaGrab", { title }),
+      time,
+      type,
+      typeLabel: getActivityTypeLabel(t, type),
+      service: svc,
+      serviceLabel: getActivityServiceLabel(t, svc),
+    };
+  }
+
+  if (type === "media_deleted" || type === "book_deleted") {
+    const time =
+      formatRelativeTime(activity.completed_at ?? null, language) ?? "";
+    const svc = activity.service?.trim().toLowerCase() || "library";
+    const user = activity.username || t("dashboard.activity.unknownUser");
+    const name = activity.title ?? t("dashboard.activity.unknownTitle");
+    const title = activity.year ? `${name} (${activity.year})` : name;
+    const files = activity.files_removed ?? 0;
+    let description: string;
+    if (type === "book_deleted") {
+      description = t("dashboard.activity.bookDeleted", { user, title });
+    } else if (activity.delete_files) {
+      description = t("dashboard.activity.mediaDeletedWithFiles", {
+        user,
+        title,
+        count: files,
+      });
+    } else {
+      description = t("dashboard.activity.mediaDeleted", { user, title });
+    }
+    return {
+      Icon: Trash2,
+      description,
       time,
       type,
       typeLabel: getActivityTypeLabel(t, type),

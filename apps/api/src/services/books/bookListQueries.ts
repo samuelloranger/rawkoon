@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@rawkoon/api/db";
 import { bookInclude } from "@rawkoon/api/routes/books/bookHelpers";
 import { deleteLibraryBookWithRequests } from "@rawkoon/api/services/mediaRequests";
+import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
   loadReadAtByBookId,
   resetBookProgress,
@@ -101,10 +102,14 @@ export async function resetProgressForBook(
   return result.ok;
 }
 
-export async function removeBook(id: number): Promise<boolean> {
+export async function removeBook(
+  id: number,
+  /** The acting user, recorded in the activity log. */
+  userId?: string | null,
+): Promise<boolean> {
   const existing = await prisma.libraryBook.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, title: true, publishedYear: true },
   });
   if (!existing) return false;
   // A grab still downloading can never import once its edition is gone.
@@ -120,5 +125,21 @@ export async function removeBook(id: number): Promise<boolean> {
   // matching how removing a library media item behaves. Completed grabs keep
   // their rows (book_edition_id → NULL) so their torrents seed to target.
   await deleteLibraryBookWithRequests(id);
+
+  // Defence in depth: logActivity already swallows enqueue errors, but a
+  // logging failure must never fail a delete that has already happened.
+  try {
+    await logActivity({
+      type: "book_deleted",
+      userId: userId ?? null,
+      payload: {
+        book_id: existing.id,
+        title: existing.title,
+        year: existing.publishedYear,
+      },
+    });
+  } catch (error) {
+    console.warn("[Books] Failed to log book deletion:", error);
+  }
   return true;
 }

@@ -6,6 +6,8 @@ type ActivityType =
   | "app_updated"
   | "admin_triggered_job"
   | "media_grab"
+  | "media_deleted"
+  | "book_deleted"
   | (string & {});
 
 export interface Activity {
@@ -39,6 +41,15 @@ export interface Activity {
   release_title?: string;
   grab_source?: string;
   ai_picked?: boolean;
+  book_id?: number;
+  tmdb_id?: number;
+  media_type?: string;
+  title?: string;
+  year?: number;
+  delete_files?: boolean;
+  release_torrents?: boolean;
+  files_removed?: number;
+  torrents_released?: number;
 }
 
 export interface DashboardActivityFeedResponse {

@@ -180,6 +180,8 @@
         "event_updated": "Événement mis à jour",
         "event_deleted": "Événement supprimé",
         "media_grab": "Téléchargement média",
+        "media_deleted": "Média supprimé",
+        "book_deleted": "Livre supprimé",
         "integration_updated": "Intégration mise à jour"
       }
     },
@@ -202,6 +204,10 @@
       "unknownRelease": "Release inconnue",
       "mediaGrab": "Release ajoutée : {{title}}",
       "mediaGrabRssAi": "Auto-grab RSS (choix IA) : {{title}}",
+      "unknownTitle": "Titre inconnu",
+      "mediaDeleted": "{{user}} a retiré {{title}} de la bibliothèque",
+      "mediaDeletedWithFiles": "{{user}} a retiré {{title}} de la bibliothèque et supprimé {{count}} fichier(s)",
+      "bookDeleted": "{{user}} a retiré le livre {{title}} de la bibliothèque",
       "integrationUpdated": "Intégration mise à jour : {{integration}}",
       "unknownIntegration": "Intégration inconnue"
     },
