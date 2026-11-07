@@ -35,6 +35,15 @@ type ActivityRecord = {
   release_title?: string;
   grab_source?: string;
   ai_picked?: boolean;
+  book_id?: number;
+  tmdb_id?: number;
+  media_type?: string;
+  title?: string;
+  year?: number;
+  delete_files?: boolean;
+  release_torrents?: boolean;
+  files_removed?: number;
+  torrents_released?: number;
 };
 
 const ACTIVITY_FEED_SOURCE_LIMIT = 500;
@@ -68,6 +77,7 @@ function getLogService(
   if (type === "admin_triggered_job") return "admin";
   if (type.startsWith("event_")) return "calendar";
   if (type === "media_grab") return "library";
+  if (type === "media_deleted" || type === "book_deleted") return "library";
 
   return "system";
 }
@@ -114,6 +124,15 @@ function mapActivityLogToActivity(log: {
     release_title: parseString(payload?.release_title),
     grab_source: parseString(payload?.grab_source),
     ai_picked: parseBoolean(payload?.ai_picked),
+    book_id: parseIntNumber(payload?.book_id),
+    tmdb_id: parseIntNumber(payload?.tmdb_id),
+    media_type: parseString(payload?.media_type),
+    title: parseString(payload?.title),
+    year: parseIntNumber(payload?.year),
+    delete_files: parseBoolean(payload?.delete_files),
+    release_torrents: parseBoolean(payload?.release_torrents),
+    files_removed: parseNumber(payload?.files_removed),
+    torrents_released: parseNumber(payload?.torrents_released),
   };
 }
 

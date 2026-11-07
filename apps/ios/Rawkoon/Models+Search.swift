@@ -268,6 +268,8 @@ nonisolated struct ActivityRecord: Decodable, Sendable {
     let aiPicked: Bool?
     let username: String?
     let taskName: String?
+    let title: String?
+    let year: Int?
 }
 
 nonisolated struct UpcomingResponse: Decodable, Sendable {

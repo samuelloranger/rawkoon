@@ -12,6 +12,8 @@ export type ActivityLogType =
   | "notification_unsubscribed"
   | "media_grab"
   | "book_grab"
+  | "media_deleted"
+  | "book_deleted"
   | "book_playback_error"
   | "book_playback_trace";
 

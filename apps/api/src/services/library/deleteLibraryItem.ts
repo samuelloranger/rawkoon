@@ -1,11 +1,17 @@
 import { prisma } from "@rawkoon/api/db";
 import { deleteLibraryMediaWithRequests } from "@rawkoon/api/services/mediaRequests";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
+import { logActivity } from "@rawkoon/api/utils/activityLogs";
 
 /** Returns null when the item doesn't exist, else how many torrents were released. */
 export async function deleteLibraryItem(
   id: number,
-  opts: { deleteFiles: boolean; releaseTorrents: boolean },
+  opts: {
+    deleteFiles: boolean;
+    releaseTorrents: boolean;
+    /** The acting user, recorded in the activity log. */
+    userId?: string | null;
+  },
 ): Promise<{ released: number } | null> {
   const existing = await prisma.libraryMedia.findUnique({
     where: { id },
@@ -25,6 +31,7 @@ export async function deleteLibraryItem(
   });
   if (!existing) return null;
 
+  let filesRemoved = 0;
   if (opts.deleteFiles) {
     const { rm } = await import("node:fs/promises");
     const paths = new Set<string>();
@@ -33,7 +40,10 @@ export async function deleteLibraryItem(
       if (dh.postProcessDestinationPath)
         paths.add(dh.postProcessDestinationPath);
     }
-    await Promise.allSettled([...paths].map((p) => rm(p, { force: true })));
+    const removals = await Promise.allSettled(
+      [...paths].map((p) => rm(p, { force: true })),
+    );
+    filesRemoved = removals.filter((r) => r.status === "fulfilled").length;
     await pruneLibraryDirsAfterDelete(paths);
   }
 
@@ -72,6 +82,27 @@ export async function deleteLibraryItem(
       const result = await releaseTorrentNow(hash).catch(() => null);
       if (result?.status === "released") released += 1;
     }
+  }
+
+  // Best effort: the title is already gone, so a logging failure must not fail the delete.
+  try {
+    await logActivity({
+      type: "media_deleted",
+      userId: opts.userId ?? null,
+      payload: {
+        media_id: existing.id,
+        tmdb_id: existing.tmdbId,
+        media_type: existing.type,
+        title: existing.title,
+        year: existing.year,
+        delete_files: opts.deleteFiles,
+        release_torrents: opts.releaseTorrents,
+        files_removed: filesRemoved,
+        torrents_released: released,
+      },
+    });
+  } catch (error) {
+    console.warn("[Library] Failed to log media deletion:", error);
   }
 
   return { released };

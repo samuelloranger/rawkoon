@@ -180,6 +180,8 @@
         "event_updated": "Event updated",
         "event_deleted": "Event deleted",
         "media_grab": "Media grab",
+        "media_deleted": "Media deleted",
+        "book_deleted": "Book deleted",
         "integration_updated": "Integration updated"
       }
     },
@@ -202,6 +204,10 @@
       "unknownRelease": "Unknown release",
       "mediaGrab": "Grabbed release: {{title}}",
       "mediaGrabRssAi": "RSS auto-grab (AI pick): {{title}}",
+      "unknownTitle": "Unknown title",
+      "mediaDeleted": "{{user}} removed {{title}} from the library",
+      "mediaDeletedWithFiles": "{{user}} removed {{title}} from the library and deleted {{count}} file(s)",
+      "bookDeleted": "{{user}} removed the book {{title}} from the library",
       "integrationUpdated": "Integration updated: {{integration}}",
       "unknownIntegration": "Unknown integration"
     },

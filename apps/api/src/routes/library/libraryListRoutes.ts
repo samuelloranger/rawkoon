@@ -181,6 +181,7 @@ export const libraryListRoutes = new Hono<Env>()
         const result = await deleteLibraryItem(id, {
           deleteFiles: query.delete_files === "true",
           releaseTorrents: query.release_torrents === "true",
+          userId: c.get("user").id,
         });
         if (!result) return notFound("Library item not found");
 
