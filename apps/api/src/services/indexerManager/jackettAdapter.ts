@@ -8,6 +8,7 @@ import type {
   SearchResult,
 } from "./types";
 import { parsePublishDate } from "./publishDate";
+import { httpUrlOrNull } from "./httpUrl";
 import type { IndexerIntegrationConfig } from "../../utils/integrations/types";
 import { randomUUID } from "crypto";
 
@@ -380,7 +381,7 @@ export class JackettAdapter implements IndexerManagerAdapter {
       leechers: toNumber(raw.Peers) ?? toNumber(raw.peers) ?? null,
       rejected: false,
       rejections: [],
-      infoUrl: toString(raw.Details) || toString(raw.details) || null,
+      infoUrl: httpUrlOrNull(toString(raw.Details) || toString(raw.details)),
       downloadUrl,
       magnetUrl,
       infoHash,

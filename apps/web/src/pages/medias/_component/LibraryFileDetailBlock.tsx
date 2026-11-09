@@ -113,7 +113,13 @@ export function FileDetailBlock({
             </span>
           </div>
         )}
-        <Row label={t("library.fileDetail.path")} value={file.file_path} mono />
+        {file.file_path && (
+          <Row
+            label={t("library.fileDetail.path")}
+            value={file.file_path}
+            mono
+          />
+        )}
       </div>
 
       <SectionTitle icon={Film} label={t("library.fileDetail.sectionVideo")} />

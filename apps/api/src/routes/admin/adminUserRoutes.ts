@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { validatePassword } from "@rawkoon/shared/utils";
 import { formatIso, sanitizeInput } from "@rawkoon/api/utils";
 import {
   badGateway,
@@ -88,9 +89,9 @@ export const adminUserRoutes = new Hono<Env>()
       if (!emailTrimmed || !validateEmail(emailTrimmed)) {
         return badRequest("Invalid email format");
       }
-      if (!body.password || body.password.length < 8) {
-        return badRequest("Password must be at least 8 characters");
-      }
+      const [passwordValid, passwordError] = validatePassword(body.password);
+      if (!passwordValid)
+        return badRequest(passwordError ?? "Invalid password");
 
       const sanitizedEmail = sanitizeInput(emailTrimmed);
       const existingUser = await findUserByEmail(sanitizedEmail);
@@ -281,9 +282,9 @@ export const adminUserRoutes = new Hono<Env>()
     async (c) => {
       const userId = c.req.param("id");
       const body = c.req.valid("json");
-      if (!body.password || body.password.length < 8) {
-        return badRequest("Password must be at least 8 characters");
-      }
+      const [passwordValid, passwordError] = validatePassword(body.password);
+      if (!passwordValid)
+        return badRequest(passwordError ?? "Invalid password");
 
       try {
         const result = await resetUserPassword(userId, body.password);

@@ -9,9 +9,6 @@ export const DASHBOARD_ENDPOINTS = {
   },
   UPCOMING: {
     LIST: "/api/dashboard/upcoming",
-    REFRESH: "/api/dashboard/upcoming/refresh",
-    ADD: "/api/dashboard/upcoming/add",
-    STATUS: "/api/dashboard/upcoming/status",
   },
   HERO: "/api/dashboard/hero",
   PIPELINE: "/api/dashboard/pipeline",

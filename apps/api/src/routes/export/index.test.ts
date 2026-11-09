@@ -3,10 +3,12 @@ import { Hono } from "hono";
 import type { ExportLibraryResponse } from "@rawkoon/shared/types";
 
 const findMany = mock(async (_args: unknown): Promise<unknown[]> => []);
-const verifyApiKey = mock(async (_args: unknown) => ({ valid: true }));
+const okKey = { valid: true, key: { referenceId: "u1" } };
+const verifyApiKey = mock(async (_args: unknown) => okKey as unknown);
+const findUser = mock(async (_args: unknown) => ({ isAdmin: true }));
 
 mock.module("@rawkoon/api/db", () => ({
-  prisma: { libraryMedia: { findMany } },
+  prisma: { libraryMedia: { findMany }, user: { findUnique: findUser } },
 }));
 mock.module("@rawkoon/api/lib/apiKeyApi", () => ({
   apiKeyApi: { verifyApiKey },
@@ -66,7 +68,8 @@ describe("Export API", () => {
   beforeEach(() => {
     findMany.mockClear();
     verifyApiKey.mockClear();
-    verifyApiKey.mockImplementation(async () => ({ valid: true }));
+    verifyApiKey.mockImplementation(async () => okKey);
+    findUser.mockImplementation(async () => ({ isAdmin: true }));
     findMany.mockImplementation(async () => []);
   });
 
@@ -77,9 +80,16 @@ describe("Export API", () => {
   });
 
   it("rejects an invalid api key", async () => {
-    verifyApiKey.mockImplementation(async () => ({ valid: false }));
+    verifyApiKey.mockImplementation(async () => ({ valid: false, key: null }));
     const res = await get("/library");
     expect(res.status).toBe(401);
+  });
+
+  it("rejects a valid key owned by a non-admin", async () => {
+    findUser.mockImplementation(async () => ({ isAdmin: false }));
+    const res = await get("/library");
+    expect(res.status).toBe(401);
+    expect(findMany).not.toHaveBeenCalled();
   });
 
   it("rejects an out-of-range limit", async () => {

@@ -38,8 +38,6 @@ type OidcConfig = {
   disableSignUp: true;
   mapProfileToUser: (profile: Record<string, unknown>) => {
     name: string;
-    firstName: string;
-    lastName: string;
   };
 };
 
@@ -55,8 +53,6 @@ function mapProfileToUser(profile: Record<string, unknown>) {
       : name.split(" ").slice(1).join(" ");
   return {
     name: name || [firstName, lastName].filter(Boolean).join(" "),
-    firstName,
-    lastName,
   };
 }
 
@@ -131,10 +127,30 @@ export const auth = betterAuth({
       image: "avatarUrl",
     },
     additionalFields: {
-      firstName: { type: "string", required: false, fieldName: "firstName" },
-      lastName: { type: "string", required: false, fieldName: "lastName" },
-      isAdmin: { type: "boolean", required: false, fieldName: "isAdmin" },
-      locale: { type: "string", required: false, fieldName: "locale" },
+      firstName: {
+        input: false,
+        type: "string",
+        required: false,
+        fieldName: "firstName",
+      },
+      lastName: {
+        input: false,
+        type: "string",
+        required: false,
+        fieldName: "lastName",
+      },
+      isAdmin: {
+        input: false,
+        type: "boolean",
+        required: false,
+        fieldName: "isAdmin",
+      },
+      locale: {
+        input: false,
+        type: "string",
+        required: false,
+        fieldName: "locale",
+      },
     },
   },
   session: {
@@ -211,6 +227,15 @@ export const auth = betterAuth({
       validateClient: (clientId) => TV_CLIENT_IDS.has(clientId),
       schema: { deviceCode: { modelName: "BaDeviceCode" } },
     }),
+  ],
+  // Profile edits go through /api/profile; keys are minted via /api/admin/api-keys.
+  disabledPaths: [
+    "/update-user",
+    "/api-key/create",
+    "/api-key/update",
+    "/api-key/delete",
+    "/api-key/get",
+    "/api-key/list",
   ],
   trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173", baseURL],
   databaseHooks: {

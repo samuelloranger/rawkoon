@@ -9,7 +9,7 @@ import { auth } from "@rawkoon/api/lib/auth";
 export const apiKeyApi = auth.api as unknown as {
   verifyApiKey: (args: {
     body: { key: string };
-  }) => Promise<{ valid: boolean }>;
+  }) => Promise<{ valid: boolean; key: { referenceId: string } | null }>;
   createApiKey: (args: {
     body: { name?: string; expiresIn?: number | null };
     headers: Headers;
