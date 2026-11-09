@@ -26,7 +26,7 @@ extension AppModel {
                 }
             }
         }
-        for editionId in editionIds {
+        for editionId in editionIds where !DownloadedStore.isForeign(editionId: editionId) {
             guard let manifest = DownloadedStore.readManifest(editionId: editionId) else {
                 continue
             }
@@ -52,6 +52,8 @@ extension AppModel {
         guard !startingDownloads.contains(editionId) else { return }
         startingDownloads.insert(editionId)
         defer { startingDownloads.remove(editionId) }
+        // Same path as another server's copy of this edition id: the files cannot be shared.
+        DownloadedStore.evictForeign(editionId: editionId)
         // A just-cancelled session with this identifier may still be invalidating.
         for _ in 0 ..< 50 where invalidatingSessions.contains(editionId) {
             try? await Task.sleep(for: .milliseconds(100))

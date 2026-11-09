@@ -198,6 +198,7 @@ final class AppModel {
         player.isNetworkAvailable = { [weak self] in self?.isOnline ?? true }
         startPathMonitor()
         observeProtectedData()
+        restoreServerScope()
         compactJournal()
         restoreDownloadedAudiobooks()
         refreshDownloadedBookIds()
@@ -367,6 +368,8 @@ final class AppModel {
         serverURL = server
         apiClient = makeAPIClient(baseURL: baseURL, token: token)
         isLoggedIn = true
+        restoreServerScope()
+        refreshDownloadedBookIds()
         hydrateFromCache()
     }
 

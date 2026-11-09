@@ -33,19 +33,50 @@ nonisolated enum DownloadedStore {
 
     // MARK: Index
 
-    /// The downloaded-editions index, or an empty list when it is missing or
-    /// unreadable — a corrupt index must never crash the offline library.
+    private static var activeKey: String? {
+        ActiveServerKey.shared.value
+    }
+
+    /// The active server's downloaded editions (plus unstamped legacy ones), or an empty
+    /// list when the index is missing or unreadable — a corrupt index must never crash
+    /// the offline library. Another server's records stay on disk, just hidden.
     static func readIndex() -> [DownloadedEdition] {
+        DownloadedLibrary.visible(readRawIndex(), serverKey: activeKey)
+    }
+
+    private static func readRawIndex() -> [DownloadedEdition] {
         guard let data = try? Data(contentsOf: indexURL) else { return [] }
         return (try? JSONDecoder().decode([DownloadedEdition].self, from: data)) ?? []
     }
 
     static func upsert(_ entry: DownloadedEdition) {
-        writeIndex(DownloadedLibrary.upsert(readIndex(), entry))
+        writeIndex(DownloadedLibrary.upsert(readRawIndex(), entry.with(serverKey: activeKey)))
     }
 
     static func remove(editionId: Int) {
-        writeIndex(DownloadedLibrary.remove(readIndex(), editionId: editionId))
+        writeIndex(DownloadedLibrary.remove(readRawIndex(), editionId: editionId, serverKey: activeKey))
+    }
+
+    /// The edition's files on disk belong to another server's download.
+    static func isForeign(editionId: Int) -> Bool {
+        DownloadedLibrary.isForeign(readRawIndex(), editionId: editionId, serverKey: activeKey)
+    }
+
+    /// A download of this edition id would reuse the other server's files (same path), so
+    /// they are dropped before it starts; the files cannot hold two servers' copies.
+    static func evictForeign(editionId: Int) {
+        guard isForeign(editionId: editionId) else { return }
+        FileStore.deleteChapters(editionId: editionId, keeping: [])
+        writeIndex(readRawIndex().filter { $0.editionId != editionId })
+    }
+
+    /// Stamps entries from before servers were told apart with the first identity that signs in.
+    static func adoptLegacy(serverKey: String) {
+        let index = readRawIndex()
+        let adopted = DownloadedLibrary.adopting(index, serverKey: serverKey)
+        if adopted != index {
+            writeIndex(adopted)
+        }
     }
 
     private static func writeIndex(_ index: [DownloadedEdition]) {
@@ -65,7 +96,8 @@ nonisolated enum DownloadedStore {
     /// The persisted manifest for a downloaded audiobook, or nil when the book
     /// was never downloaded — the caller falls back to the network.
     static func readManifest(editionId: Int) -> BookManifest? {
-        guard let data = try? Data(contentsOf: manifestURL(editionId)) else { return nil }
+        guard !isForeign(editionId: editionId),
+              let data = try? Data(contentsOf: manifestURL(editionId)) else { return nil }
         return BookManifest.decodePersisted(data)
     }
 
@@ -82,7 +114,8 @@ nonisolated enum DownloadedStore {
     }
 
     static func readEbookFiles(editionId: Int) -> [BookEditionFile]? {
-        guard let data = try? Data(contentsOf: ebookFilesURL(editionId)) else { return nil }
+        guard !isForeign(editionId: editionId),
+              let data = try? Data(contentsOf: ebookFilesURL(editionId)) else { return nil }
         return try? JSONDecoder().decode([BookEditionFile].self, from: data)
     }
 

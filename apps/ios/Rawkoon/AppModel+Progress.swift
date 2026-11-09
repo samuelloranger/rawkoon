@@ -268,8 +268,9 @@ extension AppModel {
     /// read on every book open, CarPlay refresh and resume lookup.
     func journalEntries() async -> [Int: PositionEntry] {
         let url = journalURL
+        let serverKey = ActiveServerKey.shared.value
         return await Task.detached(priority: .userInitiated) {
-            PositionJournal.latestByEdition((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+            PositionJournal.latestByEdition((try? String(contentsOf: url, encoding: .utf8)) ?? "", serverKey: serverKey)
         }.value
     }
 
@@ -277,7 +278,8 @@ extension AppModel {
         (try? String(contentsOf: journalURL, encoding: .utf8)) ?? ""
     }
 
-    private func appendJournal(_ entry: PositionEntry) {
+    private func appendJournal(_ unstamped: PositionEntry) {
+        let entry = unstamped.with(serverKey: ActiveServerKey.shared.value)
         if !FileManager.default.fileExists(atPath: journalURL.path) {
             FileManager.default.createFile(atPath: journalURL.path, contents: nil)
         }

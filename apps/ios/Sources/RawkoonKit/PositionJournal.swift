@@ -4,11 +4,18 @@ public struct PositionEntry: Codable, Equatable, Sendable {
     public let editionId: Int
     public let positionSecs: Double
     public let atMillis: Int64
+    /// The server it was recorded against; nil on lines written before servers were told apart.
+    public let serverKey: String?
 
-    public init(editionId: Int, positionSecs: Double, atMillis: Int64) {
+    public init(editionId: Int, positionSecs: Double, atMillis: Int64, serverKey: String? = nil) {
         self.editionId = editionId
         self.positionSecs = positionSecs
         self.atMillis = atMillis
+        self.serverKey = serverKey
+    }
+
+    public func with(serverKey: String?) -> PositionEntry {
+        PositionEntry(editionId: editionId, positionSecs: positionSecs, atMillis: atMillis, serverKey: serverKey)
     }
 }
 
@@ -43,37 +50,52 @@ public enum PositionJournal {
         }
     }
 
-    public static func latest(in text: String, editionId: Int) -> PositionEntry? {
-        parse(text).reduce(nil) { latest, entry in
-            guard entry.editionId == editionId else { return latest }
-            guard let latest else { return entry }
-            return latest.atMillis <= entry.atMillis ? entry : latest
-        }
+    /// Only entries the active server may see: its own, plus unstamped legacy ones.
+    public static func latest(in text: String, editionId: Int, serverKey: String?) -> PositionEntry? {
+        latestByEdition(text, serverKey: serverKey)[editionId]
     }
 
-    /// The newest entry per edition, from one parse of the journal.
-    public static func latestByEdition(_ text: String) -> [Int: PositionEntry] {
+    /// The newest visible entry per edition, from one parse of the journal.
+    public static func latestByEdition(_ text: String, serverKey: String?) -> [Int: PositionEntry] {
         var latest: [Int: PositionEntry] = [:]
-        for entry in parse(text) where (latest[entry.editionId]?.atMillis ?? .min) <= entry.atMillis {
-            latest[entry.editionId] = entry
+        for entry in parse(text) where ServerScope.isVisible(entryKey: entry.serverKey, activeKey: serverKey) {
+            if (latest[entry.editionId]?.atMillis ?? .min) <= entry.atMillis {
+                latest[entry.editionId] = entry
+            }
         }
         return latest
     }
 
-    /// One line per edition, oldest first. The journal is append-only, so without
-    /// this every five seconds of listening stays in it forever.
-    public static func compacted(_ text: String) -> String {
-        latestByEdition(text).values
-            .sorted { $0.atMillis < $1.atMillis }
-            .map { encode($0) }
-            .joined()
+    private struct Slot: Hashable {
+        let serverKey: String?
+        let editionId: Int
     }
 
-    /// Drop every line for the given editions so a local resume cannot PUT a
-    /// wiped server position back.
-    public static func excluding(_ text: String, editionIds: Set<Int>) -> String {
+    /// One line per server and edition, oldest first. The journal is append-only, so without
+    /// this every five seconds of listening stays in it forever. Another server's lines are kept.
+    public static func compacted(_ text: String) -> String {
+        var latest: [Slot: PositionEntry] = [:]
+        for entry in parse(text) {
+            let slot = Slot(serverKey: entry.serverKey, editionId: entry.editionId)
+            if (latest[slot]?.atMillis ?? .min) <= entry.atMillis {
+                latest[slot] = entry
+            }
+        }
+        return latest.values.sorted { $0.atMillis < $1.atMillis }.map { encode($0) }.joined()
+    }
+
+    /// Stamps every legacy line with `serverKey`, once, when the first identity becomes known.
+    public static func adopting(_ text: String, serverKey: String) -> String {
+        compacted(parse(text).map { encode($0.serverKey == nil ? $0.with(serverKey: serverKey) : $0) }.joined())
+    }
+
+    /// Drop the active server's lines for the given editions so a local resume cannot PUT a
+    /// wiped server position back. Another server's lines stay.
+    public static func excluding(_ text: String, editionIds: Set<Int>, serverKey: String?) -> String {
         parse(text)
-            .filter { !editionIds.contains($0.editionId) }
+            .filter {
+                !(editionIds.contains($0.editionId) && ServerScope.isVisible(entryKey: $0.serverKey, activeKey: serverKey))
+            }
             .map { encode($0) }
             .joined()
     }
