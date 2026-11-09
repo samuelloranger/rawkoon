@@ -13,7 +13,9 @@ extension AppModel {
         guard isLoggedIn else { return }
         let key = Keychain.get(Self.serverScopeKey)
         ActiveServerKey.shared.value = key
-        if let key { adoptLegacyEntries(serverKey: key) }
+        if let key {
+            adoptLegacyEntries(serverKey: key)
+        }
     }
 
     /// Runs once the signed-in user's id is known. The first key after an update adopts every
