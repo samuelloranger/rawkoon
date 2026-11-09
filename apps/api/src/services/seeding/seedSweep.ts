@@ -77,13 +77,14 @@ function groupByHash<T extends SweepRow>(rows: T[]): Map<string, T[]> {
   return groups;
 }
 
-/** A torrent shared by several rows is held back if any of their imports failed. */
+/** A torrent shared by several rows is held back if any import failed or has not finished yet. */
 export function dropTorrentsWithFailedImport<
-  T extends SweepRow & { postProcessError: string | null },
+  T extends SweepRow & { postProcessError: string | null; imported: boolean },
 >(rows: T[]): T[] {
   const kept: T[] = [];
   for (const group of groupByHash(rows).values()) {
-    if (!group.some((r) => r.postProcessError)) kept.push(...group);
+    if (!group.some((r) => r.postProcessError || !r.imported))
+      kept.push(...group);
   }
   return kept;
 }
@@ -228,6 +229,8 @@ export const defaultSweepDeps: SweepDeps = {
         torrentHash: true,
         indexer: true,
         postProcessError: true,
+        postProcessDestinationPath: true,
+        postProcessSkipReason: true,
       },
     });
     const sweepRows = rows.flatMap((r) =>
@@ -238,6 +241,10 @@ export const defaultSweepDeps: SweepDeps = {
               torrentHash: r.torrentHash,
               indexer: r.indexer,
               postProcessError: r.postProcessError,
+              // completedAt is set before post-processing runs; only these mark a finished import.
+              imported: !!(
+                r.postProcessDestinationPath || r.postProcessSkipReason
+              ),
             },
           ]
         : [],
