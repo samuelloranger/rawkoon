@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDiscoverDeck } from "../_hooks/useDiscoverDeck";
 import { useSearchOnAddEnabled } from "@/features/medias/hooks/useSearchOnAddEnabled";
 import { useMediaGenres } from "@/features/medias/hooks/useMediaGenres";
+import { isDeckShortcut } from "./deckShortcut";
 import { DiscoverCard, type SwipeDir } from "./DiscoverCard";
 import { DiscoverActionBar } from "./DiscoverActionBar";
 import {
@@ -47,7 +48,7 @@ export function DiscoverDeck() {
   // Keyboard: ← dismiss, → / Enter add.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.repeat) return;
+      if (e.repeat || !isDeckShortcut(e)) return;
       if (inFlight || !deck.current) return;
 
       if (e.key === "ArrowRight" || e.key === "Enter") {

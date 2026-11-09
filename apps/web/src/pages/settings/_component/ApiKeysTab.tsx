@@ -11,6 +11,7 @@ import { Dialog } from "@/components/dialog";
 import { LoadingState } from "@/components/LoadingState";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 import { useCurrentUser } from "@/lib/auth/useAuth";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 import { useApiKeys } from "@/pages/settings/useApiKeys";
@@ -86,7 +87,10 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
 
   const handleCopy = async () => {
     if (!createdKey) return;
-    await navigator.clipboard.writeText(createdKey);
+    if (!(await copyToClipboard(createdKey))) {
+      toast.error(t("common.copyFailed"));
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };

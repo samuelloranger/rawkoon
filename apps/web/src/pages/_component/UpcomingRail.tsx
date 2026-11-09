@@ -36,10 +36,13 @@ function episodeLabel(item: DashboardUpcomingItem): string | null {
 }
 
 /** Upcoming item id is `<media_type>-<tmdbId>[-...]`; derive the TMDB id. */
-function toTmdbSearchItem(item: DashboardUpcomingItem): TmdbMediaSearchItem {
+export function toTmdbSearchItem(
+  item: DashboardUpcomingItem,
+): TmdbMediaSearchItem {
   const tmdbId = parseInt(item.id.split("-")[1] ?? "", 10);
+  // Day-only ISO date: read the year from the text, since local time can shift it.
   const releaseYear = item.release_date
-    ? new Date(item.release_date).getFullYear()
+    ? Number.parseInt(item.release_date.slice(0, 4), 10)
     : null;
   return {
     id: item.id,
