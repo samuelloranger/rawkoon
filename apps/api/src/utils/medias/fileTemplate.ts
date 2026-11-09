@@ -14,8 +14,20 @@ export function sanitizePathTemplateOutput(rendered: string): string {
   return rendered
     .split("/")
     .map((s) => sanitizeFilenamePart(s))
-    .filter(Boolean)
+    .filter((s) => s && s !== "." && s !== "..")
     .join("/");
+}
+
+// A "/" inside a value must not become a folder level in path templates.
+function cleanValues(
+  vars: Record<string, string | number | null | undefined>,
+): Record<string, string | number | null | undefined> {
+  return Object.fromEntries(
+    Object.entries(vars).map(([k, v]) => [
+      k,
+      typeof v === "string" ? sanitizeFilenamePart(v) : v,
+    ]),
+  );
 }
 
 function padNum(n: number, width: number): string {
@@ -87,15 +99,18 @@ export function renderEpisodeTemplate(
     ext: string;
   },
 ): string {
-  const stem = replaceBraceTokens(template, {
-    show: data.show,
-    season: data.season,
-    episode: data.episode,
-    title: data.title ?? "Episode",
-    resolution: data.resolution,
-    source: data.source,
-    ext: data.ext,
-  });
+  const stem = replaceBraceTokens(
+    template,
+    cleanValues({
+      show: data.show,
+      season: data.season,
+      episode: data.episode,
+      title: data.title ?? "Episode",
+      resolution: data.resolution,
+      source: data.source,
+      ext: data.ext,
+    }),
+  );
   return sanitizePathTemplateOutput(collapseTemplateNoise(stem));
 }
 
@@ -119,13 +134,16 @@ export function renderBookTemplate(
     language: string | null;
   },
 ): string {
-  const rendered = replaceBraceTokens(template, {
-    author: data.author,
-    title: data.title,
-    year: data.year,
-    format: data.format,
-    language: data.language,
-  });
+  const rendered = replaceBraceTokens(
+    template,
+    cleanValues({
+      author: data.author,
+      title: data.title,
+      year: data.year,
+      format: data.format,
+      language: data.language,
+    }),
+  );
   return sanitizePathTemplateOutput(
     rendered
       .split("/")

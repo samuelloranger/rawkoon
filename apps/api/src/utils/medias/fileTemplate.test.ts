@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  renderBookTemplate,
   renderEpisodeTemplate,
   renderMovieTemplate,
   sanitizeFilenamePart,
@@ -51,5 +52,43 @@ describe("fileTemplate", () => {
     expect(out).toContain("My Show");
     expect(out).toContain("S03");
     expect(out).toContain("E07");
+  });
+});
+
+describe("path templates keep values inside their folder level", () => {
+  const ep = {
+    season: 1,
+    episode: 2,
+    title: "Pilot",
+    resolution: null,
+    source: null,
+    ext: "mkv",
+  };
+  it("does not split a show title containing a slash", () => {
+    expect(
+      renderEpisodeTemplate("{show}/Season {season:2}/{show} - {title}.{ext}", {
+        ...ep,
+        show: "Fate/Zero",
+      }),
+    ).toBe("Fate Zero/Season 01/Fate Zero - Pilot.mkv");
+  });
+  it("drops dot segments", () => {
+    expect(
+      renderEpisodeTemplate("{show}/{title}.{ext}", {
+        ...ep,
+        show: "..",
+      }),
+    ).toBe("Pilot.mkv");
+  });
+  it("does not split a book title containing a slash", () => {
+    expect(
+      renderBookTemplate("{author}/{title}", {
+        author: "A/B",
+        title: "X/Y",
+        year: null,
+        format: null,
+        language: null,
+      }),
+    ).toBe("A B/X Y");
   });
 });
