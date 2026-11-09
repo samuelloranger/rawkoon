@@ -216,6 +216,7 @@ struct ContinueListeningView: View {
     // MARK: Data
 
     func load() async {
+        let widgetGeneration = WidgetSnapshotWriter.shared.generation
         guard let client = model.api() else {
             items = []
             errorMessage = nil
@@ -233,7 +234,7 @@ struct ContinueListeningView: View {
         let ebookProgress = try? await ebookProgressR
         if let stats = try? await listeningR {
             listeningStats = stats
-            WidgetSnapshotWriter.shared.updateListening(stats)
+            WidgetSnapshotWriter.shared.updateListening(stats, ifGeneration: widgetGeneration)
         }
         // Both failed: keep what is on screen rather than blanking the rail.
         guard audiobookProgress != nil || ebookProgress != nil else {
