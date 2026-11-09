@@ -55,7 +55,7 @@ describe("fileTemplate", () => {
   });
 });
 
-describe("path templates keep values inside their folder level", () => {
+describe("path templates stay byte-identical for real titles", () => {
   const ep = {
     season: 1,
     episode: 2,
@@ -64,31 +64,45 @@ describe("path templates keep values inside their folder level", () => {
     source: null,
     ext: "mkv",
   };
-  it("does not split a show title containing a slash", () => {
+  // Titles with "/" still nest on purpose: changing it would split existing libraries.
+  it("keeps the existing nesting for a slash in the show title", () => {
     expect(
       renderEpisodeTemplate("{show}/Season {season:2}/{show} - {title}.{ext}", {
         ...ep,
         show: "Fate/Zero",
       }),
-    ).toBe("Fate Zero/Season 01/Fate Zero - Pilot.mkv");
+    ).toBe("Fate/Zero/Season 01/Fate/Zero - Pilot.mkv");
+  });
+  it("keeps the space a question mark becomes", () => {
+    expect(
+      renderEpisodeTemplate("{show}.S{season:2}E{episode:2}.{ext}", {
+        ...ep,
+        show: "Who?",
+      }),
+    ).toBe("Who .S01E02.mkv");
+  });
+  it("renders a normal title unchanged", () => {
+    expect(
+      renderEpisodeTemplate("{show}/Season {season:2}/{show} - {title}.{ext}", {
+        ...ep,
+        show: "My Show",
+      }),
+    ).toBe("My Show/Season 01/My Show - Pilot.mkv");
   });
   it("drops dot segments", () => {
     expect(
-      renderEpisodeTemplate("{show}/{title}.{ext}", {
-        ...ep,
-        show: "..",
-      }),
+      renderEpisodeTemplate("{show}/{title}.{ext}", { ...ep, show: ".." }),
     ).toBe("Pilot.mkv");
   });
-  it("does not split a book title containing a slash", () => {
+  it("drops dot segments in book paths", () => {
     expect(
       renderBookTemplate("{author}/{title}", {
-        author: "A/B",
-        title: "X/Y",
+        author: "..",
+        title: "X",
         year: null,
         format: null,
         language: null,
       }),
-    ).toBe("A B/X Y");
+    ).toBe("X");
   });
 });
