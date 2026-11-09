@@ -372,10 +372,15 @@ export async function postProcessSeasonPack(
             });
           }
         } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
           console.warn(
             `[postProcess/pack] MediaFile upsert failed for ${fn}:`,
             e,
           );
+          return {
+            ok: false,
+            error: `S${ep.season}E${ep.episode}: media file record failed: ${msg}`,
+          };
         }
         try {
           await prisma.libraryEpisode.update({
@@ -437,7 +442,10 @@ export async function postProcessSeasonPack(
   });
   await prisma.downloadHistory.update({
     where: { id: downloadHistoryId },
-    data: { postProcessDestinationPath: firstDest, postProcessError: null },
+    data: {
+      postProcessDestinationPath: firstDest,
+      postProcessError: errors.length > 0 ? errors.join("; ") : null,
+    },
   });
 
   console.log(
@@ -469,5 +477,6 @@ export async function postProcessSeasonPack(
     success: true,
     destinationPath: firstDest!,
     episodeCount: processed,
+    ...(errors.length > 0 && { partialError: errors.join("; ") }),
   };
 }

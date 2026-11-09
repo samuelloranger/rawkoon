@@ -192,7 +192,7 @@ export async function finishPostProcess(
       where: { id: downloadHistoryId },
       data: {
         postProcessDestinationPath: result.destinationPath,
-        postProcessError: null,
+        postProcessError: result.partialError ?? null,
         postProcessSkipReason: skipReason,
       },
     });
