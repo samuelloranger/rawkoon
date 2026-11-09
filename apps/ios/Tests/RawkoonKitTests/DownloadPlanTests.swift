@@ -126,15 +126,6 @@ final class DownloadPlanTests: XCTestCase {
         XCTAssertEqual(plan.progressFraction(), 0.25, accuracy: 1e-9)
     }
 
-    func testEviction() {
-        var plan = DownloadPlan(files: files(2))
-        plan.apply(.started(fileId: 100))
-        plan.apply(.completed(fileId: 100, status: 200, bytes: 1000, sha256: nil))
-        plan.apply(.evicted(fileId: 100))
-        XCTAssertEqual(plan.states[100], .evicted)
-        XCTAssertFalse(plan.isComplete)
-    }
-
     func testRequestedResetsFailedFileBackToPending() {
         var plan = DownloadPlan(files: files(1))
         for _ in 0 ..< DownloadPlan.maxAttempts {
@@ -152,16 +143,6 @@ final class DownloadPlanTests: XCTestCase {
         plan.apply(.started(fileId: 100))
         plan.apply(.transportFailed(fileId: 100))
         XCTAssertEqual(plan.states[100], .failed(attempts: 1))
-    }
-
-    func testRequestedResetsEvictedFileBackToPending() {
-        var plan = DownloadPlan(files: files(1))
-        plan.apply(.evicted(fileId: 100))
-        XCTAssertEqual(plan.states[100], .evicted)
-
-        plan.apply(.requested(fileId: 100))
-        XCTAssertEqual(plan.states[100], .pending)
-        XCTAssertEqual(plan.nextToStart(limit: 5), [100])
     }
 
     // MARK: - Transient-failure stall + recovery (bug: 98% stuck forever)

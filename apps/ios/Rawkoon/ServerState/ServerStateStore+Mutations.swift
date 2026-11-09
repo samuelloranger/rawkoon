@@ -204,16 +204,6 @@ extension ServerStateStore {
         }
     }
 
-    func deleteLibraryItem(id: Int) {
-        for key in Array(libraryLists.keys) {
-            var state = libraryList(key)
-            guard var items = state.value, items.contains(where: { $0.id == id }) else { continue }
-            items.removeAll { $0.id == id }
-            state.value = items
-            libraryLists[key] = state
-        }
-    }
-
     /// A filtered or searched list only shows the pending row when the filter
     /// can actually contain it.
     private func acceptsProvisional(_ key: LibraryListKey, _ item: LibraryMedia) -> Bool {

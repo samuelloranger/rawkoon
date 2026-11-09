@@ -65,15 +65,4 @@ enum SSEEventRegistry {
             break
         }
     }
-
-    @MainActor
-    static func applyUnknownEvent(streamPath: String, to store: ServerStateStore) {
-        Log.sync.warning("Unknown SSE event on \(streamPath, privacy: .public), performing conservative invalidation")
-        if streamPath.contains("library") {
-            store.invalidateAllLibraryLists()
-        } else if streamPath.contains("notifications") {
-            store.invalidate(.notifications)
-            store.invalidate(.unreadCount)
-        }
-    }
 }

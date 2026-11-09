@@ -143,42 +143,4 @@ extension ServerStateStore {
         }
         return merged
     }
-
-    func loadLibraryList(
-        _ key: LibraryListKey,
-        loader: @escaping @Sendable () async throws -> [LibraryMedia]
-    ) async throws -> [LibraryMedia] {
-        if let task = libraryListTasks[key] {
-            return try await task.value
-        }
-
-        let loadGeneration = generation
-        var state = libraryList(key)
-        state.isLoading = true
-        state.errorDescription = nil
-        libraryLists[key] = state
-
-        let task = Task { try await loader() }
-        libraryListTasks[key] = task
-        do {
-            let value = try await task.value
-            libraryListTasks[key] = nil
-            guard loadGeneration == generation else { return value }
-            var refreshed = libraryList(key)
-            refreshed.value = value
-            refreshed.isLoading = false
-            refreshed.isInvalidated = false
-            refreshed.updatedAt = Date()
-            libraryLists[key] = refreshed
-            return value
-        } catch {
-            libraryListTasks[key] = nil
-            guard loadGeneration == generation else { throw error }
-            var failed = libraryList(key)
-            failed.isLoading = false
-            failed.errorDescription = error.localizedDescription
-            libraryLists[key] = failed
-            throw error
-        }
-    }
 }

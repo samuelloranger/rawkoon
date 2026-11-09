@@ -23,8 +23,8 @@ final class SyncReconcilerTests: XCTestCase {
     }
 
     /// A position recorded against a different book length is approximate. It is
-    /// clamped, and must never mark the book finished - finished books are
-    /// auto-evicted, so a bad clamp would delete a download mid-listen.
+    /// clamped, and must never mark the book finished: a falsely finished
+    /// book would drop out of the in-progress list mid-listen.
     func testPositionFromADifferentEditionLengthIsClampedAndNeverFinishes() {
         let stale = rec(9000, 5, total: 10000, finished: false)
         let adjusted = SyncReconciler.adjust(stale, toTotal: 1000)
