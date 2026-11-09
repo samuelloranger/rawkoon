@@ -137,4 +137,13 @@ final class BookManifestTests: XCTestCase {
         XCTAssertEqual(staleLocalFiles(persisted: persisted, fresh: fresh).map(\.id), [2, 3])
         XCTAssertEqual(staleLocalFiles(persisted: persisted, fresh: persisted), [])
     }
+
+    func testSameContentIgnoresOnlyTheSignedURL() {
+        func file(size: Int = 100, sha: String? = "a", url: String = "u") -> ManifestFile {
+            ManifestFile(id: 1, startSecs: 0, durationSecs: 1, sizeBytes: size, sha256: sha, url: url)
+        }
+        XCTAssertTrue(file().sameContent(as: file(url: "fresh")))
+        XCTAssertFalse(file().sameContent(as: file(sha: "b")))
+        XCTAssertFalse(file().sameContent(as: file(size: 101)))
+    }
 }
