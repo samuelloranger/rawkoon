@@ -1,3 +1,4 @@
+import type { JobsOptions, Queue } from "bullmq";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -29,6 +30,24 @@ import type { SearchResultEvent } from "@rawkoon/shared/types";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 
+/** BullMQ ignores `add` for an existing id in any state, so a finished job must be removed first or the rerun never happens. */
+export async function enqueueFresh(
+  queue: Queue,
+  name: string,
+  data: object,
+  jobId: string,
+  opts: JobsOptions = {},
+): Promise<{ running: true } | { running: false; jobId: string | undefined }> {
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state !== "completed" && state !== "failed") return { running: true };
+    await existing.remove();
+  }
+  const job = await queue.add(name, data, { ...opts, jobId });
+  return { running: false, jobId: job?.id };
+}
+
 /**
  * POST /api/library/reindex-languages
  * GET /api/library/reindex-languages/status
@@ -44,16 +63,16 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const job = await libraryReindexLanguagesQueue.add(
+      const r = await enqueueFresh(
+        libraryReindexLanguagesQueue,
         "library-reindex-languages",
         {},
-        { jobId: "library-reindex-languages-singleton" },
+        "library-reindex-languages-singleton",
       );
-      const state = await job?.getState();
-      if (state === "active" || state === "waiting") {
+      if (r.running) {
         return badRequest("A language reindex job is already running");
       }
-      return ok({ job_id: job?.id });
+      return ok({ job_id: r.jobId });
     } catch {
       return serverError("Failed to enqueue reindex job");
     }
@@ -124,21 +143,20 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
         return badRequest("At least one audio track must be kept");
       try {
         const jobId = `library-remux-file-${fileId}`;
-        const existing = await libraryRemuxQueue.getJob(jobId);
-        const existingState = existing ? await existing.getState() : null;
-        if (existingState === "active" || existingState === "waiting") {
-          return badRequest("A remux job for this file is already queued");
-        }
-        const job = await libraryRemuxQueue.add(
+        const r = await enqueueFresh(
+          libraryRemuxQueue,
           "library-remux-file",
           {
             file_id: fileId,
             keep_audio_track_indices: body.keep_audio_track_indices,
             keep_subtitle_track_indices: body.keep_subtitle_track_indices,
           } satisfies LibraryRemuxJobData,
-          { jobId },
+          jobId,
         );
-        return ok({ job_id: job?.id });
+        if (r.running) {
+          return badRequest("A remux job for this file is already queued");
+        }
+        return ok({ job_id: r.jobId });
       } catch {
         return serverError("Failed to enqueue remux job");
       }
@@ -313,7 +331,8 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
         c.req.valid("json");
 
       try {
-        const job = await libraryMigrateQueue.add(
+        const r = await enqueueFresh(
+          libraryMigrateQueue,
           "library-migrate",
           {
             source,
@@ -323,13 +342,14 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
             sonarr_url: sonarr_url?.trim() || undefined,
             sonarr_api_key: sonarr_api_key?.trim() || undefined,
           },
-          { jobId: "library-migrate-singleton" },
+          "library-migrate-singleton",
+          // The job data carries API keys, so don't retain it once it finishes.
+          { removeOnComplete: true, removeOnFail: true },
         );
-        const state = await job?.getState();
-        if (state === "active" || state === "waiting") {
+        if (r.running) {
           return badRequest("A migration job is already running");
         }
-        return ok({ job_id: job?.id });
+        return ok({ job_id: r.jobId });
       } catch {
         return serverError("Failed to enqueue migration job");
       }
