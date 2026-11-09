@@ -20,13 +20,6 @@ enum APIError: Error, Sendable {
         }
     }
 
-    var isBadRequest: Bool {
-        switch self {
-        case .http(400), .server(400, _): true
-        default: false
-        }
-    }
-
     /// User-visible copy. `unauthorized`/`forbidden` labels vary by screen
     /// (admin gate vs expired session), so callers override those two.
     func userMessage(
