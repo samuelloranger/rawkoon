@@ -37,4 +37,10 @@ final class SyncReconcilerTests: XCTestCase {
         let r = rec(500, 5, total: 1000, finished: true)
         XCTAssertEqual(SyncReconciler.adjust(r, toTotal: 1000), r)
     }
+
+    func testFinishedThresholdIsOneSecondFromTheEnd() {
+        XCTAssertTrue(isListeningFinished(positionSecs: 99, totalDurationSecs: 100))
+        XCTAssertFalse(isListeningFinished(positionSecs: 98.9, totalDurationSecs: 100))
+        XCTAssertFalse(isListeningFinished(positionSecs: 0, totalDurationSecs: 0))
+    }
 }

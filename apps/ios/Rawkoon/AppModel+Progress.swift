@@ -42,7 +42,7 @@ extension AppModel {
             ProgressRecord(
                 positionSecs: $0.positionSecs,
                 totalDurationSecs: totalDurationSecs,
-                finished: $0.positionSecs >= totalDurationSecs,
+                finished: isListeningFinished(positionSecs: $0.positionSecs, totalDurationSecs: totalDurationSecs),
                 updatedAtMillis: $0.atMillis
             )
         }
@@ -239,7 +239,7 @@ extension AppModel {
         updatedAtMillis: Int64
     ) {
         guard let apiClient else { return }
-        let finished = positionSecs >= max(totalDurationSecs - 1, 0)
+        let finished = isListeningFinished(positionSecs: positionSecs, totalDurationSecs: totalDurationSecs)
         let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
 
         Task {
