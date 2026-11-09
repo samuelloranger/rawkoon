@@ -36,7 +36,9 @@ function episodeLabel(item: DashboardUpcomingItem): string | null {
 }
 
 /** Upcoming item id is `<media_type>-<tmdbId>[-...]`; derive the TMDB id. */
-export function toTmdbSearchItem(item: DashboardUpcomingItem): TmdbMediaSearchItem {
+export function toTmdbSearchItem(
+  item: DashboardUpcomingItem,
+): TmdbMediaSearchItem {
   const tmdbId = parseInt(item.id.split("-")[1] ?? "", 10);
   // Day-only ISO date: read the year from the text, since local time can shift it.
   const releaseYear = item.release_date

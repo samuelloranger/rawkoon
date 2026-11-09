@@ -128,7 +128,9 @@ export function LibraryPage() {
           showCount={showCount}
           resultCount={resultCount}
           activeFilterCount={activeFilterCount}
-          onSearchChange={(value) => setState({ search: value }, { replace: true })}
+          onSearchChange={(value) =>
+            setState({ search: value }, { replace: true })
+          }
           onTypeChange={(value) => setState({ type: value })}
           onStatusChange={(value) => setState({ status: value })}
           onLanguageChange={(value) => setState({ language: value })}

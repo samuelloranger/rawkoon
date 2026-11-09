@@ -4,7 +4,7 @@ import { isDeckShortcut } from "./deckShortcut";
 function press(key: string, target: Element, init: KeyboardEventInit = {}) {
   let result = false;
   target.addEventListener("keydown", (e) => {
-    result = isDeckShortcut(e);
+    result = isDeckShortcut(e as KeyboardEvent);
   });
   target.dispatchEvent(new KeyboardEvent("keydown", { key, ...init }));
   return result;

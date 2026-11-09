@@ -1,10 +1,10 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { formatDateShort } from "../LibraryHistoryCharts";
 import { toTmdbSearchItem } from "@/pages/_component/UpcomingRail";
 
 // A zone west of UTC is where midnight-UTC dates slip back a day.
 beforeAll(() => {
-  process.env.TZ = "America/Toronto";
+  vi.stubEnv("TZ", "America/Toronto");
 });
 
 describe("day-only dates west of UTC", () => {

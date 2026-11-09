@@ -45,16 +45,12 @@ describe("AuthorsPage", () => {
   it("makes monitoring read-only for a member, since the server refuses the change", () => {
     isAdmin = false;
     renderWithProviders(<AuthorsPage />);
-    expect(
-      screen.getByRole("switch"),
-    ).toBeDisabled();
+    expect(screen.getByRole("switch")).toBeDisabled();
   });
 
   it("lets an admin change monitoring", () => {
     isAdmin = true;
     renderWithProviders(<AuthorsPage />);
-    expect(
-      screen.getByRole("switch"),
-    ).toBeEnabled();
+    expect(screen.getByRole("switch")).toBeEnabled();
   });
 });
