@@ -42,7 +42,12 @@ export async function enqueueFresh(
   if (existing) {
     const state = await existing.getState();
     if (state !== "completed" && state !== "failed") return { running: true };
-    await existing.remove();
+    try {
+      await existing.remove();
+    } catch {
+      // Locked or removed by a concurrent request: only a job that still exists blocks the add.
+      if (await queue.getJob(jobId)) return { running: true };
+    }
   }
   const job = await queue.add(name, data, { ...opts, jobId });
   return { running: false, jobId: job?.id };
