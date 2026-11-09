@@ -145,6 +145,7 @@ final class LiveUpdatesCoordinator {
                         } else if hasHandshaken {
                             // Not `libraryChangeToken`: that one fires a haptic.
                             appModel?.reconnectToken += 1
+                            Task { await refreshUnreadCount() }
                         }
                         hasHandshaken = true
                         failures = 0
@@ -233,9 +234,14 @@ final class LiveUpdatesCoordinator {
     /// list (open `NotificationsListView` refetches on appear/pull-to-refresh).
     private func runNotificationStreamLoop() async {
         var backoff = 1.0
+        var dropped = false
         while !Task.isCancelled {
             guard let client = appModel?.api() else { return }
             notificationStreamStatus = .connecting
+            // Notifications that arrived during the gap never came down the stream.
+            if dropped {
+                await refreshUnreadCount()
+            }
             do {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
@@ -262,6 +268,7 @@ final class LiveUpdatesCoordinator {
             } catch {
                 Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
                 logSSE("notifications", "dropped: \(error.localizedDescription)")
+                dropped = true
             }
             notificationStreamStatus = .reconnecting
             if Task.isCancelled {
