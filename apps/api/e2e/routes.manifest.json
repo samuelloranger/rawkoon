@@ -829,10 +829,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/medias/explore"
-  },
-  {
-    "method": "GET",
     "path": "/api/medias/explore/:category"
   },
   {
