@@ -522,7 +522,8 @@
       "save": "Enregistrer les réglages",
       "saving": "Enregistrement...",
       "saveSuccess": "Réglages enregistrés.",
-      "saveError": "Échec de l’enregistrement des réglages."
+      "saveError": "Échec de l’enregistrement des réglages.",
+      "languageRequired": "Sélectionnez au moins une langue."
     },
     "releases": {
       "title": "Releases",

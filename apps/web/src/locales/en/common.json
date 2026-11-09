@@ -522,7 +522,8 @@
       "save": "Save settings",
       "saving": "Saving...",
       "saveSuccess": "Settings saved.",
-      "saveError": "Failed to save settings."
+      "saveError": "Failed to save settings.",
+      "languageRequired": "Select at least one language."
     },
     "releases": {
       "title": "Releases",
