@@ -424,6 +424,7 @@
     "save": "Save",
     "saved": "Saved",
     "copied": "Copied",
+    "copyFailed": "Couldn't copy. Select the text and copy it manually.",
     "saving": "Saving...",
     "close": "Close",
     "collapse": "Collapse",

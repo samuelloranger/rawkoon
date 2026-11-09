@@ -437,6 +437,7 @@
     "save": "Enregistrer",
     "saved": "Enregistré",
     "copied": "Copié",
+    "copyFailed": "Copie impossible. Sélectionnez le texte et copiez-le manuellement.",
     "saving": "Enregistrement...",
     "close": "Fermer",
     "collapse": "Réduire",
