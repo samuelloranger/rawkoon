@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { getConnInfo } from "hono/bun";
 import { rateLimiter } from "hono-rate-limiter";
-import type { Context } from "hono";
 import { badRequest, ok, unauthorized } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import { clientIp } from "@rawkoon/api/middleware/rateLimitCore";
 import {
   hasPendingDownloadForHash,
   stampHookSeen,
@@ -85,28 +85,18 @@ const liveDeps: HookDeps = {
   },
 };
 
-function hookClientIp(c: Context): string {
-  const req = c.req.raw;
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    (() => {
-      try {
-        return getConnInfo(c).remote.address;
-      } catch {
-        return undefined;
-      }
-    })() ||
-    "unknown"
-  );
-}
-
 // Scoped to the hook route only (120/min per IP), so a book-open burst of SPA
 // asset/API requests is never policed by this limiter.
 const hookRateLimit = rateLimiter<Env>({
   windowMs: 60 * 1000,
   limit: 120,
-  keyGenerator: (c) => `hook:${hookClientIp(c)}`,
+  keyGenerator: (c) => {
+    let addr: string | undefined;
+    try {
+      addr = getConnInfo(c).remote.address;
+    } catch {}
+    return `hook:${clientIp(c.req.raw, addr)}`;
+  },
   message: "Too many requests. Please try again later.",
   standardHeaders: true,
 });
