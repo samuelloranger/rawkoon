@@ -50,8 +50,7 @@ public enum SyncReconciler {
     /// A whole-book offset survives re-chapterising the same audio, but not an
     /// upgrade to a different rip. When the lengths disagree the position is
     /// approximate: clamp it, and never let the clamp set `finished`, because
-    /// finished books are evicted automatically and that would delete a
-    /// download out from under someone mid-listen.
+    /// a falsely finished book would drop out of the in-progress list mid-listen.
     public static func adjust(_ remote: ProgressRecord, toTotal total: Double) -> ProgressRecord {
         guard remote.totalDurationSecs != total else { return remote }
         return ProgressRecord(

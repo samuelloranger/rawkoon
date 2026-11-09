@@ -317,13 +317,6 @@ final class AppModel {
         return next.id
     }
 
-    /// Clears the toast with this identity, if it is still the one showing.
-    func dismissToast(_ id: UUID) {
-        guard currentToast?.id == id else { return }
-        toastDismissTask?.cancel()
-        currentToast = nil
-    }
-
     /// The configured API client, or nil when logged out. Manage-lane screens
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? {

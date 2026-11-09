@@ -30,7 +30,6 @@ nonisolated struct LibraryPagination: Sendable {
 @Observable
 final class ServerStateStore {
     var libraryLists: [LibraryListKey: ServerQueryState<[LibraryMedia]>] = [:]
-    var libraryListTasks: [LibraryListKey: Task<[LibraryMedia], Error>] = [:]
     var libraryListSnapshots: [UUID: [LibraryListKey: ServerQueryState<[LibraryMedia]>]] = [:]
     /// Every live transaction that has patched a key, not just the last one —
     /// two overlapping mutations must each still find their own work.
@@ -163,13 +162,9 @@ final class ServerStateStore {
 
     func clear() {
         generation += 1
-        for task in libraryListTasks.values {
-            task.cancel()
-        }
         for task in libraryWindowTasks.values {
             task.cancel()
         }
-        libraryListTasks = [:]
         libraryWindowTasks = [:]
         libraryPagination = [:]
         libraryLists = [:]

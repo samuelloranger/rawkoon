@@ -204,6 +204,12 @@ extension AppModel {
         library = []
         libraryFetchedAt = nil
         manifests = [:]
+        for (editionId, downloader) in downloaders {
+            invalidatingSessions.insert(editionId)
+            downloader.cancel { [weak self] in
+                Task { @MainActor in self?.invalidatingSessions.remove(editionId) }
+            }
+        }
         downloaders = [:]
         downloadPlans = [:]
         verifiedCounts = [:]

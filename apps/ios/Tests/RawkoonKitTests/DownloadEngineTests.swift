@@ -256,6 +256,33 @@ final class DownloadEngineTests: XCTestCase {
         XCTAssertEqual(engine.snapshot.overallFraction, 0, accuracy: 0.0001)
     }
 
+    func testReplacingWithChangedContentOfSameIdsDemotesOnlyTheChangedChapter() {
+        var (engine, _) = running(2)
+        engine.handle(.finished(fileId: 100, lane: .foreground, outcome: stored()))
+        engine.handle(.finished(fileId: 101, lane: .foreground, outcome: stored()))
+        XCTAssertEqual(engine.plan.states[100], .verified)
+        var changed = files(2)
+        changed[1] = ManifestFile(id: 101, startSecs: 10, durationSecs: 10, sizeBytes: 999, sha256: "new", url: "/f/101.mp3")
+        let commands = engine.handle(.replaceFiles(changed))
+        XCTAssertNotEqual(engine.plan.states[101], .verified)
+        XCTAssertEqual(started(commands), [100, 101])
+        engine.handle(.reconcile(onDiskBytes: [100: 100], liveFileIds: [101]))
+        XCTAssertEqual(engine.plan.states[100], .verified)
+        XCTAssertNotEqual(engine.plan.states[101], .verified)
+    }
+
+    func testAUrlOnlyChangeLeavesThePlanUntouched() {
+        var (engine, _) = running(2)
+        engine.handle(.finished(fileId: 100, lane: .foreground, outcome: stored()))
+        let resigned = files(2).map {
+            ManifestFile(id: $0.id, startSecs: $0.startSecs, durationSecs: $0.durationSecs,
+                         sizeBytes: $0.sizeBytes, sha256: $0.sha256, url: "/signed/\($0.id)")
+        }
+        let commands = engine.handle(.replaceFiles(resigned))
+        XCTAssertTrue(commands.isEmpty)
+        XCTAssertEqual(engine.plan.states[100], .verified)
+    }
+
     func testCancelStopsEverythingAndIgnoresLaterEvents() {
         var (engine, _) = running(4)
         let commands = engine.handle(.cancel)

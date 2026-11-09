@@ -5,7 +5,6 @@ public enum ChapterState: Equatable, Sendable {
     case inFlight
     case verified
     case failed(attempts: Int)
-    case evicted
 }
 
 public enum DownloadEvent: Equatable, Sendable {
@@ -15,7 +14,6 @@ public enum DownloadEvent: Equatable, Sendable {
     /// including an error body. `status` is what separates audio from a 401 page.
     case completed(fileId: Int, status: Int, bytes: Int, sha256: String?)
     case transportFailed(fileId: Int)
-    case evicted(fileId: Int)
 }
 
 /// What a book's download is doing. It decides; it never transfers.
@@ -77,10 +75,6 @@ public struct DownloadPlan: Sendable {
             // whose file already arrived intact; it would re-download and hold the book short.
             guard states[fileId] != .verified else { return }
             fail(fileId)
-
-        case let .evicted(fileId):
-            guard fileById[fileId] != nil else { return }
-            states[fileId] = .evicted
         }
     }
 
