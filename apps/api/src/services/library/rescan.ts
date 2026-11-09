@@ -140,7 +140,15 @@ async function rescanLibraryItemInner(
     let st;
     try {
       st = await statFile(mapped, { bigint: true });
-    } catch {
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        // EIO/EACCES on a flaky mount says nothing about the file; keep the row and the "downloaded" status.
+        hasValidFile = true;
+        if (file.episodeId != null) validEpisodeIds.add(file.episodeId);
+        failed++;
+        return;
+      }
       toDeleteIds.push(file.id);
       return;
     }
