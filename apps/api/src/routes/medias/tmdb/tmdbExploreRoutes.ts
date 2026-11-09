@@ -10,11 +10,8 @@ import {
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import {
   enrichSearchItems,
-  EXPLORE_BASE_CACHE_TTL,
   EXPLORE_CATEGORY_PATHS,
-  exploreBaseCacheKey,
   fetchTmdbResults,
-  getExploreBaseSections,
   injectMediaType,
   libraryEntriesForTmdbItems,
   libraryKey,
@@ -26,138 +23,6 @@ import {
 
 // Mounted under /api/medias; requireUser guards each route directly.
 export const tmdbExploreRoutes = new Hono<Env>()
-  .get("/explore", requireUser, async (c) => {
-    try {
-      const tmdbConfig = await loadEnabledTmdbConfig();
-      if (!tmdbConfig) {
-        return badRequest("TMDB is not configured");
-      }
-
-      const q = c.req.query() as Record<string, string | undefined>;
-      const language = resolveLanguage(q);
-      const region = await getGlobalTmdbRegion();
-      const skipCache = q.skipCache === "true";
-
-      const fetchTmdb = (path: string, extra?: Record<string, string>) =>
-        fetchTmdbResults(tmdbConfig.api_key, path, language, extra);
-
-      const cacheKey = exploreBaseCacheKey(language, region);
-      const { sections } = await getExploreBaseSections({
-        cacheKey,
-        ttlSeconds: EXPLORE_BASE_CACHE_TTL,
-        skipCache,
-        getCache: getJsonCache,
-        setCache: setJsonCache,
-        fetchSections: async () => {
-          const [
-            trending,
-            popularMovies,
-            popularShows,
-            upcomingMovies,
-            nowPlaying,
-            airingToday,
-            onTheAir,
-            topRatedMovies,
-            topRatedShows,
-          ] = await Promise.all([
-            fetchTmdb("trending/all/day"),
-            fetchTmdb("movie/popular").then(injectMediaType("movie")),
-            fetchTmdb("tv/popular").then(injectMediaType("tv")),
-            fetchTmdb("movie/upcoming").then(injectMediaType("movie")),
-            fetchTmdb("movie/now_playing").then(injectMediaType("movie")),
-            fetchTmdb("tv/airing_today").then(injectMediaType("tv")),
-            fetchTmdb("tv/on_the_air").then(injectMediaType("tv")),
-            fetchTmdb("movie/top_rated").then(injectMediaType("movie")),
-            fetchTmdb("discover/tv", {
-              sort_by: "vote_average.desc",
-              with_origin_country: region,
-              "vote_count.gte": "200",
-              without_genres: "16",
-            }).then(injectMediaType("tv")),
-          ]);
-          return {
-            trending,
-            popular_movies: popularMovies,
-            popular_shows: popularShows,
-            upcoming_movies: upcomingMovies,
-            now_playing: nowPlaying,
-            airing_today: airingToday,
-            on_the_air: onTheAir,
-            top_rated_movies: topRatedMovies,
-            top_rated_shows: topRatedShows,
-          };
-        },
-      });
-
-      const { libraryByKey, movieTmdbIds, showTmdbIds } =
-        await loadAllLibraryTmdbIds();
-
-      const normalize = (items: unknown[]) =>
-        enrichSearchItems(items, libraryByKey);
-
-      const recommendationsCacheKey = `medias:explore:recommendations:${language}`;
-
-      let recommended: TmdbSearchItem[] = [];
-      if (!skipCache) {
-        const cachedRecommendations = await getJsonCache<TmdbSearchItem[]>(
-          recommendationsCacheKey,
-        );
-        if (cachedRecommendations) {
-          recommended = cachedRecommendations;
-        }
-      }
-
-      if (!recommended.length) {
-        const sampleMovieIds = shuffle(movieTmdbIds).slice(0, 5);
-        const sampleShowIds = shuffle(showTmdbIds).slice(0, 4);
-
-        const recResults = await Promise.all([
-          ...sampleMovieIds.map((id) =>
-            fetchTmdb(`movie/${id}/recommendations`)
-              .then(injectMediaType("movie"))
-              .catch(() => [] as unknown[]),
-          ),
-          ...sampleShowIds.map((id) =>
-            fetchTmdb(`tv/${id}/recommendations`)
-              .then(injectMediaType("tv"))
-              .catch(() => [] as unknown[]),
-          ),
-        ]);
-
-        const seen = new Set<string>();
-
-        recommended = normalize(recResults.flat())
-          .filter((item) => {
-            const key = libraryKey(item.tmdb_id, item.media_type);
-            if (seen.has(key) || item.already_exists) return false;
-            seen.add(key);
-            return true;
-          })
-          .slice(0, 20);
-
-        if (recommended.length > 0) {
-          await setJsonCache(recommendationsCacheKey, recommended, 60 * 60);
-        }
-      }
-
-      return ok({
-        trending: normalize(sections.trending),
-        popular_movies: normalize(sections.popular_movies),
-        popular_shows: normalize(sections.popular_shows),
-        upcoming_movies: normalize(sections.upcoming_movies),
-        now_playing: normalize(sections.now_playing),
-        airing_today: normalize(sections.airing_today),
-        on_the_air: normalize(sections.on_the_air),
-        top_rated_movies: normalize(sections.top_rated_movies),
-        top_rated_shows: normalize(sections.top_rated_shows),
-        recommended,
-      });
-    } catch (error) {
-      console.error("Error fetching TMDB explore:", error);
-      return serverError("Failed to fetch TMDB explore");
-    }
-  })
-
   .get("/explore/:category", requireUser, async (c) => {
     const category = c.req.param("category");
     const config = EXPLORE_CATEGORY_PATHS[category];

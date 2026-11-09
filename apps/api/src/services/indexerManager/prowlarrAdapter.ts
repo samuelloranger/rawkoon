@@ -8,6 +8,7 @@ import type {
   SearchResult,
 } from "./types";
 import { parsePublishDate } from "./publishDate";
+import { httpUrlOrNull } from "./httpUrl";
 import type { IndexerIntegrationConfig } from "../../utils/integrations/types";
 import {
   toRecord,
@@ -338,7 +339,7 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
       leechers: toNumberOrNull(row.leechers),
       rejected: toBoolean(row.rejected),
       rejections: rejectionStrings,
-      infoUrl: toStringOrNull(row.infoUrl),
+      infoUrl: httpUrlOrNull(toStringOrNull(row.infoUrl)),
       downloadUrl,
       magnetUrl,
       infoHash:

@@ -13,6 +13,3 @@ export const resolveUser = async (request: Request) => {
   });
   return user ? mapUser(user) : null;
 };
-
-// Re-exported so routes can keep importing it from "@rawkoon/api/middleware/auth".
-export { ensureAdmin } from "@rawkoon/api/middleware/ensureAdmin";

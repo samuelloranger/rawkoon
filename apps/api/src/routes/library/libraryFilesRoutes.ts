@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
+import {
+  redactDownloadRow,
+  redactFileRow,
+} from "@rawkoon/api/routes/library/libraryRedact";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import { enqueuePostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
@@ -70,13 +74,14 @@ export const libraryFilesRoutes = new Hono<Env>()
       const history = await getDownloadHistoryWithLive(id);
       if (!history) return notFound("Library item not found");
       const { items, torrentByHash, liveByHash } = history;
+      const isAdmin = c.get("user")?.is_admin === true;
 
       return ok({
         items: items.map((h) => {
           const torrent = h.torrentHash
             ? torrentByHash.get(h.torrentHash.toLowerCase())
             : undefined;
-          return {
+          const row = {
             id: h.id,
             release_title: h.releaseTitle,
             indexer: h.indexer,
@@ -98,6 +103,7 @@ export const libraryFilesRoutes = new Hono<Env>()
                 ? (liveByHash.get(h.torrentHash.toLowerCase()) ?? null)
                 : null,
           };
+          return isAdmin ? row : redactDownloadRow(row);
         }),
       });
     } catch {
@@ -224,32 +230,37 @@ export const libraryFilesRoutes = new Hono<Env>()
       const result = await listMediaFiles(id);
       if (!result) return notFound("Library item not found");
 
+      const isAdmin = c.get("user")?.is_admin === true;
+
       return ok({
         media_type: result.mediaType,
-        files: result.files.map((f) => ({
-          id: f.id,
-          file_name: f.fileName,
-          file_path: f.filePath,
-          size_bytes: f.sizeBytes.toString(),
-          duration_secs: f.durationSecs,
-          release_group: f.releaseGroup,
-          video_codec: f.videoCodec,
-          video_profile: f.videoProfile,
-          width: f.width,
-          height: f.height,
-          frame_rate: f.frameRate,
-          bit_depth: f.bitDepth,
-          video_bitrate: f.videoBitrate,
-          hdr_format: f.hdrFormat,
-          resolution: f.resolution,
-          source: f.source,
-          audio_tracks: f.audioTracks,
-          subtitle_tracks: f.subtitleTracks,
-          scanned_at: f.scannedAt.toISOString(),
-          season: f.episode?.season ?? null,
-          episode: f.episode?.episode ?? null,
-          episode_title: f.episode?.title ?? null,
-        })),
+        files: result.files.map((f) => {
+          const row = {
+            id: f.id,
+            file_name: f.fileName,
+            file_path: f.filePath,
+            size_bytes: f.sizeBytes.toString(),
+            duration_secs: f.durationSecs,
+            release_group: f.releaseGroup,
+            video_codec: f.videoCodec,
+            video_profile: f.videoProfile,
+            width: f.width,
+            height: f.height,
+            frame_rate: f.frameRate,
+            bit_depth: f.bitDepth,
+            video_bitrate: f.videoBitrate,
+            hdr_format: f.hdrFormat,
+            resolution: f.resolution,
+            source: f.source,
+            audio_tracks: f.audioTracks,
+            subtitle_tracks: f.subtitleTracks,
+            scanned_at: f.scannedAt.toISOString(),
+            season: f.episode?.season ?? null,
+            episode: f.episode?.episode ?? null,
+            episode_title: f.episode?.title ?? null,
+          };
+          return isAdmin ? row : redactFileRow(row);
+        }),
       });
     } catch {
       return serverError("Failed to fetch file info");

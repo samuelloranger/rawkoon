@@ -42,6 +42,12 @@ public struct ManifestFile: Codable, Equatable, Sendable {
     /// What the grant URL serves. Nil from servers and persisted manifests older than casting.
     public let mimeType: String?
 
+    /// Same bytes on the server: everything but the freshly signed `url`.
+    public func sameContent(as other: ManifestFile) -> Bool {
+        id == other.id && startSecs == other.startSecs && durationSecs == other.durationSecs
+            && sizeBytes == other.sizeBytes && sha256 == other.sha256 && mimeType == other.mimeType
+    }
+
     public init(id: Int, startSecs: Double, durationSecs: Double,
                 sizeBytes: Int, sha256: String?, url: String, mimeType: String? = nil)
     {

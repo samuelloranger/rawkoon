@@ -386,15 +386,48 @@ describe("previewSeedRelease", () => {
 describe("dropTorrentsWithFailedImport", () => {
   it("holds back every row of a torrent when one of its imports failed", () => {
     const rows = [
-      { id: 1, torrentHash: H1, indexer: null, postProcessError: null },
+      {
+        id: 1,
+        torrentHash: H1,
+        indexer: null,
+        postProcessError: null,
+        imported: true,
+      },
       {
         id: 2,
         torrentHash: H1.toUpperCase(),
         indexer: null,
         postProcessError: "no files",
+        imported: true,
       },
-      { id: 3, torrentHash: H2, indexer: null, postProcessError: null },
+      {
+        id: 3,
+        torrentHash: H2,
+        indexer: null,
+        postProcessError: null,
+        imported: true,
+      },
     ];
     expect(dropTorrentsWithFailedImport(rows).map((r) => r.id)).toEqual([3]);
+  });
+
+  it("holds back a torrent whose import has not finished yet", () => {
+    const rows = [
+      {
+        id: 1,
+        torrentHash: H1,
+        indexer: null,
+        postProcessError: null,
+        imported: false,
+      },
+      {
+        id: 2,
+        torrentHash: H2,
+        indexer: null,
+        postProcessError: null,
+        imported: true,
+      },
+    ];
+    expect(dropTorrentsWithFailedImport(rows).map((r) => r.id)).toEqual([2]);
   });
 });

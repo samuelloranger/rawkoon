@@ -373,18 +373,6 @@
   },
   {
     "method": "POST",
-    "path": "/api/dashboard/upcoming/add"
-  },
-  {
-    "method": "POST",
-    "path": "/api/dashboard/upcoming/refresh"
-  },
-  {
-    "method": "POST",
-    "path": "/api/dashboard/upcoming/status"
-  },
-  {
-    "method": "POST",
     "path": "/api/download-client/hook/complete"
   },
   {
@@ -826,10 +814,6 @@
   {
     "method": "DELETE",
     "path": "/api/medias/discover/dismiss/:tmdbId"
-  },
-  {
-    "method": "GET",
-    "path": "/api/medias/explore"
   },
   {
     "method": "GET",

@@ -1,9 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 import { renderWithProviders } from "@/test-utils/render";
 import { LibraryFilesTab } from "./LibraryFilesTab";
 
-vi.mock("react-i18next", () => ({
+vi.mock("react-i18next", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-i18next")>()),
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: { language: "en" },
@@ -97,5 +100,39 @@ describe("LibraryFilesTab mixed-status season", () => {
     const settled = fetcher.mock.calls.length;
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(fetcher.mock.calls.length).toBe(settled);
+  });
+});
+
+describe("LibraryFilesTab download history visibility", () => {
+  function mountAs(isAdmin: boolean) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(queryKeys.auth.me, { id: "u", is_admin: isAdmin });
+    const fetcher = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/files")) {
+        return Promise.resolve({ media_type: "movie", files: [] });
+      }
+      return Promise.resolve({ items: [], seasons: [] });
+    });
+    renderWithProviders(<LibraryFilesTab libraryId={LIBRARY_ID} />, {
+      fetcher,
+      queryClient,
+    });
+    return fetcher;
+  }
+  const askedForDownloads = (f: ReturnType<typeof mountAs>) =>
+    f.mock.calls.some(([url]) => String(url).endsWith("/downloads"));
+
+  it("does not mount download history for non-admins", async () => {
+    const fetcher = mountAs(false);
+    await waitFor(() => expect(fetcher).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(askedForDownloads(fetcher)).toBe(false);
+  });
+
+  it("mounts download history for admins", async () => {
+    const fetcher = mountAs(true);
+    await waitFor(() => expect(askedForDownloads(fetcher)).toBe(true));
   });
 });

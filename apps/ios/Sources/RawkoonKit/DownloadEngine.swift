@@ -252,9 +252,12 @@ public struct DownloadEngine: Sendable {
     }
 
     private mutating func replaceFiles(_ files: [ManifestFile], commands: inout [EngineCommand]) {
-        let fresh = Set(files.map(\.id))
-        guard fresh != Set(plan.files.map(\.id)) else { return }
-        for (fileId, transfer) in transfers.sorted(by: { $0.key < $1.key }) where !fresh.contains(fileId) {
+        let fresh = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let current = Dictionary(uniqueKeysWithValues: plan.files.map { ($0.id, $0) })
+        // The signed url changes on every grant refresh, so compare content only.
+        let stale = Set(current.filter { id, old in fresh[id].map { !old.sameContent(as: $0) } ?? true }.keys)
+        guard !stale.isEmpty || fresh.count != current.count else { return }
+        for (fileId, transfer) in transfers.sorted(by: { $0.key < $1.key }) where stale.contains(fileId) {
             commands.append(.cancelTask(fileId: fileId, lane: transfer.lane))
             transfers.removeValue(forKey: fileId)
         }

@@ -113,21 +113,21 @@ export async function updateUserAvatarFromUpload(
     return { ok: false, message: validationError.error };
   }
 
+  const filename = await saveImageAndCreateThumbnail(avatar as File);
+  const avatarUrl = getAvatarUrl(filename);
   const dbUser = await prisma.user.findFirst({
     where: { id: userId },
   });
-  if (dbUser?.avatarUrl) {
-    const oldFilename = dbUser.avatarUrl.split("/").pop();
-    if (oldFilename) {
-      await deleteImageFiles(oldFilename);
-    }
-  }
-
-  const filename = await saveImageAndCreateThumbnail(avatar as File);
-  const avatarUrl = getAvatarUrl(filename);
   await prisma.user.update({
     where: { id: userId },
     data: { avatarUrl },
   });
+  // Only after the new image is saved and referenced, so a failed save never orphans avatarUrl.
+  const oldFilename = dbUser?.avatarUrl?.split("/").pop();
+  if (oldFilename && oldFilename !== filename) {
+    await deleteImageFiles(oldFilename).catch((e) =>
+      console.warn("[avatar] could not delete the old avatar:", e),
+    );
+  }
   return { ok: true, avatarUrl };
 }

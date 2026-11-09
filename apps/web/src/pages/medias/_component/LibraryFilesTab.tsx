@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useLibraryFiles } from "@/features/medias/hooks/useLibraryFiles";
 import { useLibraryEpisodes } from "@/features/medias/hooks/useLibraryEpisodes";
 import { useSearchLibraryEpisode } from "@/features/medias/hooks/useSearchLibraryEpisode";
@@ -41,6 +42,7 @@ export function LibraryFilesTab({
 }: LibraryFilesTabProps) {
   const { t } = useTranslation("common");
   const { data, isLoading } = useLibraryFiles(libraryId);
+  const isAdmin = useCurrentUser().data?.is_admin === true;
   const deleteFile = useDeleteLibraryFile(libraryId);
   const deleteEpisodeMut = useDeleteLibraryEpisode(libraryId);
   const searchEpMut = useSearchLibraryEpisode();
@@ -188,7 +190,7 @@ export function LibraryFilesTab({
         )}
       </section>
 
-      <LibraryDownloadHistory libraryId={libraryId} />
+      {isAdmin && <LibraryDownloadHistory libraryId={libraryId} />}
 
       {reencode && (
         <ReencodeModal

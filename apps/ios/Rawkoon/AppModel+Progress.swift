@@ -70,10 +70,7 @@ extension AppModel {
         // A listen after the mark (offline, in the car) is newer than read_at and
         // still pushes.
         if remoteProgress != nil, remoteRecord == nil,
-           let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
-           let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
-           ?? ISO8601DateFormatter().date(from: readAt),
-           (localRecord?.updatedAtMillis ?? 0) <= Int64(readDate.timeIntervalSince1970 * 1000)
+           markedReadSince(editionId: editionId, journalAtMillis: localRecord?.updatedAtMillis ?? 0)
         {
             return (0, .none)
         }
@@ -100,6 +97,16 @@ extension AppModel {
                 )
             )
         }
+    }
+
+    /// True when the book was marked read at or after the journal entry, so a server with
+    /// no progress row means "read", not "never listened".
+    func markedReadSince(editionId: Int, journalAtMillis: Int64) -> Bool {
+        guard let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
+              let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
+              ?? ISO8601DateFormatter().date(from: readAt)
+        else { return false }
+        return journalAtMillis <= Int64(readDate.timeIntervalSince1970 * 1000)
     }
 
     func resolveResumePosition(editionId: Int, manifest: BookManifest) async -> Double {

@@ -144,14 +144,20 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
         stateQueue.async {
             guard !self.isCancelled else { return }
             let freshIds = Set(manifest.files.map(\.id))
-            let idsChanged = freshIds != Set(self.engine.plan.files.map(\.id))
+            let planned = Dictionary(uniqueKeysWithValues: self.engine.plan.files.map { ($0.id, $0) })
+            // A rescan can keep ids but re-encode the bytes; the signed `url` always differs.
+            let changedIds = Set(manifest.files.filter { fresh in
+                planned[fresh.id].map { !$0.sameContent(as: fresh) } ?? false
+            }.map(\.id))
+            let idsChanged = freshIds != Set(planned.keys) || !changedIds.isEmpty
             self.manifest = manifest
             self.fileById = Dictionary(uniqueKeysWithValues: manifest.files.map { ($0.id, $0) })
             if idsChanged {
                 // Re-imported on the server mid-download: the old ids will never
                 // verify, so start over from what is already on disk.
                 self.send(.replaceFiles(manifest.files))
-                FileStore.deleteChapters(editionId: self.editionId, keeping: freshIds)
+                // Same-id files with new content go too: an equal size alone can't prove the old bytes are current.
+                FileStore.deleteChapters(editionId: self.editionId, keeping: freshIds.subtracting(changedIds))
                 self.reconcileWithDisk()
             }
             self.send(.grantsRefreshed)

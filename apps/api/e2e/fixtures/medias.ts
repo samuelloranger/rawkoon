@@ -108,11 +108,6 @@ export const mediasFixtures: FixtureRegistry = {
   },
 
   // TMDB explore/meta (requireUser)
-  "GET /api/medias/explore": {
-    phase: "read",
-    query: { skipCache: "true", language: "en-US" },
-    negativeBody: null,
-  },
   "GET /api/medias/explore/:category": {
     phase: "read",
     pathParams: () => ({ category: "popular_movies" }),
