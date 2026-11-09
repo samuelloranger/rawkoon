@@ -270,7 +270,9 @@ extension BookView {
     }
 
     func downloadEbook(_ file: BookEditionFile) async {
-        guard !downloadingEbookFileIDs.contains(file.id) else { return }
+        // Before the detail loads the storage id is a placeholder that later flips to the real
+        // edition id, orphaning the file; wait for the real one.
+        guard ebookEditionId != nil, !downloadingEbookFileIDs.contains(file.id) else { return }
         downloadingEbookFileIDs.insert(file.id)
         ebookFilesError = nil
         defer {
