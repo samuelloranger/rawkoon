@@ -278,20 +278,26 @@ extension AppModel {
     }
 
     private func appendJournal(_ entry: PositionEntry) {
-        let line = PositionJournal.encode(entry)
-        guard !line.isEmpty, let data = line.data(using: .utf8) else {
-            return
-        }
-
         if !FileManager.default.fileExists(atPath: journalURL.path) {
             FileManager.default.createFile(atPath: journalURL.path, contents: nil)
         }
 
-        guard let handle = try? FileHandle(forWritingTo: journalURL) else {
+        guard let handle = try? FileHandle(forUpdating: journalURL) else {
             return
         }
 
         do {
+            let end = try handle.seekToEnd()
+            var partial = false
+            if end > 0 {
+                try handle.seek(toOffset: end - 1)
+                partial = try handle.read(upToCount: 1)?.first != UInt8(ascii: "\n")
+            }
+            let line = PositionJournal.appendText(for: entry, afterPartialLine: partial)
+            guard let data = line.data(using: .utf8), !data.isEmpty else {
+                try handle.close()
+                return
+            }
             try handle.seekToEnd()
             try handle.write(contentsOf: data)
             try handle.close()
