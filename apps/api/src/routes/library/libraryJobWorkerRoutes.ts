@@ -343,8 +343,6 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
             sonarr_api_key: sonarr_api_key?.trim() || undefined,
           },
           "library-migrate-singleton",
-          // The job data carries API keys, so don't retain it once it finishes.
-          { removeOnComplete: true, removeOnFail: true },
         );
         if (r.running) {
           return badRequest("A migration job is already running");
