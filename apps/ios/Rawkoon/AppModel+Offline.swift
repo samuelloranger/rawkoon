@@ -126,7 +126,7 @@ extension AppModel {
             let local = ProgressRecord(
                 positionSecs: entry.positionSecs,
                 totalDurationSecs: total,
-                finished: entry.positionSecs >= total,
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
                 updatedAtMillis: entry.atMillis
             )
             let remoteRecord = server.map {
@@ -142,7 +142,7 @@ extension AppModel {
                 editionId: editionId,
                 positionSecs: entry.positionSecs,
                 totalDurationSecs: total,
-                finished: entry.positionSecs >= max(total - 1, 0),
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
                 updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
                 deviceId: deviceID
             )
