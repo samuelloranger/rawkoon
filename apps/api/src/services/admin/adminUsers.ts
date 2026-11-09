@@ -109,21 +109,25 @@ export async function setUserRole(
   userId: string,
   isAdmin: boolean,
 ): Promise<SetUserRoleResult> {
-  const userToUpdate = await prisma.user.findFirst({ where: { id: userId } });
-  if (!userToUpdate) return { kind: "not_found" };
+  // Advisory lock serializes role changes so two concurrent demotions can't each see the other as the remaining admin.
+  return prisma.$transaction(async (tx): Promise<SetUserRoleResult> => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(7266001)`;
+    const userToUpdate = await tx.user.findFirst({ where: { id: userId } });
+    if (!userToUpdate) return { kind: "not_found" };
 
-  if (isAdmin === false && userToUpdate.isAdmin) {
-    const adminCount = await prisma.user.count({
-      where: { isAdmin: true, id: { not: userId } },
+    if (isAdmin === false && userToUpdate.isAdmin) {
+      const adminCount = await tx.user.count({
+        where: { isAdmin: true, id: { not: userId } },
+      });
+      if (adminCount === 0) return { kind: "last_admin" };
+    }
+
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { isAdmin },
     });
-    if (adminCount === 0) return { kind: "last_admin" };
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: { isAdmin },
+    return { kind: "updated", user: updated };
   });
-  return { kind: "updated", user: updated };
 }
 
 export async function resetUserPassword(
