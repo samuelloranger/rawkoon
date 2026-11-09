@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth/betterAuthClient";
 import { useFetcher } from "@/lib/api/context";
+import { resetUserCache } from "@/lib/auth";
 import { queryKeys } from "@/lib/queryKeys";
 
 export function browserSupportsWebAuthn(): boolean {
@@ -105,6 +106,7 @@ export function usePasskeyAuthenticate() {
       return result.data;
     },
     onSuccess: () => {
+      resetUserCache();
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.all });
     },
   });
