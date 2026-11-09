@@ -46,6 +46,7 @@ extension ChapterDownloader {
         guard let file else { return .transportFailed }
 
         var destination = FileStore.chapterURL(editionId: editionId, fileId: fileId, ext: file.fileExtension)
+        FileStore.ensureEditionDirectory(editionId)
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: destination.path) {
             try? fileManager.removeItem(at: destination)
