@@ -93,10 +93,11 @@ extension AppModel {
         guard isLoggedIn else { return }
         reconnectToken += 1
         Task {
+            let passStart = Date()
             await loadLibrary()
             await refreshAdmin()
             await refreshUnreadNotificationCount()
-            await pushOfflineProgress()
+            await pushOfflineProgress(libraryFreshSince: passStart)
         }
     }
 
@@ -104,9 +105,9 @@ extension AppModel {
     /// play time is fire-and-forget, so a drive through a dead zone otherwise
     /// leaves the server behind until that book is opened again.
     ///
-    /// With no server row the book may have been marked read; a journal line older
-    /// than that mark would put it back in progress, so only a newer one is pushed.
-    func pushOfflineProgress() async {
+    /// With no server row the book may have been marked read; push only when this pass
+    /// fetched the library and the journal line is newer than any read mark.
+    func pushOfflineProgress(libraryFreshSince passStart: Date) async {
         guard let apiClient, let remote = try? await apiClient.getProgress() else { return }
         let remoteByEdition = Dictionary(remote.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first })
 
