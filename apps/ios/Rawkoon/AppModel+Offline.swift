@@ -104,33 +104,37 @@ extension AppModel {
     /// play time is fire-and-forget, so a drive through a dead zone otherwise
     /// leaves the server behind until that book is opened again.
     ///
-    /// Only editions the server already tracks are pushed: with no server row,
-    /// the book may have been marked read, and a stale journal line would put it
-    /// back in progress.
+    /// With no server row the book may have been marked read; a journal line older
+    /// than that mark would put it back in progress, so only a newer one is pushed.
     func pushOfflineProgress() async {
         guard let apiClient, let remote = try? await apiClient.getProgress() else { return }
         let remoteByEdition = Dictionary(remote.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first })
 
         for (editionId, entry) in await journalEntries() {
-            guard let server = remoteByEdition[editionId], server.totalDurationSecs > 0 else { continue }
+            let server = remoteByEdition[editionId]
+            let total = server?.totalDurationSecs ?? DownloadedStore.readManifest(editionId: editionId)?.totalDurationSecs ?? 0
+            guard total > 0 else { continue }
+            if server == nil, markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis) { continue }
             let local = ProgressRecord(
                 positionSecs: entry.positionSecs,
-                totalDurationSecs: server.totalDurationSecs,
-                finished: entry.positionSecs >= server.totalDurationSecs,
+                totalDurationSecs: total,
+                finished: entry.positionSecs >= total,
                 updatedAtMillis: entry.atMillis
             )
-            let remoteRecord = ProgressRecord(
-                positionSecs: server.positionSecs,
-                totalDurationSecs: server.totalDurationSecs,
-                finished: server.finished,
-                updatedAtMillis: Int64(server.updatedAt.timeIntervalSince1970 * 1000)
-            )
+            let remoteRecord = server.map {
+                ProgressRecord(
+                    positionSecs: $0.positionSecs,
+                    totalDurationSecs: $0.totalDurationSecs,
+                    finished: $0.finished,
+                    updatedAtMillis: Int64($0.updatedAt.timeIntervalSince1970 * 1000)
+                )
+            }
             guard SyncReconciler.reconcile(local: local, remote: remoteRecord) == .push else { continue }
             try? await apiClient.putProgress(
                 editionId: editionId,
                 positionSecs: entry.positionSecs,
-                totalDurationSecs: server.totalDurationSecs,
-                finished: entry.positionSecs >= max(server.totalDurationSecs - 1, 0),
+                totalDurationSecs: total,
+                finished: entry.positionSecs >= max(total - 1, 0),
                 updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
                 deviceId: deviceID
             )
