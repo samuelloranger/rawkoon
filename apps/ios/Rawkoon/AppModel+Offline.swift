@@ -114,7 +114,9 @@ extension AppModel {
             let server = remoteByEdition[editionId]
             let total = server?.totalDurationSecs ?? DownloadedStore.readManifest(editionId: editionId)?.totalDurationSecs ?? 0
             guard total > 0 else { continue }
-            if server == nil, markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis) { continue }
+            if server == nil, markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis) {
+                continue
+            }
             let local = ProgressRecord(
                 positionSecs: entry.positionSecs,
                 totalDurationSecs: total,
