@@ -53,7 +53,11 @@ final class AudiobookPlayer {
 
     var sleepEndChapterIndex: Int?
     var lastSleepTick: Date?
+    /// Pauses at the exact end of the sleep chapter once a tick sees it less than one tick away.
+    var sleepBoundaryTask: Task<Void, Never>?
     static let sleepFadeWindow: Double = 8
+    /// The playback tick interval (see `installObservers`).
+    static let sleepTickSecs: Double = 0.5
     let sleepLiveActivity = SleepLiveActivityController()
 
     /// When playback last stopped, for smart rewind. Nil while playing.
