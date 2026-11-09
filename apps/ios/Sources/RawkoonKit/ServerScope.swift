@@ -14,9 +14,10 @@ public enum ServerScope {
         "k" + ResponseCache.stem(userId)
     }
 
-    /// Legacy (unstamped) entries stay visible until adoption stamps them.
+    /// Unstamped legacy entries stay visible until adoption stamps them, and an unknown
+    /// active key (no identity yet, or a failed Keychain write) hides nothing.
     public static func isVisible(entryKey: String?, activeKey: String?) -> Bool {
-        entryKey == nil || entryKey == activeKey
+        activeKey == nil || entryKey == nil || entryKey == activeKey
     }
 
     /// Stamped for a server other than the active one.

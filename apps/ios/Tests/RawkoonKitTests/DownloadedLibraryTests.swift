@@ -43,6 +43,15 @@ struct DownloadedLibraryTests {
         #expect(DownloadedLibrary.visible(index, serverKey: ServerScope.key(userId: "u1")).count == 1)
     }
 
+    @Test func unknownActiveKeyShowsEverythingAndNothingIsForeign() {
+        let index = [edition(1, key: "a"), edition(2, key: "b"), edition(3)]
+        #expect(DownloadedLibrary.visible(index, serverKey: nil).count == 3)
+        #expect(!DownloadedLibrary.isForeign(index, editionId: 1, serverKey: nil))
+        #expect(DownloadedLibrary.remove(index, editionId: 1, serverKey: nil).count == 2)
+        // Adoption still touches only unstamped entries.
+        #expect(DownloadedLibrary.adopting(index, serverKey: "c").map(\.serverKey) == ["a", "b", "c"])
+    }
+
     @Test func upsertAppendsWhenNew() {
         let out = DownloadedLibrary.upsert([edition(1)], edition(2))
         #expect(out.map(\.editionId) == [1, 2])

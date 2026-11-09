@@ -369,6 +369,7 @@ final class AppModel {
         apiClient = makeAPIClient(baseURL: baseURL, token: token)
         isLoggedIn = true
         restoreServerScope()
+        restoreDownloadedAudiobooks()
         refreshDownloadedBookIds()
         hydrateFromCache()
     }
