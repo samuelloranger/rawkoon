@@ -20,6 +20,7 @@
         private var openingEditionId: Int?
         /// What the list was last built from; playback starting changes nothing it shows.
         private var lastRefreshKey: RefreshKey?
+        private var observationGeneration = 0
 
         private struct RefreshKey: Equatable {
             let isLoggedIn: Bool
@@ -43,7 +44,8 @@
                 configureNowPlayingButtons(model: .shared)
                 await refresh()
                 lastRefreshKey = Self.refreshKey()
-                observeAppState()
+                observationGeneration += 1
+                observeAppState(generation: observationGeneration)
             }
         }
 
@@ -65,8 +67,8 @@
         /// reconnect. `withObservationTracking` fires once, so it re-arms after each
         /// change — but only while a scene is connected.
         @MainActor
-        private func observeAppState() {
-            guard interfaceController != nil else { return }
+        private func observeAppState(generation: Int) {
+            guard interfaceController != nil, generation == observationGeneration else { return }
             withObservationTracking {
                 _ = AppModel.shared.isLoggedIn
                 _ = AppModel.shared.library
@@ -75,7 +77,8 @@
                 _ = AppModel.shared.player.isPlaying
             } onChange: { [weak self] in
                 Task { @MainActor in
-                    guard let self, self.interfaceController != nil else { return }
+                    // A stale generation is a chain from an earlier connection; let it die.
+                    guard let self, self.interfaceController != nil, generation == self.observationGeneration else { return }
                     let key = Self.refreshKey()
                     let previous = self.lastRefreshKey
                     // Pausing moves resume labels; starting playback does not.
@@ -87,7 +90,7 @@
                         await self.refresh()
                     }
                     self.lastRefreshKey = key
-                    self.observeAppState()
+                    self.observeAppState(generation: generation)
                 }
             }
         }
