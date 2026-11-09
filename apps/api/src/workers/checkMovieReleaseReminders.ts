@@ -38,12 +38,29 @@ export async function checkMovieReleaseReminders(): Promise<void> {
     let releaseYmd: string | null = dbDateToYmd(item.movieReleaseDate);
     let reminderSentFor = item.releaseReminderSentFor;
 
-    if (!releaseYmd) {
+    // TMDB dates move; re-confirm a cached date once it is close enough to remind on.
+    const untilRelease = releaseYmd
+      ? new Date(`${releaseYmd}T00:00:00.000Z`).getTime() - Date.now()
+      : null;
+    const nearRelease =
+      untilRelease !== null &&
+      reminderSentFor !== releaseYmd &&
+      untilRelease <= 5 * 24 * 60 * 60 * 1000 &&
+      untilRelease > -24 * 60 * 60 * 1000;
+    if (!releaseYmd || nearRelease) {
+      // One failing TMDB lookup must not skip every later user's reminder.
       const details = await fetchMediaDetails(
         tmdbConfig.api_key,
         "movie",
         item.tmdbId,
-      );
+      ).catch((e) => {
+        console.warn(
+          `[CRON] checkMovieReleaseReminders: TMDB lookup failed for ${item.tmdbId}:`,
+          e,
+        );
+        return null;
+      });
+      if (!details) continue;
       releaseYmd = details.release_date;
       const nextDate = releaseYmd
         ? new Date(`${releaseYmd}T00:00:00.000Z`)
