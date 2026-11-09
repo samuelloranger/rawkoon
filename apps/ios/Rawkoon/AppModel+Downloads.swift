@@ -125,7 +125,12 @@ extension AppModel {
             completionHandler()
             return
         }
-        Task { await startDownload(editionId: editionId, preferDiskManifest: true) }
+        Task {
+            await startDownload(editionId: editionId, preferDiskManifest: true)
+            // startDownload can return early (bad URL, no manifest) without attaching a
+            // downloader; iOS needs the handler called or it throttles the next wake.
+            pendingBackgroundCompletions.removeValue(forKey: identifier)?()
+        }
     }
 
     func deleteDownloads() {

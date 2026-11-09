@@ -72,4 +72,14 @@ final class PositionJournalTests: XCTestCase {
         XCTAssertEqual(PositionJournal.latest(in: compacted, editionId: 1)?.positionSecs, 20)
         XCTAssertEqual(PositionJournal.latestByEdition(lines)[2]?.positionSecs, 50)
     }
+
+    /// A truncated last line must not swallow the next appended entry.
+    func testAppendAfterPartialLineKeepsTheNewEntry() {
+        let partial = PositionJournal.encode(PositionEntry(editionId: 1, positionSecs: 5, atMillis: 1)).dropLast(8)
+        let next = PositionEntry(editionId: 2, positionSecs: 9, atMillis: 2)
+        let text = String(partial) + PositionJournal.appendText(for: next, afterPartialLine: true)
+
+        XCTAssertEqual(PositionJournal.parse(text), [next])
+        XCTAssertEqual(PositionJournal.appendText(for: next, afterPartialLine: false), PositionJournal.encode(next))
+    }
 }

@@ -28,6 +28,13 @@ public enum PositionJournal {
         return line + "\n"
     }
 
+    /// The text to append. A journal killed mid-append ends without a newline;
+    /// a leading one keeps the next entry from joining onto that partial line.
+    public static func appendText(for entry: PositionEntry, afterPartialLine: Bool) -> String {
+        let line = encode(entry)
+        return line.isEmpty || !afterPartialLine ? line : "\n" + line
+    }
+
     public static func parse(_ text: String) -> [PositionEntry] {
         let decoder = JSONDecoder()
         return text.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line in
