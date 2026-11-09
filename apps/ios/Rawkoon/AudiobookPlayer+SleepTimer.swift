@@ -58,6 +58,12 @@ extension AudiobookPlayer {
         }
     }
 
+    /// A seek, rate change or chapter skip moves the end, so a scheduled pause is stale.
+    func cancelSleepBoundary() {
+        sleepBoundaryTask?.cancel()
+        sleepBoundaryTask = nil
+    }
+
     /// A tick lands every half second, so waiting for the position to cross into the next
     /// chapter lets up to a tick of it play. Inside a multi-chapter file, pause at the end instead.
     private func scheduleSleepAtChapterEnd(target: Int, secondsLeft: Double) {
