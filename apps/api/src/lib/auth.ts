@@ -38,8 +38,6 @@ type OidcConfig = {
   disableSignUp: true;
   mapProfileToUser: (profile: Record<string, unknown>) => {
     name: string;
-    firstName: string;
-    lastName: string;
   };
 };
 
@@ -55,8 +53,6 @@ function mapProfileToUser(profile: Record<string, unknown>) {
       : name.split(" ").slice(1).join(" ");
   return {
     name: name || [firstName, lastName].filter(Boolean).join(" "),
-    firstName,
-    lastName,
   };
 }
 
