@@ -11,7 +11,7 @@ import RawkoonKit
 enum OfflineLibraryStore {
     /// Snapshots a completed audiobook into the offline store: its manifest, an
     /// index record, and a cached cover (best-effort).
-    static func persistAudiobook(editionId: Int, manifest: BookManifest, book: BookListItem?) {
+    static func persistAudiobook(editionId: Int, manifest: BookManifest, book: BookListItem?, serverKey: String?) {
         DownloadedStore.writeManifest(manifest, editionId: editionId)
 
         let entry = DownloadedEdition(
@@ -23,7 +23,8 @@ enum OfflineLibraryStore {
             totalDurationSecs: manifest.totalDurationSecs,
             fileCount: manifest.files.count,
             coverFileName: nil,
-            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000),
+            serverKey: serverKey
         )
         DownloadedStore.upsert(entry)
 
@@ -42,7 +43,8 @@ enum OfflineLibraryStore {
         author: String?,
         coverURL: URL?,
         files: [BookEditionFile],
-        downloadedFileCount: Int
+        downloadedFileCount: Int,
+        serverKey: String?
     ) {
         DownloadedStore.writeEbookFiles(files, editionId: editionId)
         let entry = DownloadedEdition(
@@ -54,7 +56,8 @@ enum OfflineLibraryStore {
             totalDurationSecs: nil,
             fileCount: max(downloadedFileCount, 1),
             coverFileName: nil,
-            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000)
+            addedAtMillis: Int64(Date().timeIntervalSince1970 * 1000),
+            serverKey: serverKey
         )
         DownloadedStore.upsert(entry)
         if let coverURL {
@@ -89,12 +92,7 @@ enum OfflineLibraryStore {
         // Re-read/patch the index so the record points at the saved cover.
         let patched = DownloadedStore.readIndex().map { entry -> DownloadedEdition in
             guard entry.editionId == editionId else { return entry }
-            return DownloadedEdition(
-                editionId: entry.editionId, bookId: entry.bookId, kind: entry.kind,
-                title: entry.title, author: entry.author,
-                totalDurationSecs: entry.totalDurationSecs, fileCount: entry.fileCount,
-                coverFileName: fileName, addedAtMillis: entry.addedAtMillis
-            )
+            return entry.with(coverFileName: fileName)
         }
         for entry in patched where entry.editionId == editionId {
             DownloadedStore.upsert(entry)

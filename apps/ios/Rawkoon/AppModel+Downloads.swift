@@ -54,6 +54,8 @@ extension AppModel {
         defer { startingDownloads.remove(editionId) }
         // Same path as another server's copy of this edition id: the files cannot be shared.
         DownloadedStore.evictForeign(editionId: editionId)
+        // The completion may land after the session changed (or before the key is readable).
+        downloadServerKeys[editionId] = ActiveServerKey.shared.value
         // A just-cancelled session with this identifier may still be invalidating.
         for _ in 0 ..< 50 where invalidatingSessions.contains(editionId) {
             try? await Task.sleep(for: .milliseconds(100))
@@ -319,7 +321,9 @@ extension AppModel {
     func persistDownloadedAudiobook(editionId: Int) {
         guard let manifest = manifests[editionId] else { return }
         let book = library.first { $0.audiobookEditionId == editionId }
-        OfflineLibraryStore.persistAudiobook(editionId: editionId, manifest: manifest, book: book)
+        OfflineLibraryStore.persistAudiobook(
+            editionId: editionId, manifest: manifest, book: book, serverKey: downloadServerKeys[editionId]
+        )
         refreshDownloadedBookIds()
         FileStore.deleteChapters(editionId: editionId, keeping: Set(manifest.files.map(\.id)))
     }
@@ -335,11 +339,12 @@ extension AppModel {
         author: String?,
         coverURL: URL?,
         files: [BookEditionFile],
-        downloadedFileCount: Int
+        downloadedFileCount: Int,
+        serverKey: String?
     ) {
         OfflineLibraryStore.recordEbookDownloaded(
             editionId: editionId, bookId: bookId, title: title, author: author,
-            coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount
+            coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount, serverKey: serverKey
         )
         refreshDownloadedBookIds()
     }

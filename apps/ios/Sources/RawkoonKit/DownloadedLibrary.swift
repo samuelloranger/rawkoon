@@ -36,6 +36,14 @@ public struct DownloadedEdition: Codable, Sendable, Equatable {
         )
     }
 
+    public func with(coverFileName: String?) -> DownloadedEdition {
+        DownloadedEdition(
+            editionId: editionId, bookId: bookId, kind: kind, title: title, author: author,
+            totalDurationSecs: totalDurationSecs, fileCount: fileCount, coverFileName: coverFileName,
+            addedAtMillis: addedAtMillis, serverKey: serverKey
+        )
+    }
+
     public init(
         editionId: Int,
         bookId: Int,

@@ -129,6 +129,8 @@ final class AppModel {
     var downloaders: [Int: ChapterDownloader] = [:]
     var pendingBackgroundCompletions: [String: () -> Void] = [:]
     var verifiedCounts: [Int: Int] = [:]
+    /// The server key in force when each edition's download started; the index entry is stamped with it.
+    var downloadServerKeys: [Int: String] = [:]
     /// Live in-flight chapter fractions per edition, for the chapter pills and the overall bar.
     var chapterFractions: [Int: [Int: Double]] = [:]
     /// Smooth, never-decreasing overall fraction per edition while it downloads.

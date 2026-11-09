@@ -50,7 +50,7 @@ nonisolated enum DownloadedStore {
     }
 
     static func upsert(_ entry: DownloadedEdition) {
-        writeIndex(DownloadedLibrary.upsert(readRawIndex(), entry.with(serverKey: activeKey)))
+        writeIndex(DownloadedLibrary.upsert(readRawIndex(), entry.with(serverKey: entry.serverKey ?? activeKey)))
     }
 
     static func remove(editionId: Int) {

@@ -52,6 +52,11 @@ struct DownloadedLibraryTests {
         #expect(DownloadedLibrary.adopting(index, serverKey: "c").map(\.serverKey) == ["a", "b", "c"])
     }
 
+    @Test func settingTheCoverKeepsTheServerKey() {
+        #expect(edition(1, key: "a").with(coverFileName: "cover.jpg").serverKey == "a")
+        #expect(edition(1, key: "a").with(coverFileName: "cover.jpg").coverFileName == "cover.jpg")
+    }
+
     @Test func upsertAppendsWhenNew() {
         let out = DownloadedLibrary.upsert([edition(1)], edition(2))
         #expect(out.map(\.editionId) == [1, 2])

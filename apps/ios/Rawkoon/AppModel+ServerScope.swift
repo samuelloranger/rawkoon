@@ -7,10 +7,13 @@ import RawkoonKit
 extension AppModel {
     static let serverScopeKey = "server_scope_key"
 
-    /// The key saved at the last identity change; nil on a session that predates this.
+    /// The key saved at the last identity change; nil on a session that predates this. Entries a
+    /// background download wrote while the key was unreadable belong to this session, so they are stamped now.
     func restoreServerScope() {
         guard isLoggedIn else { return }
-        ActiveServerKey.shared.value = Keychain.get(Self.serverScopeKey)
+        let key = Keychain.get(Self.serverScopeKey)
+        ActiveServerKey.shared.value = key
+        if let key { adoptLegacyEntries(serverKey: key) }
     }
 
     /// Runs once the signed-in user's id is known. The first key after an update adopts every
@@ -20,14 +23,18 @@ extension AppModel {
         guard ActiveServerKey.shared.value != key else { return }
         ActiveServerKey.shared.value = key
         Keychain.set(key, for: Self.serverScopeKey)
+        adoptLegacyEntries(serverKey: key)
+        refreshDownloadedBookIds()
+        restoreDownloadedAudiobooks()
+    }
+
+    private func adoptLegacyEntries(serverKey key: String) {
         DownloadedStore.adoptLegacy(serverKey: key)
         let journal = readJournal()
         let adopted = PositionJournal.adopting(journal, serverKey: key)
         if adopted != journal {
             try? adopted.write(to: journalURL, atomically: true, encoding: .utf8)
         }
-        refreshDownloadedBookIds()
-        restoreDownloadedAudiobooks()
     }
 
     func clearServerScope() {

@@ -214,6 +214,7 @@ extension AppModel {
         downloaders = [:]
         downloadPlans = [:]
         verifiedCounts = [:]
+        downloadServerKeys = [:]
         errorMessage = nil
     }
 
