@@ -373,18 +373,6 @@
   },
   {
     "method": "POST",
-    "path": "/api/dashboard/upcoming/add"
-  },
-  {
-    "method": "POST",
-    "path": "/api/dashboard/upcoming/refresh"
-  },
-  {
-    "method": "POST",
-    "path": "/api/dashboard/upcoming/status"
-  },
-  {
-    "method": "POST",
     "path": "/api/download-client/hook/complete"
   },
   {

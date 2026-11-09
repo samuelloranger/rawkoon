@@ -19,20 +19,4 @@ export const dashboardFixtures: FixtureRegistry = {
     negativeBody: null,
   },
   "GET /api/dashboard/upcoming": { phase: "read", negativeBody: null },
-  // Uses the seeded movie's tmdbId (990000001) so add hits the already_exists
-  // path — a deterministic 200 without shaping the TMDB detail response.
-  "POST /api/dashboard/upcoming/add": {
-    phase: "action",
-    body: () => ({ media_type: "movie", tmdb_id: 990_000_001 }),
-    negativeBody: { media_type: "movie", tmdb_id: "not-a-number" },
-  },
-  "POST /api/dashboard/upcoming/refresh": {
-    phase: "action",
-    negativeBody: null,
-  },
-  "POST /api/dashboard/upcoming/status": {
-    phase: "action",
-    body: () => ({ media_type: "movie", tmdb_id: 990_000_001 }),
-    negativeBody: { media_type: "movie", tmdb_id: "not-a-number" },
-  },
 };
