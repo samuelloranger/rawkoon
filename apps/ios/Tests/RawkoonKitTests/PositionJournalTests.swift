@@ -121,10 +121,14 @@ final class PositionJournalTests: XCTestCase {
         XCTAssertEqual(PositionJournal.adopting(adopted, serverKey: "b"), adopted)
     }
 
-    func testServerKeyIsStableAndNormalisesTheURL() {
-        let a = ServerScope.key(serverURL: "https://Rawkoon.example.com/", userId: "u1")
-        XCTAssertEqual(a, ServerScope.key(serverURL: " https://rawkoon.example.com ", userId: "u1"))
-        XCTAssertNotEqual(a, ServerScope.key(serverURL: "https://rawkoon.example.com", userId: "u2"))
-        XCTAssertNotEqual(a, ServerScope.key(serverURL: "https://other.example.com", userId: "u1"))
+    /// The same account reached by another URL keeps its key, so nothing is foreign or evicted.
+    func testServerKeyIgnoresTheURL() {
+        let key = ServerScope.key(userId: "u1")
+        XCTAssertEqual(key, ServerScope.key(userId: "u1"))
+        XCTAssertNotEqual(key, ServerScope.key(userId: "u2"))
+        let text = line(12, 100, 1, key)
+        // Signed in again under a different address: same user id, same key.
+        XCTAssertEqual(PositionJournal.latestByEdition(text, serverKey: ServerScope.key(userId: "u1"))[12]?.positionSecs, 100)
+        XCTAssertFalse(ServerScope.isForeign(entryKey: key, activeKey: ServerScope.key(userId: "u1")))
     }
 }

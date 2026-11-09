@@ -1,19 +1,17 @@
 import Foundation
 
-/// Which server (and user) a journal line or downloaded-index entry belongs to.
+/// Which server account a journal line or downloaded-index entry belongs to.
 ///
 /// Edition ids are per-server, so sign-out keeps on-device data but a different
 /// server's edition 12 must never read another server's edition 12. Entries
 /// written before this existed carry no key (`nil`): they are "legacy" and are
 /// stamped once with the first key that becomes active, so nothing downloaded is lost.
 public enum ServerScope {
-    /// Stable across launches; the user id keeps two accounts on one server apart.
-    public static func key(serverURL: String, userId: String) -> String {
-        var url = serverURL.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        while url.hasSuffix("/") {
-            url.removeLast()
-        }
-        return "k" + ResponseCache.stem(url + "|" + userId)
+    /// Stable across launches. The user id alone: ids are random per server, so servers differ,
+    /// while the same account reached by a LAN address, a public name or another scheme or port
+    /// keeps one key (a URL in the key would make its own downloads look foreign).
+    public static func key(userId: String) -> String {
+        "k" + ResponseCache.stem(userId)
     }
 
     /// Legacy (unstamped) entries stay visible until adoption stamps them.

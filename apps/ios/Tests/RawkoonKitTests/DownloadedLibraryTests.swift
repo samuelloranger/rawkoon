@@ -36,6 +36,13 @@ struct DownloadedLibraryTests {
         #expect(DownloadedLibrary.adopting(adopted, serverKey: "b") == adopted)
     }
 
+    @Test func sameAccountUnderAnotherURLIsNotForeign() {
+        let key = ServerScope.key(userId: "u1")
+        let index = [edition(12, key: key)]
+        #expect(!DownloadedLibrary.isForeign(index, editionId: 12, serverKey: ServerScope.key(userId: "u1")))
+        #expect(DownloadedLibrary.visible(index, serverKey: ServerScope.key(userId: "u1")).count == 1)
+    }
+
     @Test func upsertAppendsWhenNew() {
         let out = DownloadedLibrary.upsert([edition(1)], edition(2))
         #expect(out.map(\.editionId) == [1, 2])

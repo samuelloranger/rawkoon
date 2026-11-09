@@ -16,7 +16,7 @@ extension AppModel {
     /// Runs once the signed-in user's id is known. The first key after an update adopts every
     /// unstamped (legacy) journal line and download record, so nothing already downloaded is lost.
     func updateServerScope(userId: String) {
-        let key = ServerScope.key(serverURL: serverURL, userId: userId)
+        let key = ServerScope.key(userId: userId)
         guard ActiveServerKey.shared.value != key else { return }
         ActiveServerKey.shared.value = key
         Keychain.set(key, for: Self.serverScopeKey)
