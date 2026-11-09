@@ -206,11 +206,13 @@ export const mobileAuthRoutes = new Hono<Env>()
       data = {};
     }
     if (!data.url) {
+      console.error(
+        `[oauth-start] upstream ${initRes.status}: ${rawBody.slice(0, 300)}`,
+      );
       return new Response(
         JSON.stringify({
           error: "oauth_init_failed",
           upstream_status: initRes.status,
-          upstream_body: rawBody.slice(0, 300),
         }),
         { status: 502, headers: { "content-type": "application/json" } },
       );
