@@ -62,6 +62,9 @@ final class LiveUpdatesCoordinator {
 
     /// Set by the first handshake; a later one means a gap (a foreground resume or a reconnect) in which events were missed.
     private var hasHandshaken = false
+    /// A flapping link handshakes again and again; one refetch per this many seconds is enough.
+    private var lastHandshakeRefresh: Date?
+    private static let handshakeRefreshInterval: TimeInterval = 10
 
     private(set) var libraryStreamStatus: SSEStreamStatus = .idle
     private(set) var notificationStreamStatus: SSEStreamStatus = .idle
@@ -142,7 +145,10 @@ final class LiveUpdatesCoordinator {
                         backoff = 1.0
                         if failures >= 2 {
                             appModel?.refreshAfterServerReturn()
-                        } else if hasHandshaken {
+                        } else if hasHandshaken,
+                                  Date().timeIntervalSince(lastHandshakeRefresh ?? .distantPast) >= Self.handshakeRefreshInterval
+                        {
+                            lastHandshakeRefresh = Date()
                             // Not `libraryChangeToken`: that one fires a haptic.
                             appModel?.reconnectToken += 1
                             Task { await refreshUnreadCount() }
