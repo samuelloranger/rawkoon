@@ -115,8 +115,12 @@ extension AppModel {
             let server = remoteByEdition[editionId]
             let total = server?.totalDurationSecs ?? DownloadedStore.readManifest(editionId: editionId)?.totalDurationSecs ?? 0
             guard total > 0 else { continue }
-            if server == nil, markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis) {
-                continue
+            if server == nil {
+                // A cached library can hold a stale readAt; only a fetch from this pass can rule out "marked read".
+                guard let fetched = libraryFetchedAt, fetched >= passStart,
+                      library.contains(where: { $0.audiobookEditionId == editionId }),
+                      !markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis)
+                else { continue }
             }
             let local = ProgressRecord(
                 positionSecs: entry.positionSecs,
