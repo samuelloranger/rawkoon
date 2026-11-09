@@ -13,6 +13,8 @@ export type PostProcessOutcome =
       success: true;
       destinationPath: string;
       episodeCount?: number;
+      /** Some episodes of a pack failed; recorded as postProcessError so the row stays visibly incomplete. */
+      partialError?: string;
       /** Success that imported nothing because another grab already placed the file; not a fresh import. */
       skipped?: boolean;
       skipReason?: string;

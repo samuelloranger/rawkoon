@@ -148,6 +148,7 @@ export async function clearFailedDownloads(
           AND: [
             { postProcessError: { not: null } },
             { postProcessError: { not: "" } },
+            { postProcessDestinationPath: null },
           ],
         },
       ],
@@ -175,7 +176,12 @@ export async function removeDownloadHistoryEntry(
 
   const dh = await prisma.downloadHistory.findFirst({
     where: { id: dhId, mediaId },
-    select: { id: true, failed: true, postProcessError: true },
+    select: {
+      id: true,
+      failed: true,
+      postProcessError: true,
+      postProcessDestinationPath: true,
+    },
   });
   if (!dh) return "not_found";
   if (!isRemovableDownloadHistoryEntry(dh)) return "not_removable";

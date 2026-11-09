@@ -11,7 +11,26 @@ import type {
   LibraryMigrateResult,
 } from "@rawkoon/api/services/jobs/libraryMigrateTypes";
 
+/** The job record is kept for status, so the source API keys are scrubbed once the run ends, success or not. */
 export async function processLibraryMigrateJob(
+  job: Job<LibraryMigrateJobData>,
+): Promise<LibraryMigrateResult> {
+  try {
+    return await runLibraryMigrate(job);
+  } finally {
+    await job
+      .updateData({
+        ...job.data,
+        radarr_api_key: undefined,
+        sonarr_api_key: undefined,
+      })
+      .catch((e: unknown) =>
+        console.warn("[libraryMigrate] could not scrub API keys:", e),
+      );
+  }
+}
+
+async function runLibraryMigrate(
   job: Job<LibraryMigrateJobData>,
 ): Promise<LibraryMigrateResult> {
   const { source, radarr_url, radarr_api_key, sonarr_url, sonarr_api_key } =
