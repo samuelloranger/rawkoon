@@ -125,7 +125,9 @@ export async function updateUserAvatarFromUpload(
   // Only after the new image is saved and referenced, so a failed save never orphans avatarUrl.
   const oldFilename = dbUser?.avatarUrl?.split("/").pop();
   if (oldFilename && oldFilename !== filename) {
-    await deleteImageFiles(oldFilename);
+    await deleteImageFiles(oldFilename).catch((e) =>
+      console.warn("[avatar] could not delete the old avatar:", e),
+    );
   }
   return { ok: true, avatarUrl };
 }
