@@ -7,7 +7,8 @@ import WidgetKit
 @MainActor
 final class WidgetSnapshotWriter {
     static let shared = WidgetSnapshotWriter()
-    private var generation = 0
+    /// Bumped by `clear()`; a caller reads it before its fetch and passes it back so a late result is dropped.
+    private(set) var generation = 0
 
     private init() {}
 
@@ -17,7 +18,8 @@ final class WidgetSnapshotWriter {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    func updateListening(_ stats: ListeningStats?) {
+    func updateListening(_ stats: ListeningStats?, ifGeneration expected: Int) {
+        guard expected == generation else { return }
         var snapshot = WidgetSnapshotStore.read()
         snapshot.listening = stats.map {
             WidgetListening(

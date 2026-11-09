@@ -25,6 +25,24 @@ public struct DownloadedEdition: Codable, Sendable, Equatable {
     /// saved. Nil when the cover could not be fetched — the row still renders.
     public let coverFileName: String?
     public let addedAtMillis: Int64
+    /// The server it was downloaded from; nil on entries written before servers were told apart.
+    public let serverKey: String?
+
+    public func with(serverKey: String?) -> DownloadedEdition {
+        DownloadedEdition(
+            editionId: editionId, bookId: bookId, kind: kind, title: title, author: author,
+            totalDurationSecs: totalDurationSecs, fileCount: fileCount, coverFileName: coverFileName,
+            addedAtMillis: addedAtMillis, serverKey: serverKey
+        )
+    }
+
+    public func with(coverFileName: String?) -> DownloadedEdition {
+        DownloadedEdition(
+            editionId: editionId, bookId: bookId, kind: kind, title: title, author: author,
+            totalDurationSecs: totalDurationSecs, fileCount: fileCount, coverFileName: coverFileName,
+            addedAtMillis: addedAtMillis, serverKey: serverKey
+        )
+    }
 
     public init(
         editionId: Int,
@@ -35,7 +53,8 @@ public struct DownloadedEdition: Codable, Sendable, Equatable {
         totalDurationSecs: Double?,
         fileCount: Int,
         coverFileName: String?,
-        addedAtMillis: Int64
+        addedAtMillis: Int64,
+        serverKey: String? = nil
     ) {
         self.editionId = editionId
         self.bookId = bookId
@@ -46,6 +65,7 @@ public struct DownloadedEdition: Codable, Sendable, Equatable {
         self.fileCount = fileCount
         self.coverFileName = coverFileName
         self.addedAtMillis = addedAtMillis
+        self.serverKey = serverKey
     }
 }
 
@@ -68,11 +88,27 @@ public enum DownloadedLibrary {
         return index + [entry]
     }
 
-    /// Drops the record for `editionId`. A missing id is a no-op.
+    /// Drops the active server's record for `editionId`; another server's record for the
+    /// same id stays. A missing id is a no-op.
     public static func remove(
-        _ index: [DownloadedEdition], editionId: Int
+        _ index: [DownloadedEdition], editionId: Int, serverKey: String?
     ) -> [DownloadedEdition] {
-        index.filter { $0.editionId != editionId }
+        index.filter { $0.editionId != editionId || ServerScope.isForeign(entryKey: $0.serverKey, activeKey: serverKey) }
+    }
+
+    /// What the active server may see: its own records plus unstamped legacy ones.
+    public static func visible(_ index: [DownloadedEdition], serverKey: String?) -> [DownloadedEdition] {
+        index.filter { ServerScope.isVisible(entryKey: $0.serverKey, activeKey: serverKey) }
+    }
+
+    /// Stamps every legacy record with `serverKey`, once, so files already on disk stay downloaded.
+    public static func adopting(_ index: [DownloadedEdition], serverKey: String) -> [DownloadedEdition] {
+        index.map { $0.serverKey == nil ? $0.with(serverKey: serverKey) : $0 }
+    }
+
+    /// True when `editionId` is recorded for a different server, so its files on disk are not ours.
+    public static func isForeign(_ index: [DownloadedEdition], editionId: Int, serverKey: String?) -> Bool {
+        index.contains { $0.editionId == editionId && ServerScope.isForeign(entryKey: $0.serverKey, activeKey: serverKey) }
     }
 
     /// The set of edition ids that are fully downloaded — the authoritative

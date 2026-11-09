@@ -71,13 +71,14 @@ export function useUrlState<T extends UrlStateRecord>(
   );
 
   const setState = useCallback(
-    (updates: Partial<T>) => {
+    (updates: Partial<T>, options?: { replace?: boolean }) => {
       const nextState = { ...state, ...updates } as T;
 
       navigate({
         to: from,
         search: sanitizeUrlState(nextState, defaults) as T,
-        replace: false,
+        // Typing must not push one history entry per keystroke.
+        replace: options?.replace ?? false,
         resetScroll: false,
       });
     },

@@ -43,7 +43,7 @@ extension AppModel {
             fileId: file.id,
             ext: Self.ebookExtension(for: file)
         )
-        if FileManager.default.fileExists(atPath: localURL.path) {
+        if FileManager.default.fileExists(atPath: localURL.path), !DownloadedStore.isForeign(editionId: editionId) {
             return localURL
         }
 

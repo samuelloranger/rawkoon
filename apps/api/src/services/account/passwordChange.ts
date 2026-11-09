@@ -9,6 +9,7 @@ export async function changeUserPassword(
   userId: string,
   currentPassword: string,
   newPassword: string,
+  keepSessionId?: string,
 ): Promise<PasswordChangeResult> {
   const dbUser = await prisma.user.findFirst({
     where: { id: userId },
@@ -30,7 +31,13 @@ export async function changeUserPassword(
       where: { userId, providerId: "credential" },
       data: { password: passwordHash },
     }),
-    prisma.baSession.deleteMany({ where: { userId } }),
+    // Keep the session making the change so the user stays signed in on this device.
+    prisma.baSession.deleteMany({
+      where: {
+        userId,
+        ...(keepSessionId ? { id: { not: keepSessionId } } : {}),
+      },
+    }),
   ]);
   return { ok: true };
 }

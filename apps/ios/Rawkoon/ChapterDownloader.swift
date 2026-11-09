@@ -179,15 +179,12 @@ final class ChapterDownloader: NSObject, URLSessionDownloadDelegate {
 
     /// Built and parsed in one place so a background launch can recover the
     /// edition from nothing but the session identifier iOS hands back.
-    private static let sessionIdentifierPrefix = "cloud.samlo.rawkoon.dl."
-
     static func sessionIdentifier(editionId: Int) -> String {
-        "\(sessionIdentifierPrefix)\(editionId)"
+        DownloadSessionIdentifier.make(editionId: editionId)
     }
 
     static func editionId(fromSessionIdentifier identifier: String) -> Int? {
-        guard identifier.hasPrefix(sessionIdentifierPrefix) else { return nil }
-        return Int(identifier.dropFirst(sessionIdentifierPrefix.count))
+        DownloadSessionIdentifier.editionId(from: identifier)
     }
 
     // MARK: Engine plumbing (stateQueue)

@@ -154,6 +154,25 @@ describe("sendReleaseToClient", () => {
     expect(adds).toEqual([]);
   });
 
+  it("stops reading an endless .torrent body that has no content-length", async () => {
+    let pulls = 0;
+    net.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          pull(c) {
+            pulls++;
+            c.enqueue(new Uint8Array(1024 * 1024));
+          },
+        }),
+      );
+    const res = await sendReleaseToClient(
+      adapter(async () => ({ hash: null })),
+      { ...base, downloadUrl: "https://idx.example/a.torrent" },
+    );
+    expect(res).toMatchObject({ ok: false, message: "Torrent file too large" });
+    expect(pulls).toBeLessThan(40);
+  });
+
   it("reports a failed fetch without touching the client", async () => {
     net.fetch = async () => new Response("", { status: 503 });
     const res = await sendReleaseToClient(

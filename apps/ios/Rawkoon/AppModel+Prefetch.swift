@@ -164,6 +164,7 @@ extension AppModel {
     /// Refetches what the main tabs paint first, which rewrites their saved copies.
     func refreshSavedData() async {
         guard isLoggedIn, let apiClient else { return }
+        let widgetGeneration = WidgetSnapshotWriter.shared.generation
         await loadLibrary()
         await refreshAdmin()
         async let recent = try? apiClient.get(Endpoints.recentlyAdded())
@@ -187,7 +188,7 @@ extension AppModel {
         await WidgetSnapshotWriter.shared.updateWatch(model: self)
         if let features = try? await apiClient.systemFeatures() {
             let listening = features.booksEnabled ? try? await apiClient.listeningStats() : nil
-            WidgetSnapshotWriter.shared.updateListening(listening)
+            WidgetSnapshotWriter.shared.updateListening(listening, ifGeneration: widgetGeneration)
         }
         await refreshUnreadNotificationCount()
     }

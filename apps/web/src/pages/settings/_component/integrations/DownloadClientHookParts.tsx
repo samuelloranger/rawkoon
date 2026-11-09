@@ -6,6 +6,7 @@ import type {
 import { Check, ChevronDown, Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HOOK_I18N } from "./downloadClientHookI18n";
@@ -113,7 +114,10 @@ function CopyableBlock({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(value);
+    if (!(await copyToClipboard(value))) {
+      toast.error(t("common.copyFailed"));
+      return;
+    }
     setCopied(true);
     toast.success(t("common.copied"));
     setTimeout(() => setCopied(false), 1500);

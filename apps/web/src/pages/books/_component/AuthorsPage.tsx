@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Switch } from "@/components/ui/switch";
 import { MultiSelect } from "@/pages/settings/_component/QualityProfileMultiSelect";
 import { SEARCH_TITLE_LANGUAGE_OPTIONS } from "@/pages/settings/_component/QualityProfileForm";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useAuthors, useUpdateAuthor } from "../_hooks/useBooks";
 
 const KINDS: BookEditionKind[] = ["ebook", "audiobook"];
@@ -50,7 +51,9 @@ function AuthorMark({ name, monitored }: { name: string; monitored: boolean }) {
 function AuthorRow({ author }: { author: Author }) {
   const { t } = useTranslation("common");
   const update = useUpdateAuthor();
-  const busy = update.isPending;
+  // The server only lets admins change monitoring; members get a read-only row.
+  const isAdmin = useCurrentUser().data?.is_admin === true;
+  const busy = update.isPending || !isAdmin;
 
   const toggleKind = (kind: BookEditionKind) => {
     const next = author.monitor_edition_kinds.includes(kind)
@@ -152,7 +155,7 @@ function AuthorRow({ author }: { author: Author }) {
               not one edition per language, so following an author without this
               collected every translation of every title. Empty means any. */}
           {author.monitored && (
-            <div className="shrink-0 sm:w-[190px]">
+            <div className="shrink-0 sm:w-[190px]" inert={!isAdmin}>
               <MultiSelect
                 label={t("books.authors.languagesLabel")}
                 placeholder={t("books.authors.anyLanguage")}

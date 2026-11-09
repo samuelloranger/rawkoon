@@ -424,6 +424,7 @@
     "save": "Save",
     "saved": "Saved",
     "copied": "Copied",
+    "copyFailed": "Couldn't copy. Select the text and copy it manually.",
     "saving": "Saving...",
     "close": "Close",
     "collapse": "Collapse",
@@ -522,7 +523,8 @@
       "save": "Save settings",
       "saving": "Saving...",
       "saveSuccess": "Settings saved.",
-      "saveError": "Failed to save settings."
+      "saveError": "Failed to save settings.",
+      "languageRequired": "Select at least one language."
     },
     "releases": {
       "title": "Releases",

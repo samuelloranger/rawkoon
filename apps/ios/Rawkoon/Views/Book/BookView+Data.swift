@@ -270,9 +270,14 @@ extension BookView {
     }
 
     func downloadEbook(_ file: BookEditionFile) async {
-        guard !downloadingEbookFileIDs.contains(file.id) else { return }
+        // Before the detail loads the storage id is a placeholder that later flips to the real
+        // edition id, orphaning the file; wait for the real one.
+        guard ebookEditionId != nil, !downloadingEbookFileIDs.contains(file.id) else { return }
         downloadingEbookFileIDs.insert(file.id)
         ebookFilesError = nil
+        let serverKey = ActiveServerKey.shared.value
+        // Same path as another server's copy of this edition id: the files cannot be shared.
+        DownloadedStore.evictForeign(editionId: ebookStorageEditionId)
         defer {
             downloadingEbookFileIDs.remove(file.id)
             ebookDownloadTasks.removeValue(forKey: file.id)
@@ -287,7 +292,8 @@ extension BookView {
                 author: authorText.isEmpty ? nil : authorText,
                 coverURL: coverURL,
                 files: ebookFiles,
-                downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count
+                downloadedFileCount: ebookFiles.filter(isEbookDownloaded).count,
+                serverKey: serverKey
             )
         } catch EbookStorageError.missingRemoteURL {
             ebookFilesError = String(localized: "This server version cannot provide ebook download links yet.")

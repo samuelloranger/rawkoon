@@ -5,13 +5,56 @@ import Testing
 struct DownloadedLibraryTests {
     private func edition(
         _ id: Int, kind: DownloadedKind = .audiobook,
-        title: String = "Book", added: Int64 = 0
+        title: String = "Book", added: Int64 = 0, key: String? = nil
     ) -> DownloadedEdition {
         DownloadedEdition(
             editionId: id, bookId: id * 10, kind: kind, title: title,
             author: nil, totalDurationSecs: nil, fileCount: 1,
-            coverFileName: nil, addedAtMillis: added
+            coverFileName: nil, addedAtMillis: added, serverKey: key
         )
+    }
+
+    @Test func anotherServersEntriesAreHiddenButKept() {
+        let index = [edition(12, key: "a"), edition(12, title: "Other", key: "b"), edition(5)]
+        #expect(DownloadedLibrary.visible(index, serverKey: "b").map(\.title) == ["Other", "Book"])
+        #expect(DownloadedLibrary.isForeign(index, editionId: 12, serverKey: "c"))
+        #expect(!DownloadedLibrary.isForeign(index, editionId: 5, serverKey: "c"))
+        // Removing the active server's record leaves the other server's alone.
+        let out = DownloadedLibrary.remove(index, editionId: 12, serverKey: "b")
+        #expect(out.map(\.serverKey) == ["a", nil])
+    }
+
+    @Test func legacyEntriesAreAdoptedByTheFirstServerOnly() throws {
+        let legacy = """
+        [{"editionId":1,"bookId":10,"kind":"audiobook","title":"T","fileCount":1,"addedAtMillis":0}]
+        """
+        let index = try JSONDecoder().decode([DownloadedEdition].self, from: Data(legacy.utf8))
+        #expect(index[0].serverKey == nil)
+        let adopted = DownloadedLibrary.adopting(index, serverKey: "a")
+        #expect(DownloadedLibrary.visible(adopted, serverKey: "a").count == 1)
+        #expect(DownloadedLibrary.visible(adopted, serverKey: "b").isEmpty)
+        #expect(DownloadedLibrary.adopting(adopted, serverKey: "b") == adopted)
+    }
+
+    @Test func sameAccountUnderAnotherURLIsNotForeign() {
+        let key = ServerScope.key(userId: "u1")
+        let index = [edition(12, key: key)]
+        #expect(!DownloadedLibrary.isForeign(index, editionId: 12, serverKey: ServerScope.key(userId: "u1")))
+        #expect(DownloadedLibrary.visible(index, serverKey: ServerScope.key(userId: "u1")).count == 1)
+    }
+
+    @Test func unknownActiveKeyShowsEverythingAndNothingIsForeign() {
+        let index = [edition(1, key: "a"), edition(2, key: "b"), edition(3)]
+        #expect(DownloadedLibrary.visible(index, serverKey: nil).count == 3)
+        #expect(!DownloadedLibrary.isForeign(index, editionId: 1, serverKey: nil))
+        #expect(DownloadedLibrary.remove(index, editionId: 1, serverKey: nil).count == 2)
+        // Adoption still touches only unstamped entries.
+        #expect(DownloadedLibrary.adopting(index, serverKey: "c").map(\.serverKey) == ["a", "b", "c"])
+    }
+
+    @Test func settingTheCoverKeepsTheServerKey() {
+        #expect(edition(1, key: "a").with(coverFileName: "cover.jpg").serverKey == "a")
+        #expect(edition(1, key: "a").with(coverFileName: "cover.jpg").coverFileName == "cover.jpg")
     }
 
     @Test func upsertAppendsWhenNew() {
@@ -29,12 +72,12 @@ struct DownloadedLibraryTests {
     }
 
     @Test func removeDropsMatchingEdition() {
-        let out = DownloadedLibrary.remove([edition(1), edition(2)], editionId: 1)
+        let out = DownloadedLibrary.remove([edition(1), edition(2)], editionId: 1, serverKey: nil)
         #expect(out.map(\.editionId) == [2])
     }
 
     @Test func removeMissingIsNoOp() {
-        let out = DownloadedLibrary.remove([edition(1)], editionId: 99)
+        let out = DownloadedLibrary.remove([edition(1)], editionId: 99, serverKey: nil)
         #expect(out.map(\.editionId) == [1])
     }
 

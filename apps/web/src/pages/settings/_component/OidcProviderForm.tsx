@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Switch } from "@/components/ui/switch";
 
 const INPUT_CLASS =
@@ -131,9 +132,12 @@ export function ProviderForm({
             />
             <button
               type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(redirectUri);
-                toast.success(t("common.copied"));
+              onClick={async () => {
+                if (await copyToClipboard(redirectUri)) {
+                  toast.success(t("common.copied"));
+                } else {
+                  toast.error(t("common.copyFailed"));
+                }
               }}
               className="p-2 rounded-lg border border-neutral-600 hover:bg-neutral-700 text-neutral-400 transition-colors"
             >

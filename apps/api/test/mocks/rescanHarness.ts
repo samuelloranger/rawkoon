@@ -86,6 +86,8 @@ export type StatOverride = {
   ino?: number;
 };
 export const statMap: Record<string, true | StatOverride> = {};
+/** Paths whose stat fails with this errno instead of ENOENT. */
+export const statErrors: Record<string, string> = {};
 
 // Path remapping function — defaults to identity (no remap configured)
 export const remap = { fn: (path: string): string => path };
@@ -206,7 +208,17 @@ export async function installRescanMocks(): Promise<void> {
     ...realFs,
     stat: (filePath: string) => {
       const entry = statMap[filePath];
-      if (!entry) return Promise.reject(new Error("ENOENT"));
+      const errCode = statErrors[filePath];
+      if (errCode) {
+        return Promise.reject(
+          Object.assign(new Error(errCode), { code: errCode }),
+        );
+      }
+      if (!entry) {
+        return Promise.reject(
+          Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+        );
+      }
       const ov = entry === true ? {} : entry;
       // Production always stats with { bigint: true } so unsigned 64-bit inodes
       // survive; mirror that here or fileUnchanged compares 1_000_000n to
@@ -350,6 +362,7 @@ export function resetRescanState(): void {
   state.activeTranscodeFileIds = [];
 
   for (const k of Object.keys(statMap)) delete statMap[k];
+  for (const k of Object.keys(statErrors)) delete statErrors[k];
   for (const k of Object.keys(scanMap)) delete scanMap[k];
   for (const k of Object.keys(readdirMap)) delete readdirMap[k];
   renameCaptures.length = 0;

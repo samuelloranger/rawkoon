@@ -208,7 +208,9 @@ extension AppModel {
             try? readingProgressStore.remove(editionId: editionId)
             lastProgressPosition[editionId] = nil
         }
-        let kept = PositionJournal.excluding(readJournal(), editionIds: Set(editionIds))
+        let kept = PositionJournal.excluding(
+            readJournal(), editionIds: Set(editionIds), serverKey: ActiveServerKey.shared.value
+        )
         try? kept.write(to: journalURL, atomically: true, encoding: .utf8)
         // Closed, not rewound: a playing book would PUT a position within seconds
         // and recreate the progress row the server just deleted. activeEditionId

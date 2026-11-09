@@ -10,6 +10,8 @@ extension AudiobookPlayer {
         sleepMode = mode
         sleepEndChapterIndex = nil
         lastSleepTick = nil
+        sleepBoundaryTask?.cancel()
+        sleepBoundaryTask = nil
         resetSleepVolume()
 
         switch mode {
@@ -34,8 +36,11 @@ extension AudiobookPlayer {
         case .off:
             return
         case .endOfChapter:
-            if let target = sleepEndChapterIndex, let current = currentChapterIndex, current > target {
+            guard let target = sleepEndChapterIndex else { return }
+            if let current = currentChapterIndex, current > target {
                 fireSleep()
+            } else if let end = chapters.first(where: { $0.index == target })?.endSecs {
+                scheduleSleepAtChapterEnd(target: target, secondsLeft: (end - positionSecs) / Double(max(rate, 0.1)))
             }
         case .minutes:
             guard var remaining = sleepRemainingSecs else { return }
@@ -53,7 +58,33 @@ extension AudiobookPlayer {
         }
     }
 
+    /// A seek, rate change or chapter skip moves the end, so a scheduled pause is stale.
+    func cancelSleepBoundary() {
+        sleepBoundaryTask?.cancel()
+        sleepBoundaryTask = nil
+    }
+
+    /// A tick lands every half second, so waiting for the position to cross into the next
+    /// chapter lets up to a tick of it play. Inside a multi-chapter file, pause at the end instead.
+    private func scheduleSleepAtChapterEnd(target: Int, secondsLeft: Double) {
+        guard secondsLeft <= Self.sleepTickSecs else {
+            sleepBoundaryTask?.cancel()
+            sleepBoundaryTask = nil
+            return
+        }
+        guard sleepBoundaryTask == nil else { return }
+        sleepBoundaryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(secondsLeft, 0)))
+            guard !Task.isCancelled, let self, isPlaying,
+                  sleepMode == .endOfChapter, sleepEndChapterIndex == target
+            else { return }
+            fireSleep()
+        }
+    }
+
     func fireSleep() {
+        sleepBoundaryTask?.cancel()
+        sleepBoundaryTask = nil
         pause()
         resetSleepVolume()
         sleepMode = .off

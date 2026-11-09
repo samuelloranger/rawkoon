@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, mock } from "bun:test";
 import {
   state,
   statMap,
+  statErrors,
   scanMap,
   qbCompleteHashes,
   remap,
@@ -149,6 +150,19 @@ describe("rescanLibraryItem", () => {
     expect(result?.failed).toBe(0);
     expect(state.deletedFileIds).toContain(1);
     expect(result?.mediaReset).toBe(true);
+  });
+
+  it("8b. Movie, stat fails with EIO (flaky mount) → keeps record, status unchanged", async () => {
+    const file = makeFile({ id: 1, filePath: "/media/io.mkv" });
+    state.media = { id: 1, type: "movie", status: "downloaded" };
+    state.files = [file];
+    state.remainingFileCount = 1;
+    statErrors[file.filePath] = "EIO";
+
+    const result = await rescanLibraryItem(1);
+    expect(result?.deleted).toBe(0);
+    expect(state.deletedFileIds).toHaveLength(0);
+    expect(result?.mediaReset).toBe(false);
   });
 
   it("9. Movie, 2 files: 1 valid + 1 deleted → rescanned:1, deleted:1, media stays 'downloaded'", async () => {

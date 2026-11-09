@@ -145,6 +145,8 @@ export function candidateFormat(
   kind: BookEditionKind,
 ): BookFormat | null {
   if (DISCARD_EXT.has(extname(filePath).toLowerCase())) return null;
+  // macOS AppleDouble sidecars (._x.epub) carry the real extension but are not books.
+  if (basename(filePath).startsWith(".")) return null;
   if (SAMPLE_RE.test(basename(filePath))) return null;
   const format = formatForPath(filePath);
   if (!format) return null;

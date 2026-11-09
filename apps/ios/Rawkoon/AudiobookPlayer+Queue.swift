@@ -307,7 +307,10 @@ extension AudiobookPlayer {
     /// stream instead.
     private func playbackURL(for file: ManifestFile, editionId: Int) -> URL? {
         let ext = file.fileExtension
-        if FileStore.exists(editionId: editionId, fileId: file.id, ext: ext) {
+        // Another server's download of the same edition id sits at this path.
+        if FileStore.exists(editionId: editionId, fileId: file.id, ext: ext),
+           !DownloadedStore.isForeign(editionId: editionId)
+        {
             let url = FileStore.chapterURL(editionId: editionId, fileId: file.id, ext: ext)
             // Failed to open this session: stream but keep the file — the
             // failure may be transient and it may be the only offline copy.

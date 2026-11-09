@@ -60,6 +60,12 @@ final class LiveUpdatesCoordinator {
     private var notificationStreamTask: Task<Void, Never>?
     private var bannerDismissTask: Task<Void, Never>?
 
+    /// Set by the first handshake; a later one means a gap (a foreground resume or a reconnect) in which events were missed.
+    private var hasHandshaken = false
+    /// A flapping link handshakes again and again; one refetch per this many seconds is enough.
+    private var lastHandshakeRefresh: Date?
+    private static let handshakeRefreshInterval: TimeInterval = 10
+
     private(set) var libraryStreamStatus: SSEStreamStatus = .idle
     private(set) var notificationStreamStatus: SSEStreamStatus = .idle
     /// Newest first, capped so a long-open debug screen can't grow unbounded.
@@ -139,7 +145,15 @@ final class LiveUpdatesCoordinator {
                         backoff = 1.0
                         if failures >= 2 {
                             appModel?.refreshAfterServerReturn()
+                        } else if hasHandshaken,
+                                  Date().timeIntervalSince(lastHandshakeRefresh ?? .distantPast) >= Self.handshakeRefreshInterval
+                        {
+                            lastHandshakeRefresh = Date()
+                            // Not `libraryChangeToken`: that one fires a haptic.
+                            appModel?.reconnectToken += 1
+                            Task { await refreshUnreadCount() }
                         }
+                        hasHandshaken = true
                         failures = 0
                     }
                     handleLibraryEvent(event)
@@ -226,6 +240,7 @@ final class LiveUpdatesCoordinator {
     /// list (open `NotificationsListView` refetches on appear/pull-to-refresh).
     private func runNotificationStreamLoop() async {
         var backoff = 1.0
+        var dropped = false
         while !Task.isCancelled {
             guard let client = appModel?.api() else { return }
             notificationStreamStatus = .connecting
@@ -238,7 +253,13 @@ final class LiveUpdatesCoordinator {
                         SSEEventRegistry.apply(.notification, to: store)
                         LibraryNotification.apply(notification, to: store)
                     }
-                    unreadNotificationCount += 1
+                    if dropped {
+                        // Some arrived during the gap and never came down the stream: take the server's count.
+                        dropped = false
+                        await refreshUnreadCount()
+                    } else {
+                        unreadNotificationCount += 1
+                    }
                     syncAppIconBadge()
                     notificationChangeToken += 1
                     if !LibraryNotification.isSilent(notification), !isCoveredByLiveSearch(notification) {
@@ -255,6 +276,7 @@ final class LiveUpdatesCoordinator {
             } catch {
                 Log.sync.debug("notification stream dropped: \(error.localizedDescription, privacy: .public)")
                 logSSE("notifications", "dropped: \(error.localizedDescription)")
+                dropped = true
             }
             notificationStreamStatus = .reconnecting
             if Task.isCancelled {

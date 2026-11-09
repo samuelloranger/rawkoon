@@ -61,6 +61,9 @@ extension AppModel {
     func applyUser(_ user: SessionUser) {
         isAdmin = user.isAdmin ?? false
         userId = user.id
+        if let id = user.id {
+            updateServerScope(userId: id)
+        }
         let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
         userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
         userInitials = UserInitials.from(firstName: user.firstName, lastName: user.lastName, name: user.name)
@@ -125,7 +128,7 @@ extension AppModel {
             let local = ProgressRecord(
                 positionSecs: entry.positionSecs,
                 totalDurationSecs: total,
-                finished: entry.positionSecs >= total,
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
                 updatedAtMillis: entry.atMillis
             )
             let remoteRecord = server.map {
@@ -141,7 +144,7 @@ extension AppModel {
                 editionId: editionId,
                 positionSecs: entry.positionSecs,
                 totalDurationSecs: total,
-                finished: entry.positionSecs >= max(total - 1, 0),
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
                 updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
                 deviceId: deviceID
             )

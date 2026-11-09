@@ -9,11 +9,14 @@ import RawkoonKit
 nonisolated enum FileStore {
     static func chapterURL(editionId: Int, fileId: Int, ext: String) -> URL {
         let directory = editionDirectory(editionId)
-        createDirectoryIfNeeded(directory)
-
         let cleanExt = ext.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let filename = cleanExt.isEmpty ? "\(fileId)" : "\(fileId).\(cleanExt)"
         return directory.appendingPathComponent(filename, isDirectory: false)
+    }
+
+    /// Call before writing a chapter: `chapterURL` is a pure lookup and leaves no directory behind.
+    static func ensureEditionDirectory(_ editionId: Int) {
+        createDirectoryIfNeeded(editionDirectory(editionId))
     }
 
     static func exists(editionId: Int, fileId: Int, ext: String) -> Bool {

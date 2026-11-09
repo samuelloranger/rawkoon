@@ -129,6 +129,8 @@ final class AppModel {
     var downloaders: [Int: ChapterDownloader] = [:]
     var pendingBackgroundCompletions: [String: () -> Void] = [:]
     var verifiedCounts: [Int: Int] = [:]
+    /// The server key in force when each edition's download started; the index entry is stamped with it.
+    var downloadServerKeys: [Int: String] = [:]
     /// Live in-flight chapter fractions per edition, for the chapter pills and the overall bar.
     var chapterFractions: [Int: [Int: Double]] = [:]
     /// Smooth, never-decreasing overall fraction per edition while it downloads.
@@ -198,6 +200,7 @@ final class AppModel {
         player.isNetworkAvailable = { [weak self] in self?.isOnline ?? true }
         startPathMonitor()
         observeProtectedData()
+        restoreServerScope()
         compactJournal()
         restoreDownloadedAudiobooks()
         refreshDownloadedBookIds()
@@ -367,6 +370,9 @@ final class AppModel {
         serverURL = server
         apiClient = makeAPIClient(baseURL: baseURL, token: token)
         isLoggedIn = true
+        restoreServerScope()
+        restoreDownloadedAudiobooks()
+        refreshDownloadedBookIds()
         hydrateFromCache()
     }
 

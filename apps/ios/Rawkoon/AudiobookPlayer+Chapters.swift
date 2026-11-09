@@ -13,6 +13,7 @@ extension AudiobookPlayer {
     /// `userInitiated` is false for the player's own moves (smart rewind,
     /// auto-advance, rebuilds), which must not retarget an end-of-chapter timer.
     func seek(to seconds: Double, userInitiated: Bool = true) {
+        cancelSleepBoundary()
         guard let timeline else { return }
         // Any deliberate move — a scrub, a chapter jump, a skip — replaces
         // "resume where you stopped", so there is nothing left to rewind to.
@@ -62,6 +63,7 @@ extension AudiobookPlayer {
     }
 
     func jumpToChapter(_ chapter: ManifestChapter) {
+        cancelSleepBoundary()
         seek(to: chapter.startSecs)
     }
 
@@ -86,6 +88,7 @@ extension AudiobookPlayer {
     }
 
     func setRate(_ value: Float) {
+        cancelSleepBoundary()
         rate = value
         applyPitchAlgorithm()
         // Both: `defaultRate` so the next chapter item starts at this speed,
@@ -100,11 +103,13 @@ extension AudiobookPlayer {
     }
 
     func nextChapter() {
+        cancelSleepBoundary()
         guard let timeline, let next = timeline.boundary(after: positionSecs) else { return }
         seek(to: next)
     }
 
     func prevChapter() {
+        cancelSleepBoundary()
         guard let timeline else { return }
         if let previous = timeline.boundary(before: positionSecs) {
             seek(to: previous)

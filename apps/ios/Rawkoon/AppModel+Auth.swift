@@ -183,6 +183,7 @@ extension AppModel {
 
         Keychain.delete(Self.serverURLKey)
         Keychain.delete(Self.authTokenKey)
+        clearServerScope()
         profileTask?.cancel()
         profileTask = nil
         apiClient?.responseCache?.invalidate()
@@ -213,6 +214,7 @@ extension AppModel {
         downloaders = [:]
         downloadPlans = [:]
         verifiedCounts = [:]
+        downloadServerKeys = [:]
         errorMessage = nil
     }
 

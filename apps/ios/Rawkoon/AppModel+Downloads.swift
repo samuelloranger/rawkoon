@@ -26,7 +26,7 @@ extension AppModel {
                 }
             }
         }
-        for editionId in editionIds {
+        for editionId in editionIds where !DownloadedStore.isForeign(editionId: editionId) {
             guard let manifest = DownloadedStore.readManifest(editionId: editionId) else {
                 continue
             }
@@ -52,6 +52,10 @@ extension AppModel {
         guard !startingDownloads.contains(editionId) else { return }
         startingDownloads.insert(editionId)
         defer { startingDownloads.remove(editionId) }
+        // Same path as another server's copy of this edition id: the files cannot be shared.
+        DownloadedStore.evictForeign(editionId: editionId)
+        // The completion may land after the session changed (or before the key is readable).
+        downloadServerKeys[editionId] = ActiveServerKey.shared.value
         // A just-cancelled session with this identifier may still be invalidating.
         for _ in 0 ..< 50 where invalidatingSessions.contains(editionId) {
             try? await Task.sleep(for: .milliseconds(100))
@@ -125,7 +129,12 @@ extension AppModel {
             completionHandler()
             return
         }
-        Task { await startDownload(editionId: editionId, preferDiskManifest: true) }
+        Task {
+            await startDownload(editionId: editionId, preferDiskManifest: true)
+            // startDownload can return early (bad URL, no manifest) without attaching a
+            // downloader; iOS needs the handler called or it throttles the next wake.
+            pendingBackgroundCompletions.removeValue(forKey: identifier)?()
+        }
     }
 
     func deleteDownloads() {
@@ -312,7 +321,9 @@ extension AppModel {
     func persistDownloadedAudiobook(editionId: Int) {
         guard let manifest = manifests[editionId] else { return }
         let book = library.first { $0.audiobookEditionId == editionId }
-        OfflineLibraryStore.persistAudiobook(editionId: editionId, manifest: manifest, book: book)
+        OfflineLibraryStore.persistAudiobook(
+            editionId: editionId, manifest: manifest, book: book, serverKey: downloadServerKeys[editionId]
+        )
         refreshDownloadedBookIds()
         FileStore.deleteChapters(editionId: editionId, keeping: Set(manifest.files.map(\.id)))
     }
@@ -328,11 +339,12 @@ extension AppModel {
         author: String?,
         coverURL: URL?,
         files: [BookEditionFile],
-        downloadedFileCount: Int
+        downloadedFileCount: Int,
+        serverKey: String?
     ) {
         OfflineLibraryStore.recordEbookDownloaded(
             editionId: editionId, bookId: bookId, title: title, author: author,
-            coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount
+            coverURL: coverURL, files: files, downloadedFileCount: downloadedFileCount, serverKey: serverKey
         )
         refreshDownloadedBookIds()
     }

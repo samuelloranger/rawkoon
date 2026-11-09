@@ -69,7 +69,8 @@ export async function getCurrentUser(): Promise<User | null> {
 export function clearUser(): void {
   currentUser = null;
   userPromise = null;
-  // Invalidate React Query cache to ensure UI updates
+  // Drop the previous session's data so the next sign-in cannot see it.
+  getQueryClient()?.getQueryCache().clear();
   invalidateAuthCache();
 }
 
@@ -81,7 +82,7 @@ export function setUser(user: User | null): void {
 export function resetUserCache(): void {
   currentUser = undefined;
   userPromise = null;
-  getQueryClient()?.removeQueries({ queryKey: queryKeys.auth.me });
+  getQueryClient()?.getQueryCache().clear();
 }
 
 export function bootstrapAuthFromWindow(

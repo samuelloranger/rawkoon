@@ -14,6 +14,11 @@ public struct ProgressRecord: Equatable, Sendable {
     }
 }
 
+/// One definition of "listened to the end", shared by the local record and the PUT body.
+public func isListeningFinished(positionSecs: Double, totalDurationSecs: Double) -> Bool {
+    totalDurationSecs > 0 && positionSecs >= totalDurationSecs - 1
+}
+
 public enum SyncOutcome: Equatable, Sendable {
     case keepLocal
     case takeRemote

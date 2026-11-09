@@ -127,6 +127,11 @@ struct ActivityView: View {
             loadMoreTask?.cancel()
             liveReloadTask = Task { await loadCurrentLane() }
         }
+        .onChange(of: model.reconnectToken) { _, _ in
+            liveReloadTask?.cancel()
+            loadMoreTask?.cancel()
+            liveReloadTask = Task { await loadCurrentLane() }
+        }
         .onChange(of: model.bookChangeToken) { _, _ in
             liveReloadTask?.cancel()
             loadMoreTask?.cancel()

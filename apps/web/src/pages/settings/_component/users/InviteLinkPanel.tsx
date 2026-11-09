@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 
 interface InviteLinkPanelProps {
@@ -13,8 +14,11 @@ export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
   const { t } = useTranslation("common");
   const [copied, setCopied] = useState(false);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyLink = async (text: string) => {
+    if (!(await copyToClipboard(text))) {
+      toast.error(t("common.copyFailed"));
+      return;
+    }
     setCopied(true);
     toast.success(t("common.copied"));
     setTimeout(() => setCopied(false), 2000);
@@ -38,7 +42,7 @@ export function InviteLinkPanel({ link, onDismiss }: InviteLinkPanelProps) {
         />
         <Button
           size="sm"
-          onClick={() => copyToClipboard(link)}
+          onClick={() => void copyLink(link)}
           className="flex items-center gap-1.5"
         >
           {copied ? (

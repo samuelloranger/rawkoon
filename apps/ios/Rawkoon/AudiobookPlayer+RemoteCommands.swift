@@ -16,28 +16,53 @@ extension AudiobookPlayer {
     /// they deliver begin/end seeking events for a press-and-hold, not the
     /// fixed jump that `skipForward`/`skipBackward` already provide.
     /// `MPRemoteCommandCenter` invokes handlers on its own queue, and every
-    /// transport method here writes `@Published` state that SwiftUI and
-    /// `AppModel`'s progress sink read on the main actor. Hop first.
-    private func addTarget(
-        _ command: MPRemoteCommand,
-        _ handler: @escaping (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
-    ) {
+    /// transport method here writes state that SwiftUI and `AppModel`'s progress
+    /// sink read on the main actor. The handlers are built by the `nonisolated`
+    /// factories below and hop inside: a closure written in this MainActor code
+    /// would carry an isolation check that traps when the SDK calls it off-main
+    /// (the same trap as the Now Playing artwork handler).
+    private typealias CommandHandler = (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
+
+    private func addTarget(_ command: MPRemoteCommand, _ handler: @escaping CommandHandler) {
         commandTargets.append((command, command.addTarget(handler: handler)))
     }
 
-    private func onMain(_ work: @escaping @MainActor () -> Void) -> MPRemoteCommandHandlerStatus {
+    private nonisolated static func dispatch(
+        _ player: AudiobookPlayer,
+        _ work: @escaping @MainActor @Sendable (AudiobookPlayer) -> Void
+    ) -> MPRemoteCommandHandlerStatus {
         if Thread.isMainThread {
-            MainActor.assumeIsolated {
-                work()
-            }
+            MainActor.assumeIsolated { work(player) }
         } else {
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    work()
-                }
-            }
+            Task { @MainActor in work(player) }
         }
         return .success
+    }
+
+    private nonisolated static func simpleHandler(
+        _ player: AudiobookPlayer,
+        _ work: @escaping @MainActor @Sendable (AudiobookPlayer) -> Void
+    ) -> CommandHandler {
+        { [weak player] _ in
+            guard let player else { return .commandFailed }
+            return dispatch(player, work)
+        }
+    }
+
+    private nonisolated static func rateHandler(_ player: AudiobookPlayer) -> CommandHandler {
+        { [weak player] event in
+            guard let player, let event = event as? MPChangePlaybackRateCommandEvent else { return .commandFailed }
+            let rate = event.playbackRate
+            return dispatch(player) { $0.setRate(rate) }
+        }
+    }
+
+    private nonisolated static func positionHandler(_ player: AudiobookPlayer) -> CommandHandler {
+        { [weak player] event in
+            guard let player, let event = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let position = event.positionTime
+            return dispatch(player) { $0.seek(to: position) }
+        }
     }
 
     func configureRemoteCommands() {
@@ -79,39 +104,14 @@ extension AudiobookPlayer {
             unsupported.isEnabled = false
         }
 
-        addTarget(center.playCommand) { [weak self] _ in
-            self?.onMain { self?.play() } ?? .commandFailed
-        }
-        addTarget(center.pauseCommand) { [weak self] _ in
-            self?.onMain { self?.pause() } ?? .commandFailed
-        }
-        addTarget(center.skipForwardCommand) { [weak self] _ in
-            self?.onMain { self?.skipForward(30) } ?? .commandFailed
-        }
-        addTarget(center.skipBackwardCommand) { [weak self] _ in
-            self?.onMain { self?.skipBackward(30) } ?? .commandFailed
-        }
-        addTarget(center.togglePlayPauseCommand) { [weak self] _ in
-            guard let self else { return .commandFailed }
-            return onMain { self.isPlaying ? self.pause() : self.play() }
-        }
-        addTarget(center.nextTrackCommand) { [weak self] _ in
-            self?.onMain { self?.nextChapter() } ?? .commandFailed
-        }
-        addTarget(center.previousTrackCommand) { [weak self] _ in
-            self?.onMain { self?.prevChapter() } ?? .commandFailed
-        }
-        addTarget(center.changePlaybackRateCommand) { [weak self] event in
-            guard let event = event as? MPChangePlaybackRateCommandEvent else {
-                return .commandFailed
-            }
-            return self?.onMain { self?.setRate(event.playbackRate) } ?? .commandFailed
-        }
-        addTarget(center.changePlaybackPositionCommand) { [weak self] event in
-            guard let event = event as? MPChangePlaybackPositionCommandEvent else {
-                return .commandFailed
-            }
-            return self?.onMain { self?.seek(to: event.positionTime) } ?? .commandFailed
-        }
+        addTarget(center.playCommand, Self.simpleHandler(self) { $0.play() })
+        addTarget(center.pauseCommand, Self.simpleHandler(self) { $0.pause() })
+        addTarget(center.skipForwardCommand, Self.simpleHandler(self) { $0.skipForward(30) })
+        addTarget(center.skipBackwardCommand, Self.simpleHandler(self) { $0.skipBackward(30) })
+        addTarget(center.togglePlayPauseCommand, Self.simpleHandler(self) { $0.isPlaying ? $0.pause() : $0.play() })
+        addTarget(center.nextTrackCommand, Self.simpleHandler(self) { $0.nextChapter() })
+        addTarget(center.previousTrackCommand, Self.simpleHandler(self) { $0.prevChapter() })
+        addTarget(center.changePlaybackRateCommand, Self.rateHandler(self))
+        addTarget(center.changePlaybackPositionCommand, Self.positionHandler(self))
     }
 }

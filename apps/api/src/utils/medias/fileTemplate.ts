@@ -14,7 +14,7 @@ export function sanitizePathTemplateOutput(rendered: string): string {
   return rendered
     .split("/")
     .map((s) => sanitizeFilenamePart(s))
-    .filter(Boolean)
+    .filter((s) => s && s !== "." && s !== "..")
     .join("/");
 }
 
