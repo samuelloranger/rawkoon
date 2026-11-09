@@ -96,7 +96,7 @@ extension BookView {
             String(localized: "Sign in required.")
         case .forbidden:
             String(localized: "You don't have permission to do that.")
-        case .http(400):
+        case .http(400), .server(400, _):
             String(localized: "This audiobook is not chapter-ready yet. Run a rescan or grab a chapterized release.")
         case let .http(status):
             String(localized: "Server error (\(status)).")

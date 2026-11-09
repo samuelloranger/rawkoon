@@ -154,7 +154,7 @@ extension BookView {
             if manifest == nil {
                 manifestError = message(for: apiError)
                 if
-                    case .http(400) = apiError,
+                    apiError.isBadRequest,
                     model.isAdmin,
                     !attemptedAutomaticRecovery,
                     !forceRefresh

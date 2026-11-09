@@ -90,7 +90,9 @@ struct SettingsSecurityView: View {
             passwordDone = true
             currentPassword = ""; newPassword = ""; confirmPassword = ""
         } catch let error as APIError {
-            if case .http(400) = error {
+            if case let .server(400, message) = error {
+                passwordError = message
+            } else if case .http(400) = error {
                 passwordError = String(localized: "Current password is incorrect.")
             } else {
                 passwordError = String(localized: "Couldn't change password.")
