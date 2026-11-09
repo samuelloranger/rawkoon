@@ -10,8 +10,13 @@ const invitationFindFirst = mock(
 );
 const invitationUpdateMany = mock(async (_a: unknown) => ({ count: 1 }));
 
+const executeRaw = mock(async (..._a: unknown[]) => 1);
+const prismaMock: Record<string, unknown> = {
+  $executeRaw: executeRaw,
+  $transaction: async (fn: (tx: unknown) => unknown) => fn(prismaMock),
+};
 mock.module("@rawkoon/api/db", () => ({
-  prisma: {
+  prisma: Object.assign(prismaMock, {
     user: {
       findFirst: userFindFirst,
       count: userCount,
@@ -22,7 +27,7 @@ mock.module("@rawkoon/api/db", () => ({
       findFirst: invitationFindFirst,
       updateMany: invitationUpdateMany,
     },
-  },
+  }),
 }));
 
 const { setUserRole, deleteUser } = await import("./adminUsers");
@@ -32,6 +37,7 @@ const { regenerateInvitation, revokeInvitation } = await import(
 
 beforeEach(() => {
   for (const m of [
+    executeRaw,
     userFindFirst,
     userCount,
     userUpdate,
@@ -57,6 +63,13 @@ describe("setUserRole", () => {
     userFindFirst.mockImplementation(async () => ({ id: "u1", isAdmin: true }));
     expect(await setUserRole("u1", false)).toEqual({ kind: "last_admin" });
     expect(userUpdate).not.toHaveBeenCalled();
+  });
+
+  it("takes the advisory lock before counting admins", async () => {
+    userFindFirst.mockImplementation(async () => ({ id: "u1", isAdmin: true }));
+    userCount.mockImplementation(async () => 1);
+    await setUserRole("u1", false);
+    expect(executeRaw).toHaveBeenCalledTimes(1);
   });
 
   it("demotes an admin when another one remains", async () => {

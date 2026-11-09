@@ -19,7 +19,7 @@ import {
   unauthorized,
 } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
-import { resolveUser } from "@rawkoon/api/middleware/auth";
+import { getRequestSession, resolveUser } from "@rawkoon/api/middleware/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { mapUser } from "@rawkoon/api/utils/mappers";
 
@@ -104,6 +104,7 @@ export const usersRoutes = new Hono<Env>()
         user.id,
         current_password,
         new_password,
+        (await getRequestSession(c.req.raw))?.session.id,
       );
       if (!result.ok) {
         if (result.reason === "user_not_found") {

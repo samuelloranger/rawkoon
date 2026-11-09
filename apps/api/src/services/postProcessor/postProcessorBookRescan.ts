@@ -34,7 +34,7 @@ type KnownFile = {
 };
 
 /** Drop rows whose file is gone; returns surviving rows by path and the removed count. */
-async function dropMissingRows(editionId: number) {
+export async function dropMissingRows(editionId: number) {
   let removed = 0;
   const known = await prisma.bookFile.findMany({
     where: { editionId },
@@ -52,7 +52,13 @@ async function dropMissingRows(editionId: number) {
     try {
       await stat(f.filePath);
       survivors.set(f.filePath, f);
-    } catch {
+    } catch (e) {
+      // Only a file that is really gone loses its row; a permission or I/O error says nothing about it.
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        survivors.set(f.filePath, f);
+        continue;
+      }
       await prisma.bookFile.delete({ where: { id: f.id } });
       removed++;
     }

@@ -1,4 +1,4 @@
-import { auth } from "@rawkoon/api/lib/auth";
+import { getRequestSession } from "@rawkoon/api/middleware/auth";
 
 /**
  * Rate-limit policy (windows, maxes, messages, skip predicates, client IP)
@@ -18,16 +18,41 @@ export const GLOBAL_RATE_LIMIT_MESSAGE =
 export const STRICT_AUTH_RATE_LIMIT_MESSAGE =
   "Too many authentication attempts. Please try again later.";
 
+export function isPrivatePeer(addr: string): boolean {
+  const a = addr.replace(/^::ffff:/i, "").toLowerCase();
+  if (
+    a === "::1" ||
+    a.startsWith("fc") ||
+    a.startsWith("fd") ||
+    a.startsWith("fe80")
+  )
+    return true;
+  const m = a.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
+  if (!m) return false;
+  const [x, y] = [Number(m[1]), Number(m[2])];
+  return (
+    x === 10 ||
+    x === 127 ||
+    (x === 172 && y >= 16 && y <= 31) ||
+    (x === 192 && y === 168)
+  );
+}
+
 export function clientIp(
   req: Request,
   fallbackAddr: string | undefined,
 ): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    fallbackAddr ||
-    "unknown"
-  );
+  // The leftmost X-Forwarded-For entry is trusted, so the proxy in front must overwrite that header, not append to it.
+  // Forwarded headers are only believable from a local proxy; a direct peer can forge them.
+  if (!fallbackAddr || isPrivatePeer(fallbackAddr)) {
+    return (
+      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      req.headers.get("x-real-ip") ||
+      fallbackAddr ||
+      "unknown"
+    );
+  }
+  return fallbackAddr;
 }
 
 function hasAuthCredential(req: Request): boolean {
@@ -49,7 +74,7 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
 
   if (!hasAuthCredential(req)) return false;
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getRequestSession(req);
     if (session !== null) return true;
   } catch {
     // fall through to x-api-key verify for Labby-style keys
