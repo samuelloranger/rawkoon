@@ -244,10 +244,6 @@ final class LiveUpdatesCoordinator {
         while !Task.isCancelled {
             guard let client = appModel?.api() else { return }
             notificationStreamStatus = .connecting
-            // Notifications that arrived during the gap never came down the stream.
-            if dropped {
-                await refreshUnreadCount()
-            }
             do {
                 for try await notification in await client.notificationStream() {
                     backoff = 1.0
@@ -257,7 +253,13 @@ final class LiveUpdatesCoordinator {
                         SSEEventRegistry.apply(.notification, to: store)
                         LibraryNotification.apply(notification, to: store)
                     }
-                    unreadNotificationCount += 1
+                    if dropped {
+                        // Some arrived during the gap and never came down the stream: take the server's count.
+                        dropped = false
+                        await refreshUnreadCount()
+                    } else {
+                        unreadNotificationCount += 1
+                    }
                     syncAppIconBadge()
                     notificationChangeToken += 1
                     if !LibraryNotification.isSilent(notification), !isCoveredByLiveSearch(notification) {
