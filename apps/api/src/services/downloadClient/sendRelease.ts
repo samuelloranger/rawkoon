@@ -10,6 +10,31 @@ import {
 } from "@rawkoon/api/utils/medias/safeTorrentFetchUrl";
 import type { DownloadClientAdapter } from "./types";
 
+/** Stops reading once the body passes `max`, so a missing content-length can't buffer unbounded. */
+async function readCapped(res: Response, max: number): Promise<ArrayBuffer> {
+  if (!res.body) return new ArrayBuffer(0);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      throw new Error("Torrent file too large");
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.byteLength;
+  }
+  return out.buffer;
+}
+
 export type SendReleaseResult =
   | { ok: true; hash: string | null }
   /** The release could not be fetched, so nothing reached the client. */
@@ -80,10 +105,7 @@ export async function sendReleaseToClient(
         throw new Error("Torrent file too large");
       }
     }
-    buf = await res.arrayBuffer();
-    if (buf.byteLength > MAX_TORRENT_FILE_BYTES) {
-      throw new Error("Torrent file too large");
-    }
+    buf = await readCapped(res, MAX_TORRENT_FILE_BYTES);
   } catch (e) {
     if (e instanceof MagnetRedirectError) return addMagnet(e.magnetUrl);
     return {
