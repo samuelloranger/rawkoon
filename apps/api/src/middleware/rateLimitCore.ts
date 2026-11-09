@@ -42,6 +42,7 @@ export function clientIp(
   req: Request,
   fallbackAddr: string | undefined,
 ): string {
+  // The leftmost X-Forwarded-For entry is trusted, so the proxy in front must overwrite that header, not append to it.
   // Forwarded headers are only believable from a local proxy; a direct peer can forge them.
   if (!fallbackAddr || isPrivatePeer(fallbackAddr)) {
     return (

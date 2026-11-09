@@ -82,5 +82,9 @@ mounted at their original locations before rescanning or post-processing.
 
 Set <code>BASE_URL</code> and <code>CORS_ORIGIN</code> to Rawkoon's public
 URL. Forward <code>X-Forwarded-For</code> so rate limiting sees the real client
-IP. Download-client polling uses the client URL configured in Settings, so an
+IP. Rawkoon trusts the leftmost <code>X-Forwarded-For</code> entry from a
+private-network proxy, so the proxy must overwrite the header, not append to
+it: behind Caddy with <code>trusted_proxies</code>, set
+<code>header_up X-Forwarded-For {client_ip}</code>, or a client behind
+Cloudflare can still spoof the leftmost entry. Download-client polling uses the client URL configured in Settings, so an
 internal Docker address avoids a round trip through the public proxy.
