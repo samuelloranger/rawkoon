@@ -370,7 +370,7 @@ extension MediaDetailView {
             model.requestPushAuthorization()
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
-        } catch let APIError.http(status) where status == 409 {
+        } catch let error as APIError where error.isConflict {
             requestError = String(localized: "Already requested.")
         } catch {
             requestError = String(localized: "Could not submit request.")
@@ -420,7 +420,7 @@ extension MediaDetailView {
             }
         } catch APIError.unauthorized {
             requestError = String(localized: "Admin only.")
-        } catch let APIError.http(status) where status == 409 {
+        } catch let error as APIError where error.isConflict {
             added = true
         } catch {
             requestError = String(localized: "Could not add to library.")
