@@ -16,7 +16,10 @@ export function getRequestSession(request: Request) {
   return s;
 }
 
-const users = new WeakMap<Request, Promise<ReturnType<typeof mapUser> | null>>();
+const users = new WeakMap<
+  Request,
+  Promise<ReturnType<typeof mapUser> | null>
+>();
 
 // Framework-neutral session resolver, shared by the Hono guards
 // (middleware/hono/auth) and the routes that populate a user directly.

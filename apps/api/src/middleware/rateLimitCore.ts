@@ -20,11 +20,22 @@ export const STRICT_AUTH_RATE_LIMIT_MESSAGE =
 
 export function isPrivatePeer(addr: string): boolean {
   const a = addr.replace(/^::ffff:/i, "").toLowerCase();
-  if (a === "::1" || a.startsWith("fc") || a.startsWith("fd") || a.startsWith("fe80")) return true;
+  if (
+    a === "::1" ||
+    a.startsWith("fc") ||
+    a.startsWith("fd") ||
+    a.startsWith("fe80")
+  )
+    return true;
   const m = a.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
   if (!m) return false;
   const [x, y] = [Number(m[1]), Number(m[2])];
-  return x === 10 || x === 127 || (x === 172 && y >= 16 && y <= 31) || (x === 192 && y === 168);
+  return (
+    x === 10 ||
+    x === 127 ||
+    (x === 172 && y >= 16 && y <= 31) ||
+    (x === 192 && y === 168)
+  );
 }
 
 export function clientIp(
