@@ -21,9 +21,13 @@ import { Card } from "./LibrarySharedUI";
 const panelClassName =
   "rounded-lg border border-neutral-700/60 bg-neutral-900/50";
 
-function formatDateShort(iso: string): string {
-  const d = new Date(iso);
-  return `${d.toLocaleString("default", { month: "short" })} ${d.getDate()}`;
+// The day buckets are UTC dates; local getters would label them a day early west of UTC.
+export function formatDateShort(iso: string): string {
+  return new Date(iso).toLocaleDateString("default", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 // ─── Shared chart tooltip ─────────────────────────────────────────────────────
