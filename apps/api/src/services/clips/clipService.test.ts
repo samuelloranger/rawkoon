@@ -252,6 +252,17 @@ describe("reconcileClips", () => {
     expect(clips).toHaveLength(1);
     expect(await readdir(root)).toEqual(["clip-40.mp4"]);
   });
+
+  it("leaves a departed season's clip alone while it is being cut", async () => {
+    seasonsInLibrary = [];
+    clips = [done({ id: 60, kind: "season", mediaId: 2, seasonNumber: 4 })].map(
+      (c) => ({ ...c, status: "running" }),
+    );
+    await writeFile(join(root, "clip-60.mp4"), "x");
+    await svc.reconcileClips();
+    expect(clips.map((c) => c.id)).toEqual([60]);
+    expect(await readdir(root)).toEqual(["clip-60.mp4"]);
+  });
 });
 
 describe("deleteAllClips", () => {

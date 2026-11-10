@@ -171,6 +171,8 @@ export async function reconcileClips(): Promise<void> {
   for (const c of existing) {
     if (
       c.kind === "season" &&
+      // A clip being cut is left for the next pass, so its publish never lands on a deleted row.
+      c.status !== "running" &&
       !seasonsLeft.has(`${c.mediaId}:${c.seasonNumber}`)
     ) {
       // The row goes after the file, so a failed delete is retried next sweep.
