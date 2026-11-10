@@ -18,6 +18,7 @@ import { LibraryShowSeason } from "./LibraryShowSeason";
 import { LibraryFilesBySeason } from "./LibraryFilesBySeason";
 import { LibraryMovieFileCard } from "./LibraryMovieFileCard";
 import { LibraryDownloadHistory } from "./LibraryDownloadHistory";
+import { ClipPanel } from "./ClipPanel";
 import { ReencodeModal } from "@/features/transcode/ReencodeModal";
 
 interface LibraryFilesTabProps {
@@ -189,6 +190,8 @@ export function LibraryFilesTab({
           </div>
         )}
       </section>
+
+      {!isShow && <ClipPanel libraryId={libraryId} />}
 
       {isAdmin && <LibraryDownloadHistory libraryId={libraryId} />}
 
