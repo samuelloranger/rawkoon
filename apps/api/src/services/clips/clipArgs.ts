@@ -37,7 +37,8 @@ export function buildClipArgs(i: ClipArgsInput): string[] {
   const filters = [
     i.crop ? `crop=${i.crop}` : null,
     i.hdr ? TONEMAP : null,
-    `scale=${CLIP_WIDTH}:-2`,
+    // Height from the display shape, so anamorphic sources come out with square pixels
+    `scale=${CLIP_WIDTH}:trunc(${CLIP_WIDTH}/dar/2)*2,setsar=1`,
     i.vaapiDevice ? "format=nv12,hwupload" : "format=yuv420p",
   ].filter((f): f is string => f !== null);
   return [
