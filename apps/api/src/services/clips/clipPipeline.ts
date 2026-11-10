@@ -97,6 +97,7 @@ const defaultDeps: ClipDeps = {
   probeDuration: async (p) => (await probeFile(p)).durationSecs,
   vaapiDevice: async () => (await detectCapabilities()).vaapiDevice,
   isHdr: async (p) => (await probeFile(p)).isHdr,
+  // Unrotated stored size: a rotated source's crop then fails the check and is cut uncropped
   frameSize: async (p) => (await probeFile(p)).video,
 };
 

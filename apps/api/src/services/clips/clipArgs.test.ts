@@ -103,6 +103,12 @@ describe("plausibleCrop", () => {
     expect(plausibleCrop("1440:1080:240:0", 1920, 1080)).toBe(
       "1440:1080:240:0",
     );
+    // 2.76:1, a frame a few lines short of 2160, and anamorphic SD (storage pixels)
+    expect(plausibleCrop("1920:696:0:192", 1920, 1080)).toBe("1920:696:0:192");
+    expect(plausibleCrop("3840:1600:0:278", 3840, 2156)).toBe(
+      "3840:1600:0:278",
+    );
+    expect(plausibleCrop("720:352:0:64", 720, 480)).toBe("720:352:0:64");
   });
 
   it("drops what a dark scene suggests: off-centre, near-square or a thin strip", () => {
