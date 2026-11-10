@@ -98,6 +98,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
     case health
     case jobs
     case reencode
+    case clips
     case arrImport
     case blocklist
     case aiUsage
@@ -120,7 +121,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .users, .sessions, .apiKeys, .oidcProviders: .people
         case .general: .general
         case .ai: .ai
-        case .health, .jobs, .reencode, .arrImport, .blocklist, .aiUsage, .releases, .liveUpdates: .system
+        case .health, .jobs, .reencode, .clips, .arrImport, .blocklist, .aiUsage, .releases, .liveUpdates: .system
         }
     }
 
@@ -162,6 +163,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .health: "Health"
         case .jobs: "Jobs"
         case .reencode: "Re-encode"
+        case .clips: "Preview clips"
         case .arrImport: "Downloads"
         case .blocklist: "Blocklist"
         case .aiUsage: "AI usage"
@@ -202,6 +204,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .health: "heart.text.square"
         case .jobs: "clock"
         case .reencode: "gauge.with.dots.needle.67percent"
+        case .clips: "film.stack"
         case .arrImport: "square.and.arrow.down"
         case .blocklist: "nosign"
         case .aiUsage: "chart.bar"
@@ -250,6 +253,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .health: ["readiness", "ready", "problems", "attention", "library health", "rss", "status", "fix"]
         case .jobs: ["tasks", "scheduled", "queue", "run"]
         case .reencode: ["re-encode", "transcode", "hevc", "av1", "queue", "compress", "run window"]
+        case .clips: ["clips", "preview", "trailer", "backdrop", "tv", "thumbnail"]
         case .arrImport: ["radarr", "sonarr", "migrate", "import", "downloads"]
         case .blocklist: ["block", "banned", "releases"]
         case .aiUsage: ["ai", "llm", "usage", "cost", "spend", "history", "calls", "tokens", "stats"]
@@ -311,6 +315,7 @@ enum SettingsDestination: String, CaseIterable, Identifiable {
         case .health: HealthSettingsView()
         case .jobs: JobsAdminView()
         case .reencode: ReencodeAdminView()
+        case .clips: ClipsAdminView()
         case .arrImport: ArrLibraryImportView()
         case .blocklist: BlocklistAdminView()
         case .aiUsage: AiUsageView()
