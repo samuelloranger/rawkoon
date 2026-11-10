@@ -37,8 +37,9 @@ export function buildClipArgs(i: ClipArgsInput): string[] {
   const filters = [
     i.crop ? `crop=${i.crop}` : null,
     i.hdr ? TONEMAP : null,
-    // Height from the display shape, so anamorphic sources come out with square pixels
-    `scale=${CLIP_WIDTH}:trunc(${CLIP_WIDTH}/dar/2)*2,setsar=1`,
+    // Height from the display shape, so anamorphic sources come out with square pixels; kept
+    // between 1:1 and 3:1 so a bogus aspect flag can't produce an absurd frame
+    `scale=${CLIP_WIDTH}:trunc(clip(${CLIP_WIDTH}/dar\\,${CLIP_WIDTH / 3}\\,${CLIP_WIDTH})/2)*2,setsar=1`,
     i.vaapiDevice ? "format=nv12,hwupload" : "format=yuv420p",
   ].filter((f): f is string => f !== null);
   return [
