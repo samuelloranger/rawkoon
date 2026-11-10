@@ -8,6 +8,7 @@ import {
   buildClipArgs,
   buildCropDetectArgs,
   parseCrop,
+  plausibleCrop,
 } from "@rawkoon/api/services/clips/clipArgs";
 import { assertClipsRootSafe } from "@rawkoon/api/services/clips/clipGuard";
 import {
@@ -86,6 +87,9 @@ export interface ClipDeps {
   probeDuration: (path: string) => Promise<number>;
   vaapiDevice: () => Promise<string | null>;
   isHdr: (path: string) => Promise<boolean>;
+  frameSize: (
+    path: string,
+  ) => Promise<{ width: number | null; height: number | null } | null>;
 }
 
 const defaultDeps: ClipDeps = {
@@ -93,6 +97,7 @@ const defaultDeps: ClipDeps = {
   probeDuration: async (p) => (await probeFile(p)).durationSecs,
   vaapiDevice: async () => (await detectCapabilities()).vaapiDevice,
   isHdr: async (p) => (await probeFile(p)).isHdr,
+  frameSize: async (p) => (await probeFile(p)).video,
 };
 
 const errMsg = (e: unknown) =>
@@ -148,8 +153,11 @@ export async function cutClip(
       duration,
     );
 
-    const crop = parseCrop(
-      (await deps.exec(buildCropDetectArgs(input, startSec))).stderr,
+    const frame = await deps.frameSize(input);
+    const crop = plausibleCrop(
+      parseCrop((await deps.exec(buildCropDetectArgs(input, startSec))).stderr),
+      frame?.width,
+      frame?.height,
     );
     const temp = await reserveTempPath(clipId);
     tempName = temp.name;

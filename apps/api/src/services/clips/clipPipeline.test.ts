@@ -59,6 +59,7 @@ const deps = (over: Partial<Parameters<typeof cutClip>[1]> = {}) => ({
   probeDuration: async () => 7200,
   vaapiDevice: async () => null,
   isHdr: async () => false,
+  frameSize: async () => ({ width: 1920, height: 1080 }),
   ...over,
 });
 

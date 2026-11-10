@@ -4,9 +4,8 @@ import { dirname, join } from "node:path";
 Bun.env.IMAGE_STORAGE_DIR = "/tmp/clip-args-test/data/images";
 const root = "/tmp/clip-args-test/data/clips";
 
-const { buildClipArgs, buildCropDetectArgs, parseCrop } = await import(
-  "@rawkoon/api/services/clips/clipArgs"
-);
+const { buildClipArgs, buildCropDetectArgs, parseCrop, plausibleCrop } =
+  await import("@rawkoon/api/services/clips/clipArgs");
 
 const base = {
   source: "/lib/Movie (2020)/movie.mkv",
@@ -92,5 +91,30 @@ describe("crop detection", () => {
     );
     expect(parseCrop("crop=8:8:0:0")).toBeNull();
     expect(parseCrop("nothing")).toBeNull();
+  });
+});
+
+describe("plausibleCrop", () => {
+  it("keeps centred letterbox and pillarbox bars", () => {
+    expect(plausibleCrop("1920:800:0:140", 1920, 1080)).toBe("1920:800:0:140");
+    expect(plausibleCrop("3840:1600:0:280", 3840, 2160)).toBe(
+      "3840:1600:0:280",
+    );
+    expect(plausibleCrop("1440:1080:240:0", 1920, 1080)).toBe(
+      "1440:1080:240:0",
+    );
+  });
+
+  it("drops what a dark scene suggests: off-centre, near-square or a thin strip", () => {
+    expect(plausibleCrop("1110:1080:494:0", 1920, 1080)).toBeNull();
+    expect(plausibleCrop("670:114:680:384", 1920, 1080)).toBeNull();
+    expect(plausibleCrop("1920:40:0:520", 1920, 1080)).toBeNull();
+  });
+
+  it("drops a crop on both axes, no crop at all, or one it can't judge", () => {
+    expect(plausibleCrop("1700:900:110:90", 1920, 1080)).toBeNull();
+    expect(plausibleCrop("1920:1080:0:0", 1920, 1080)).toBeNull();
+    expect(plausibleCrop(null, 1920, 1080)).toBeNull();
+    expect(plausibleCrop("1920:800:0:140", null, 1080)).toBeNull();
   });
 });
