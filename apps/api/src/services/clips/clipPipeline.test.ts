@@ -10,6 +10,7 @@ const root = join(base, "data", "clips");
 type Row = Record<string, unknown> & { id: number };
 let clip: Row;
 let enabled = true;
+let rowGone = false;
 let source: {
   id: number;
   filePath: string;
@@ -21,10 +22,11 @@ mock.module("@rawkoon/api/db", () => ({
   prisma: {
     previewClip: {
       findUnique: async () => clip,
-      update: async ({ data }: { data: Record<string, unknown> }) => {
+      updateMany: async ({ data }: { data: Record<string, unknown> }) => {
+        if (rowGone) return { count: 0 };
         updates.push(data);
         Object.assign(clip, data);
-        return clip;
+        return { count: 1 };
       },
     },
     clipSettings: { findUnique: async () => ({ enabled }) },
@@ -71,6 +73,7 @@ beforeEach(async () => {
     startSec: null,
   };
   enabled = true;
+  rowGone = false;
   source = { id: 9, filePath: "/lib/movie.mkv", durationSecs: 7200 };
   updates.length = 0;
   calls = [];
@@ -125,6 +128,13 @@ describe("cutClip", () => {
     expect(clip.status).toBe("failed");
     expect(String(clip.error)).toContain("ffmpeg exited 1");
     expect(await readdir(root)).toEqual([]);
+  });
+
+  it("does not throw when the row is deleted under a running job", async () => {
+    rowGone = true;
+    await expect(
+      cutClip(5, deps({ exec: async () => ({ code: 1, stderr: "boom" }) })),
+    ).resolves.toBeUndefined();
   });
 
   it("fails when the source file is gone", async () => {

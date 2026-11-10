@@ -18,6 +18,8 @@ const CLIP_NAME = /^clip-(\d+)(\.tmp-\d+)?\.mp4$/;
 const FINAL_NAME = /^clip-(\d+)\.mp4$/;
 
 export class ClipStoreError extends Error {}
+/** The clips folder or file does not exist: there is simply no clip. */
+class ClipMissingError extends ClipStoreError {}
 
 /** Sibling of the image store, so it sits on the app data volume and never on the media pool. */
 export function clipsRoot(): string {
@@ -70,10 +72,18 @@ async function contained(name: string): Promise<string> {
   }
   const lexicalRoot = clipsRoot();
   const path = join(lexicalRoot, name);
-  const [realRoot, realParent] = await Promise.all([
-    realpath(lexicalRoot),
-    realpath(dirname(path)),
-  ]);
+  let realRoot: string;
+  let realParent: string;
+  try {
+    [realRoot, realParent] = await Promise.all([
+      realpath(lexicalRoot),
+      realpath(dirname(path)),
+    ]);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT")
+      throw new ClipMissingError("Clips folder does not exist");
+    throw e;
+  }
   if (realRoot !== realParent)
     throw new ClipStoreError("Clip path escapes the clips root");
   return path;
@@ -107,7 +117,13 @@ async function plainFileSize(path: string): Promise<number | null> {
 }
 
 async function removeNamed(name: string): Promise<number> {
-  const path = await contained(name);
+  let path: string;
+  try {
+    path = await contained(name);
+  } catch (e) {
+    if (e instanceof ClipMissingError) return 0;
+    throw e;
+  }
   const size = await plainFileSize(path);
   if (size === null) return 0;
   await unlink(path);
@@ -148,7 +164,13 @@ export function discardTemp(id: number, tempName: string): Promise<number> {
 export async function statClip(
   id: number,
 ): Promise<{ path: string; size: number; mtimeMs: number } | null> {
-  const path = await contained(clipFileName(id));
+  let path: string;
+  try {
+    path = await contained(clipFileName(id));
+  } catch (e) {
+    if (e instanceof ClipMissingError) return null;
+    throw e;
+  }
   const size = await plainFileSize(path);
   if (size === null) return null;
   return { path, size, mtimeMs: (await lstat(path)).mtimeMs };

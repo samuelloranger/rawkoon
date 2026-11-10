@@ -22,7 +22,10 @@ import {
   retryFailed,
   updateClipSettings,
 } from "@rawkoon/api/services/clips/clipService";
-import { statClip } from "@rawkoon/api/services/clips/clipStore";
+import {
+  ClipStoreError,
+  statClip,
+} from "@rawkoon/api/services/clips/clipStore";
 
 const settingsPatch: z.ZodType<ClipSettingsPatch> = z.object({
   enabled: z.boolean().optional(),
@@ -38,7 +41,7 @@ const recutBody: z.ZodType<ClipRecutRequest> = z.object({
 const fileQuery = z.object({
   tmdbId: z.coerce.number().int().positive(),
   type: z.enum(["movie", "show"]),
-  season: z.coerce.number().int().min(1).optional(),
+  season: z.coerce.number().int().min(0).optional(),
 });
 const idParam = z.coerce.number().int().positive();
 
@@ -75,14 +78,20 @@ export const clipsRoutes = new Hono<Env>()
     if (!(await loadClipSettings()).enabled) return notFound("No clip");
     const { tmdbId, type, season } = c.req.valid("query");
     const row = await findClipByTmdb(tmdbId, type, season);
-    const file = row ? await statClip(row.id) : null;
+    // A symlinked or hardlinked clip file is treated as no clip.
+    const file = row
+      ? await statClip(row.id).catch((e) => {
+          if (e instanceof ClipStoreError) return null;
+          throw e;
+        })
+      : null;
     if (!row || !file) return notFound("No clip");
 
     const etag = `"${row.id}-${file.size}-${Math.floor(file.mtimeMs)}"`;
     const headers: Record<string, string> = {
       "Content-Type": "video/mp4",
       "Accept-Ranges": "bytes",
-      "Cache-Control": "private, max-age=3600",
+      "Cache-Control": "private, no-cache",
       ETag: etag,
     };
     if (c.req.header("if-none-match") === etag) {
@@ -128,7 +137,13 @@ export const clipsRoutes = new Hono<Env>()
   .post("/delete-all", requireAdmin, async () => {
     try {
       const r = await deleteAllClips();
-      if (!r.ok) return conflict("Turn preview clips off before deleting them");
+      if (!r.ok) {
+        return conflict(
+          r.reason === "running"
+            ? "A clip is still being cut; try again when it finishes"
+            : "Turn preview clips off before deleting them",
+        );
+      }
       const body: ClipDeleteAllResponse = {
         deleted_files: r.files,
         freed_bytes: r.bytes,

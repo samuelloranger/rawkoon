@@ -199,6 +199,19 @@ describe("lock", () => {
   });
 });
 
+describe("missing clips folder", () => {
+  it("treats a missing root as no file instead of throwing", async () => {
+    await rm(root, { recursive: true });
+    expect(await store.statClip(1)).toBeNull();
+    expect(await store.deleteClip(1)).toBe(0);
+  });
+
+  it("still refuses a non-plain file when the root exists", async () => {
+    await mkdir(join(root, "clip-2.mp4"));
+    await expect(store.statClip(2)).rejects.toThrow();
+  });
+});
+
 describe("serving", () => {
   it("stats a plain clip and returns null when absent", async () => {
     await writeFile(join(root, "clip-30.mp4"), "abc");

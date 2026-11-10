@@ -326,9 +326,9 @@ export function initWorkers() {
     ),
     QUEUE_NAMES.CLIPS,
   );
-  void import("./clips/clipService").then(({ syncQueuePause }) =>
-    syncQueuePause(),
-  );
+  void import("./clips/clipService")
+    .then(({ syncQueuePause }) => syncQueuePause())
+    .catch((err) => console.error("[clips] queue pause sync failed:", err));
   void import("./transcode").then(({ transcodeDispatcher }) =>
     transcodeDispatcher.start(),
   );
