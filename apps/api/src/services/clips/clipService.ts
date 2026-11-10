@@ -43,6 +43,22 @@ export async function syncQueuePause(): Promise<void> {
   else await q.resume();
 }
 
+/**
+ * The worker lives in this process, so a row marked running before the process started was cut short
+ * by a restart: it goes back in line now instead of after the stale timeout. A row this process has
+ * already started (the worker polls before this runs) is left alone.
+ */
+export async function requeueInterruptedClips(
+  processStart = new Date(Date.now() - process.uptime() * 1000),
+): Promise<number> {
+  const { count } = await prisma.previewClip.updateMany({
+    where: { status: "running", updatedAt: { lt: processStart } },
+    data: { status: "queued" },
+  });
+  if (count > 0 && (await loadClipSettings()).enabled) await enqueueQueued();
+  return count;
+}
+
 /** Throws ClipSafetyError (nothing is changed) when enabling with an unsafe clips folder. */
 export async function updateClipSettings(patch: {
   enabled?: boolean;
