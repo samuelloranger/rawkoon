@@ -123,6 +123,11 @@ export async function processScheduledJob(job: Job) {
         await searchOnAdd(mediaId, series ? "series" : season, isFinalAttempt);
         break;
       }
+      case SCHEDULED_JOB_NAMES.RECONCILE_PREVIEW_CLIPS: {
+        const { reconcileClips } = await import("../clips/clipService");
+        await reconcileClips();
+        break;
+      }
       case SCHEDULED_JOB_NAMES.REFRESH_GITHUB_RELEASES: {
         const { refreshGitHubReleases } = await import("../githubReleases");
         await refreshGitHubReleases({ notifyAdmins: true });

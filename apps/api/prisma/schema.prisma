@@ -532,6 +532,7 @@ model LibraryMedia {
   qualityProfile    QualityProfile?   @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
   episodes          LibraryEpisode[]
   files             MediaFile[]       @relation("MediaFileMedia")
+  previewClips      PreviewClip[]
   downloadHistories DownloadHistory[]
   blocklistEntries  GrabBlocklist[]
   attentionAlerts   LibraryAttentionAlert[]
@@ -1406,6 +1407,47 @@ model TranscodeSettings {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("transcode_settings")
+}
+
+/// Singleton (row id = 1). Preview clips stay off until an admin opts in.
+model ClipSettings {
+  id        Int      @id @default(1)
+  enabled   Boolean  @default(false)
+  paused    Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("clip_settings")
+}
+
+/// One short preview clip per movie or regular season. The file path is never stored: it is `clip-<id>.mp4` in the clips root.
+model PreviewClip {
+  id                Int       @id @default(autoincrement())
+  /// movie | season
+  kind              String
+  mediaId           Int       @map("media_id")
+  /// 0 for movies.
+  seasonNumber      Int       @default(0) @map("season_number")
+  /// queued | running | done | failed
+  status            String    @default("queued")
+  /// Null until the first cut picks a start; later cuts reuse it.
+  startSec          Float?    @map("start_sec")
+  manualStart       Boolean   @default(false) @map("manual_start")
+  sourceMediaFileId Int?      @map("source_media_file_id")
+  /// Hash of the source file's path: detects a replaced file without storing a path.
+  sourceKey         String?   @map("source_key")
+  /// Size of the published file; null until a clip has been published.
+  bytes             Int?
+  error             String?
+  startedAt         DateTime? @map("started_at")
+  finishedAt        DateTime? @map("finished_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  media LibraryMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, seasonNumber])
+  @@index([status], map: "ix_preview_clips_status")
+  @@map("preview_clips")
 }
 
 /// One row per HTTP attempt to the AI provider; the usage ledger behind the AI settings page.
