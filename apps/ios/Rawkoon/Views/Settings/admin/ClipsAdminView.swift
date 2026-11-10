@@ -170,6 +170,10 @@ struct ClipsAdminView: View {
         guard let client = model.api() else { return }
         if let p = try? await client.clipProgress() {
             progress = p
+            // A later poll that succeeds replaces a first-load error
+            loadError = nil
+            hasLoaded = true
+            loading = false
         }
     }
 
@@ -189,7 +193,7 @@ struct ClipsAdminView: View {
         do {
             _ = try await client.retryFailedClips()
         } catch {
-            model.toast(String(localized: "Couldn't retry."), style: .error)
+            model.toast(settingsErrorMessage(error), style: .error)
         }
         await refreshQuietly()
     }
