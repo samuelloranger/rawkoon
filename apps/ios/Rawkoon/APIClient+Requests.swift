@@ -84,6 +84,12 @@ extension APIClient {
         return try await perform(request)
     }
 
+    func put<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        let (data, response) = try await sendPut(path, body: body)
+        try checkStatus(data, response)
+        return try decodeJSON(data)
+    }
+
     /// Authenticated PUT that only cares whether the server accepted it (2xx).
     func putExpectOK(_ path: String, body: some Encodable) async throws {
         let (data, response) = try await sendPut(path, body: body)
