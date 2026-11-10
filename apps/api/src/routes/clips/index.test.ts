@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,6 +11,7 @@ await mkdir(root, { recursive: true });
 let enabled = true;
 let row: { id: number } | null = { id: 3 };
 let lastWhere: Record<string, unknown> | null = null;
+let running = 0;
 let clip: { status: string } | null = { status: "done" };
 
 mock.module("@rawkoon/api/services/queueService", () => ({
@@ -32,6 +33,7 @@ mock.module("@rawkoon/api/db", () => ({
         return row;
       },
       findUnique: async () => clip,
+      count: async () => running,
       update: async () => clip,
     },
     mediaFile: { findUnique: async () => null },
@@ -56,7 +58,9 @@ beforeEach(async () => {
   enabled = true;
   row = { id: 3 };
   clip = { status: "done" };
+  running = 0;
   lastWhere = null;
+  await rm(join(root, "clip-3.mp4"), { force: true });
   await writeFile(join(root, "clip-3.mp4"), "0123456789");
 });
 
@@ -100,7 +104,7 @@ describe("GET /file", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("video/mp4");
     expect(res.headers.get("accept-ranges")).toBe("bytes");
-    expect(res.headers.get("cache-control")).toContain("max-age");
+    expect(res.headers.get("cache-control")).toBe("private, no-cache");
     expect(await res.text()).toBe("0123456789");
   });
 
@@ -132,6 +136,19 @@ describe("GET /file", () => {
     expect((await get(Q)).status).toBe(404);
   });
 
+  it("is 404, not 500, when the clip file is a hardlink", async () => {
+    const target = join(base, "linked.mkv");
+    await writeFile(target, "media");
+    await rm(join(root, "clip-3.mp4"));
+    await link(target, join(root, "clip-3.mp4"));
+    expect((await get(Q)).status).toBe(404);
+  });
+
+  it("is 404, not 400, for season 0", async () => {
+    row = null;
+    expect((await get("tmdbId=1399&type=show&season=0")).status).toBe(404);
+  });
+
   it("looks a show up by season, defaulting to the first", async () => {
     await get("tmdbId=1399&type=show");
     expect(lastWhere).toMatchObject({
@@ -156,6 +173,16 @@ describe("admin routes", () => {
   it("refuses delete-all while enabled", async () => {
     const res = await clipsRoutes.request("/delete-all", { method: "POST" });
     expect(res.status).toBe(409);
+  });
+
+  it("refuses delete-all with a distinct message while a clip is running", async () => {
+    enabled = false;
+    running = 1;
+    const res = await clipsRoutes.request("/delete-all", { method: "POST" });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toContain(
+      "being cut",
+    );
   });
 
   it("validates the re-cut start", async () => {

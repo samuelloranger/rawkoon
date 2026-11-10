@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,6 +28,8 @@ let seasonFiles: {
   episode: { mediaId: number; season: number; episode: number };
 }[] = [];
 const queued: number[] = [];
+let seasonsInLibrary: { mediaId: number; season: number }[] = [];
+let runningCount = 0;
 
 mock.module("@rawkoon/api/services/queueService", () => ({
   clipsQueue: {
@@ -57,7 +59,9 @@ mock.module("@rawkoon/api/db", () => ({
         return where.episodeId === null ? movieFiles : seasonFiles;
       },
     },
+    libraryEpisode: { findMany: async () => seasonsInLibrary },
     previewClip: {
+      count: async () => runningCount,
       findMany: async ({
         where,
         select,
@@ -127,6 +131,8 @@ beforeEach(async () => {
   movieFiles = [];
   seasonFiles = [];
   queued.length = 0;
+  seasonsInLibrary = [];
+  runningCount = 0;
 });
 
 describe("reconcileClips", () => {
@@ -158,6 +164,10 @@ describe("reconcileClips", () => {
         filePath: "/s/s2e01.mkv",
         episode: { mediaId: 2, season: 2, episode: 1 },
       },
+    ];
+    seasonsInLibrary = [
+      { mediaId: 2, season: 1 },
+      { mediaId: 2, season: 2 },
     ];
     await svc.reconcileClips();
     expect(
@@ -195,16 +205,63 @@ describe("reconcileClips", () => {
     expect(clips[0]?.status).toBe("queued");
   });
 
-  it("deletes the file and row of a title that left the library, and orphan files with no row", async () => {
+  it("deletes the file and row of a season that left the library, and orphan files with no row", async () => {
     movieFiles = [{ id: 1, mediaId: 1, filePath: "/lib/a.mkv" }];
-    clips = [done({ id: 50, mediaId: 99 }), done({ id: 51, mediaId: 1 })];
-    await writeFile(join(root, "clip-50.mp4"), "x");
-    await writeFile(join(root, "clip-51.mp4"), "y");
+    seasonsInLibrary = [{ mediaId: 2, season: 1 }];
+    clips = [
+      done({ id: 50, kind: "season", mediaId: 2, seasonNumber: 2 }),
+      done({ id: 51, mediaId: 1 }),
+      done({ id: 52, kind: "season", mediaId: 2, seasonNumber: 1 }),
+    ];
+    for (const n of [50, 51, 52])
+      await writeFile(join(root, `clip-${n}.mp4`), "x");
     await writeFile(join(root, "clip-77.mp4"), "orphan");
     await writeFile(join(root, "other.mp4"), "foreign");
     await svc.reconcileClips();
-    expect(clips.map((c) => c.id)).toEqual([51]);
-    expect((await readdir(root)).sort()).toEqual(["clip-51.mp4", "other.mp4"]);
+    expect(clips.map((c) => c.id)).toEqual([51, 52]);
+    expect((await readdir(root)).sort()).toEqual([
+      "clip-51.mp4",
+      "clip-52.mp4",
+      "other.mp4",
+    ]);
+  });
+
+  it("removes a movie clip file whose row is gone (title deleted, FK cascade)", async () => {
+    clips = [];
+    await writeFile(join(root, "clip-88.mp4"), "x");
+    await svc.reconcileClips();
+    expect(await readdir(root)).toEqual([]);
+  });
+
+  it("drops the row but never forces a non-plain file, and still finishes the sweep", async () => {
+    const target = join(base, "media.mkv");
+    await writeFile(target, "media");
+    await link(target, join(root, "clip-30.mp4"));
+    clips = [done({ id: 30, kind: "season", mediaId: 2, seasonNumber: 3 })];
+    await writeFile(join(root, "clip-77.mp4"), "orphan");
+    await svc.reconcileClips();
+    expect(clips).toEqual([]);
+    expect(await readdir(root)).toEqual(["clip-30.mp4"]);
+  });
+
+  it("keeps the clip of a title that is momentarily without files", async () => {
+    clips = [done({ id: 40 })];
+    seasonsInLibrary = [];
+    await writeFile(join(root, "clip-40.mp4"), "x");
+    await svc.reconcileClips();
+    expect(clips).toHaveLength(1);
+    expect(await readdir(root)).toEqual(["clip-40.mp4"]);
+  });
+
+  it("leaves a departed season's clip alone while it is being cut", async () => {
+    seasonsInLibrary = [];
+    clips = [done({ id: 60, kind: "season", mediaId: 2, seasonNumber: 4 })].map(
+      (c) => ({ ...c, status: "running" }),
+    );
+    await writeFile(join(root, "clip-60.mp4"), "x");
+    await svc.reconcileClips();
+    expect(clips.map((c) => c.id)).toEqual([60]);
+    expect(await readdir(root)).toEqual(["clip-60.mp4"]);
   });
 });
 
@@ -214,6 +271,19 @@ describe("deleteAllClips", () => {
       ok: false,
       reason: "enabled",
     });
+  });
+
+  it("is refused while a clip is still running", async () => {
+    enabled = false;
+    runningCount = 1;
+    clips = [done({ id: 61 })];
+    await writeFile(join(root, "clip-61.mp4"), "abcd");
+    expect(await svc.deleteAllClips()).toEqual({
+      ok: false,
+      reason: "running",
+    });
+    expect(clips).toHaveLength(1);
+    expect(await readdir(root)).toEqual(["clip-61.mp4"]);
   });
 
   it("removes files and rows when disabled and reports the freed bytes", async () => {
