@@ -44,12 +44,15 @@ export async function syncQueuePause(): Promise<void> {
 }
 
 /**
- * At boot no encode can be running yet (the worker lives in this process), so a row still marked
- * running was cut short by a restart: it goes back in line now instead of after the stale timeout.
+ * The worker lives in this process, so a row marked running before the process started was cut short
+ * by a restart: it goes back in line now instead of after the stale timeout. A row this process has
+ * already started (the worker polls before this runs) is left alone.
  */
-export async function requeueInterruptedClips(): Promise<number> {
+export async function requeueInterruptedClips(
+  processStart = new Date(Date.now() - process.uptime() * 1000),
+): Promise<number> {
   const { count } = await prisma.previewClip.updateMany({
-    where: { status: "running" },
+    where: { status: "running", updatedAt: { lt: processStart } },
     data: { status: "queued" },
   });
   if (count > 0 && (await loadClipSettings()).enabled) await enqueueQueued();

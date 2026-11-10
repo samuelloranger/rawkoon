@@ -315,9 +315,15 @@ describe("deleteAllClips", () => {
 });
 
 describe("requeueInterruptedClips", () => {
+  const beforeBoot = new Date(Date.now() - 3_600_000);
+  const boot = new Date(Date.now() - 60_000);
+
   it("puts a clip cut short by a restart back in line and enqueues it", async () => {
-    clips = [{ ...done({ id: 70 }), status: "running" }, done({ id: 71 })];
-    expect(await svc.requeueInterruptedClips()).toBe(1);
+    clips = [
+      { ...done({ id: 70 }), status: "running", updatedAt: beforeBoot },
+      done({ id: 71 }),
+    ];
+    expect(await svc.requeueInterruptedClips(boot)).toBe(1);
     expect(clips.map((c) => [c.id, c.status])).toEqual([
       [70, "queued"],
       [71, "done"],
@@ -325,11 +331,37 @@ describe("requeueInterruptedClips", () => {
     expect(queued).toEqual([70]);
   });
 
+  it("leaves a clip this process already started", async () => {
+    clips = [{ ...done({ id: 73 }), status: "running", updatedAt: new Date() }];
+    expect(await svc.requeueInterruptedClips(boot)).toBe(0);
+    expect(clips[0]?.status).toBe("running");
+    expect(queued).toEqual([]);
+  });
+
   it("requeues the row but enqueues nothing while clips are off", async () => {
     enabled = false;
-    clips = [{ ...done({ id: 72 }), status: "running" }];
-    expect(await svc.requeueInterruptedClips()).toBe(1);
+    clips = [{ ...done({ id: 72 }), status: "running", updatedAt: beforeBoot }];
+    expect(await svc.requeueInterruptedClips(boot)).toBe(1);
     expect(clips[0]?.status).toBe("queued");
     expect(queued).toEqual([]);
+  });
+});
+
+describe("reconcileClips stale reset", () => {
+  it("requeues a clip running for over 30 minutes and leaves a fresh one", async () => {
+    clips = [
+      {
+        ...done({ id: 80 }),
+        status: "running",
+        updatedAt: new Date(Date.now() - 31 * 60_000),
+      },
+      { ...done({ id: 81 }), status: "running", updatedAt: new Date() },
+    ];
+    await svc.reconcileClips();
+    expect(clips.map((c) => [c.id, c.status])).toEqual([
+      [80, "queued"],
+      [81, "running"],
+    ]);
+    expect(queued).toContain(80);
   });
 });
