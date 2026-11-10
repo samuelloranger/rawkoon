@@ -327,8 +327,11 @@ export function initWorkers() {
     QUEUE_NAMES.CLIPS,
   );
   void import("./clips/clipService")
-    .then(({ syncQueuePause }) => syncQueuePause())
-    .catch((err) => console.error("[clips] queue pause sync failed:", err));
+    .then(async ({ syncQueuePause, requeueInterruptedClips }) => {
+      await syncQueuePause();
+      await requeueInterruptedClips();
+    })
+    .catch((err) => console.error("[clips] boot sync failed:", err));
   void import("./transcode").then(({ transcodeDispatcher }) =>
     transcodeDispatcher.start(),
   );

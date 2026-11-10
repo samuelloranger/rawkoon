@@ -43,6 +43,19 @@ export async function syncQueuePause(): Promise<void> {
   else await q.resume();
 }
 
+/**
+ * At boot no encode can be running yet (the worker lives in this process), so a row still marked
+ * running was cut short by a restart: it goes back in line now instead of after the stale timeout.
+ */
+export async function requeueInterruptedClips(): Promise<number> {
+  const { count } = await prisma.previewClip.updateMany({
+    where: { status: "running" },
+    data: { status: "queued" },
+  });
+  if (count > 0 && (await loadClipSettings()).enabled) await enqueueQueued();
+  return count;
+}
+
 /** Throws ClipSafetyError (nothing is changed) when enabling with an unsafe clips folder. */
 export async function updateClipSettings(patch: {
   enabled?: boolean;

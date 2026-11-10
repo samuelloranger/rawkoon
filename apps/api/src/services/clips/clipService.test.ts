@@ -95,7 +95,22 @@ mock.module("@rawkoon/api/db", () => ({
         where: { id: number };
         data: Partial<Clip>;
       }) => Object.assign(clips.find((c) => c.id === where.id) as Clip, data),
-      updateMany: async () => ({ count: 0 }),
+      updateMany: async ({
+        where,
+        data,
+      }: {
+        where?: { status?: string; updatedAt?: { lt: Date } };
+        data: Partial<Clip>;
+      }) => {
+        const rows = clips.filter(
+          (c) =>
+            (where?.status === undefined || c.status === where.status) &&
+            (where?.updatedAt === undefined ||
+              c.updatedAt < where.updatedAt.lt),
+        );
+        for (const r of rows) Object.assign(r, data);
+        return { count: rows.length };
+      },
       deleteMany: async ({ where }: { where?: { id: number } } = {}) => {
         clips = where ? clips.filter((c) => c.id !== where.id) : [];
       },
@@ -296,5 +311,25 @@ describe("deleteAllClips", () => {
       bytes: 4,
     });
     expect(clips).toEqual([]);
+  });
+});
+
+describe("requeueInterruptedClips", () => {
+  it("puts a clip cut short by a restart back in line and enqueues it", async () => {
+    clips = [{ ...done({ id: 70 }), status: "running" }, done({ id: 71 })];
+    expect(await svc.requeueInterruptedClips()).toBe(1);
+    expect(clips.map((c) => [c.id, c.status])).toEqual([
+      [70, "queued"],
+      [71, "done"],
+    ]);
+    expect(queued).toEqual([70]);
+  });
+
+  it("requeues the row but enqueues nothing while clips are off", async () => {
+    enabled = false;
+    clips = [{ ...done({ id: 72 }), status: "running" }];
+    expect(await svc.requeueInterruptedClips()).toBe(1);
+    expect(clips[0]?.status).toBe("queued");
+    expect(queued).toEqual([]);
   });
 });
