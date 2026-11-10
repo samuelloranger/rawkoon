@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -62,10 +62,67 @@ describe("buildClipArgs", () => {
     const vf = full[full.indexOf("-vf") + 1];
     expect(vf?.indexOf("crop=1920:800:0:140")).toBe(0);
     expect(vf?.indexOf("tonemap")).toBeGreaterThan(0);
-    expect(vf?.indexOf("scale=960:-2")).toBeGreaterThan(
+    expect(vf?.indexOf("scale=960:")).toBeGreaterThan(
       vf?.indexOf("tonemap") ?? 0,
     );
   });
+
+  // An anamorphic 16:9 source stored at 720x576: the clip must be 16:9 in square pixels
+  it.skipIf(!Bun.which("ffmpeg") || !Bun.which("ffprobe"))(
+    "turns non-square pixels into a square-pixel clip of the right shape",
+    async () => {
+      await mkdir(root, { recursive: true });
+      const dir = await mkdtemp(join(tmpdir(), "clip-sar-"));
+      const output = join(root, "clip-9.tmp-1.mp4");
+      try {
+        const src = join(dir, "anamorphic.mkv");
+        const make = Bun.spawn([
+          "ffmpeg",
+          "-nostdin",
+          "-loglevel",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=s=720x576:d=2,setsar=64/45",
+          "-c:v",
+          "ffv1",
+          src,
+        ]);
+        expect(await make.exited).toBe(0);
+        const [cmd, ...rest] = buildClipArgs({
+          ...base,
+          source: src,
+          startSec: 0,
+          output,
+        });
+        const run = Bun.spawn([cmd as string, ...rest], { stderr: "pipe" });
+        expect(await run.exited).toBe(0);
+        const probe = Bun.spawn(
+          [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,sample_aspect_ratio",
+            "-of",
+            "csv=p=0",
+            output,
+          ],
+          { stdout: "pipe" },
+        );
+        expect((await new Response(probe.stdout).text()).trim()).toBe(
+          "960,540,1:1",
+        );
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+        await rm(output, { force: true });
+      }
+    },
+    60_000,
+  );
 
   it("refuses any output that is not a temp file in the clips root", () => {
     for (const output of [
