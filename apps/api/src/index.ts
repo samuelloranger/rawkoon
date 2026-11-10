@@ -22,6 +22,7 @@ import { calendarRoutes } from "./routes/calendar";
 import { dashboardRoutes } from "./routes/dashboard";
 import { libraryRoutes } from "./routes/library";
 import { transcodeRoutes } from "./routes/transcode";
+import { clipsRoutes } from "./routes/clips";
 import {
   bookRoutes,
   bookQualityProfileRoutes,
@@ -114,6 +115,7 @@ app
   .route("/api/integrations", integrationsRoutes)
   .route("/api/library", libraryRoutes)
   .route("/api/transcode", transcodeRoutes)
+  .route("/api/clips", clipsRoutes)
   .route("/api/books", bookRoutes)
   .route("/api/book-quality-profiles", bookQualityProfileRoutes)
   .route("/api/authors", authorRoutes)

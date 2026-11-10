@@ -21,3 +21,4 @@ export * from "./downloads";
 export * from "./seeding";
 export * from "./request";
 export * from "./transcode";
+export * from "./clips";
