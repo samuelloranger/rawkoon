@@ -3,6 +3,7 @@ import {
   BookOpen,
   Boxes,
   Brain,
+  Clapperboard,
   Clock,
   Download,
   Gauge,
@@ -182,6 +183,13 @@ export const SETTINGS_PAGES: SettingsPageDef[] = [
     "av1",
     "queue",
     "compress",
+  ]),
+  page("clips", "system", Clapperboard, [
+    "preview",
+    "clips",
+    "trailer",
+    "video",
+    "backdrop",
   ]),
   page("downloads", "system", Download, [
     "import",

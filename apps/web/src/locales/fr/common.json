@@ -1824,6 +1824,11 @@
         "description": "La file de réencodage, son historique et sa plage d’exécution.",
         "keywords": "réencodage, transcodage, compression, file"
       },
+      "clips": {
+        "title": "Aperçus vidéo",
+        "description": "Courts extraits muets affichés derrière les titres sur la TV, et leur progression.",
+        "keywords": "aperçu, extraits, clips, vidéo, fond"
+      },
       "downloads": {
         "title": "Téléchargements",
         "description": "Préparation, partage, restes, historique des téléchargements et importation Radarr et Sonarr.",
@@ -3360,5 +3365,53 @@
   },
   "editPanel": {
     "overridden": "Modifié"
+  },
+  "clips": {
+    "admin": {
+      "enable": "Générer les aperçus vidéo",
+      "enableHint": "Désactivé par défaut. Les clips existants sont conservés lorsque vous le désactivez.",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "retryFailed": "Réessayer les échecs",
+      "season": "Saison {{number}}",
+      "now": "Découpe en cours",
+      "eta": "Environ {{time}} restant",
+      "etaUnknown": "Temps restant inconnu pour l’instant",
+      "recentFailures": "Échecs récents",
+      "actionFailed": "Cette action a échoué.",
+      "stats": {
+        "done": "Terminés",
+        "doneHint": "Clips prêts",
+        "left": "Restants",
+        "leftHint": "En attente ou en cours",
+        "failed": "Échecs",
+        "failedHint": "À réessayer après correction",
+        "size": "Taille sur disque",
+        "sizeHint": "Tous les clips"
+      },
+      "deleteAll": {
+        "title": "Supprimer tous les clips",
+        "button": "Supprimer tous les clips",
+        "hint": "Supprime tous les clips générés. Les fichiers médias ne sont jamais touchés.",
+        "turnOffFirst": "Désactivez d’abord les aperçus vidéo.",
+        "description": "Ceci supprime tous les clips et libère {{size}}. Vous pourrez les régénérer plus tard.",
+        "confirm": "Supprimer",
+        "done_one": "{{count}} clip supprimé, {{size}} libérés.",
+        "done_other": "{{count}} clips supprimés, {{size}} libérés."
+      }
+    },
+    "panel": {
+      "title": "Aperçu vidéo",
+      "status": {
+        "queued": "En attente",
+        "running": "Découpe…",
+        "done": "Prêt",
+        "failed": "Échec"
+      },
+      "startLabel": "Début à",
+      "recut": "Redécouper",
+      "invalid": "Utilisez mm:ss, par exemple 12:30.",
+      "recutFailed": "Impossible de redécouper le clip."
+    }
   }
 }

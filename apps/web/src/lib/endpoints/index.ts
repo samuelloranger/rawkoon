@@ -16,3 +16,4 @@ export * from "./settings";
 export * from "./requests";
 export * from "./users";
 export * from "./transcode";
+export * from "./clips";

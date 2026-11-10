@@ -1824,6 +1824,11 @@
         "description": "The re-encode queue, its history and run window.",
         "keywords": "re-encode, transcode, hevc, av1, queue, compress"
       },
+      "clips": {
+        "title": "Preview clips",
+        "description": "Short silent clips shown behind titles on the TV, and their progress.",
+        "keywords": "preview, clips, trailer, video, backdrop"
+      },
       "downloads": {
         "title": "Downloads",
         "description": "Staging, seeding, leftovers, download history and the Radarr and Sonarr import.",
@@ -3360,5 +3365,53 @@
   },
   "editPanel": {
     "overridden": "Overridden"
+  },
+  "clips": {
+    "admin": {
+      "enable": "Generate preview clips",
+      "enableHint": "Off by default. Existing clips are kept when you turn this off.",
+      "pause": "Pause",
+      "resume": "Resume",
+      "retryFailed": "Retry failed",
+      "season": "Season {{number}}",
+      "now": "Cutting now",
+      "eta": "About {{time}} left",
+      "etaUnknown": "Time left unknown yet",
+      "recentFailures": "Recent failures",
+      "actionFailed": "That didn't work.",
+      "stats": {
+        "done": "Done",
+        "doneHint": "Clips ready",
+        "left": "Left",
+        "leftHint": "Queued or being cut",
+        "failed": "Failed",
+        "failedHint": "Retry after fixing the cause",
+        "size": "Size on disk",
+        "sizeHint": "All clips"
+      },
+      "deleteAll": {
+        "title": "Delete all clips",
+        "button": "Delete all clips",
+        "hint": "Removes every generated clip. Media files are never touched.",
+        "turnOffFirst": "Turn preview clips off first.",
+        "description": "This deletes every preview clip and frees {{size}}. You can generate them again later.",
+        "confirm": "Delete",
+        "done_one": "Deleted {{count}} clip, freed {{size}}.",
+        "done_other": "Deleted {{count}} clips, freed {{size}}."
+      }
+    },
+    "panel": {
+      "title": "Preview clip",
+      "status": {
+        "queued": "Queued",
+        "running": "Cutting…",
+        "done": "Ready",
+        "failed": "Failed"
+      },
+      "startLabel": "Start at",
+      "recut": "Re-cut",
+      "invalid": "Use mm:ss, for example 12:30.",
+      "recutFailed": "Couldn't re-cut the clip."
+    }
   }
 }

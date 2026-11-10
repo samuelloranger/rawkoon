@@ -341,6 +341,13 @@ export const queryKeys = {
     settings: () => [...queryKeys.transcode.all, "settings"] as const,
     summary: () => [...queryKeys.transcode.all, "summary"] as const,
   },
+  clips: {
+    all: ["clips"] as const,
+    settings: () => [...queryKeys.clips.all, "settings"] as const,
+    progress: () => [...queryKeys.clips.all, "progress"] as const,
+    media: (mediaId: number) =>
+      [...queryKeys.clips.all, "media", mediaId] as const,
+  },
   home: {
     landed: () => ["home", "landed"] as const,
   },

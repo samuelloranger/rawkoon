@@ -42,7 +42,7 @@ describe("SettingsIndex", () => {
     render(<SettingsIndex isAdmin currentPath="/settings/health" />);
     expect(screen.getByText("settings.groups.server")).toBeTruthy();
     expect(screen.getByText("settings.groups.system")).toBeTruthy();
-    expect(hrefs()).toHaveLength(19);
+    expect(hrefs()).toHaveLength(20);
     expect(
       screen.getByText("settings.pages.health.title").closest("a"),
     ).toHaveAttribute("aria-current", "page");
