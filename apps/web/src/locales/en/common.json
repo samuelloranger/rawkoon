@@ -3373,6 +3373,8 @@
       "pause": "Pause",
       "resume": "Resume",
       "retryFailed": "Retry failed",
+      "retried_one": "{{count}} clip queued again",
+      "retried_other": "{{count}} clips queued again",
       "season": "Season {{number}}",
       "now": "Cutting now",
       "eta": "About {{time}} left",

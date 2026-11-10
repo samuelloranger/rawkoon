@@ -29,17 +29,14 @@ export function ClipsTab() {
   if (!progress) return null;
   const { settings } = progress;
 
-  const setEnabled = (enabled: boolean) =>
-    update.mutate(
-      { enabled },
-      {
-        // 409 carries the storage guard's reason.
-        onError: (e) =>
-          toast.error(
-            e instanceof ApiError ? e.message : t("clips.admin.actionFailed"),
-          ),
-      },
+  // A 409 carries the server's reason (storage guard, clip running).
+  const failed = (e: unknown) =>
+    toast.error(
+      e instanceof ApiError ? e.message : t("clips.admin.actionFailed"),
     );
+
+  const setEnabled = (enabled: boolean) =>
+    update.mutate({ enabled }, { onError: failed });
 
   const onDeleteAll = () =>
     confirm({
@@ -75,6 +72,7 @@ export function ClipsTab() {
         <label className="flex items-center gap-2 text-[13px] text-neutral-300">
           <Switch
             checked={settings.enabled}
+            disabled={update.isPending}
             onCheckedChange={setEnabled}
             aria-label={t("clips.admin.enable")}
           />
@@ -83,7 +81,10 @@ export function ClipsTab() {
         <span className="flex-1" />
         <button
           type="button"
-          onClick={() => update.mutate({ paused: !settings.paused })}
+          disabled={update.isPending}
+          onClick={() =>
+            update.mutate({ paused: !settings.paused }, { onError: failed })
+          }
           className={btn}
         >
           {settings.paused ? t("clips.admin.resume") : t("clips.admin.pause")}
@@ -91,7 +92,13 @@ export function ClipsTab() {
         <button
           type="button"
           disabled={progress.failed === 0 || retry.isPending}
-          onClick={() => retry.mutate()}
+          onClick={() =>
+            retry.mutate(undefined, {
+              onError: failed,
+              onSuccess: (r) =>
+                toast.success(t("clips.admin.retried", { count: r.retried })),
+            })
+          }
           className={btn}
         >
           {t("clips.admin.retryFailed")}

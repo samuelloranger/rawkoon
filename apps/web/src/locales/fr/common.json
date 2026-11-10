@@ -3373,6 +3373,8 @@
       "pause": "Pause",
       "resume": "Reprendre",
       "retryFailed": "Réessayer les échecs",
+      "retried_one": "{{count}} extrait remis en file",
+      "retried_other": "{{count}} extraits remis en file",
       "season": "Saison {{number}}",
       "now": "Découpe en cours",
       "eta": "Environ {{time}} restant",
