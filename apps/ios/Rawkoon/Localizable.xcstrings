@@ -16652,6 +16652,116 @@
           }
         }
       }
+    },
+    "Preview clips": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçus vidéo"
+          }
+        }
+      }
+    },
+    "Cuts a short silent clip for each movie and season, shown behind the title on the TV.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coupe un court extrait muet pour chaque film et chaque saison, affiché derrière le titre sur la télé."
+          }
+        }
+      }
+    },
+    "Left": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restants"
+          }
+        }
+      }
+    },
+    "Size on disk": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille sur le disque"
+          }
+        }
+      }
+    },
+    "Cutting now": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Découpe en cours"
+          }
+        }
+      }
+    },
+    "Recent failures": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échecs récents"
+          }
+        }
+      }
+    },
+    "Retry failed": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer les échecs"
+          }
+        }
+      }
+    },
+    "Delete all clips": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer tous les extraits"
+          }
+        }
+      }
+    },
+    "Delete all clips?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer tous les extraits ?"
+          }
+        }
+      }
+    },
+    "Turn preview clips off to delete them.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désactivez les aperçus vidéo pour les supprimer."
+          }
+        }
+      }
+    },
+    "This frees %@. Clips are cut again if you turn them back on. Your library files are not touched.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libère %@. Les extraits sont recoupés si vous réactivez la fonction. Vos fichiers de bibliothèque ne sont pas touchés."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

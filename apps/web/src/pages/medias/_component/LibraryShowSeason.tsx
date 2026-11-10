@@ -21,6 +21,7 @@ import type { useDeleteLibraryEpisode } from "@/features/medias/hooks/useDeleteL
 import { cn } from "@/lib/utils";
 import { Badge } from "./LibrarySharedUI";
 import { qualityBadges, isUniform } from "@/utils/libraryDisplayUtils";
+import { ClipPanel } from "./ClipPanel";
 import { MergedEpisodeRow } from "./LibraryMergedEpisodeRow";
 
 type Season = NonNullable<
@@ -281,6 +282,9 @@ export function LibraryShowSeason({
 
       {isExpanded && (
         <div className="divide-y divide-border border-t border-border bg-neutral-900/30">
+          <div className="px-4 py-3 empty:hidden">
+            <ClipPanel libraryId={libraryId} season={s.season} />
+          </div>
           {s.episodes.map((ep) => (
             <MergedEpisodeRow
               key={ep.id}

@@ -26,6 +26,7 @@ describe("settings page registry", () => {
       "health",
       "jobs",
       "reencode",
+      "clips",
       "downloads",
       "blocklist",
       "ai-usage",

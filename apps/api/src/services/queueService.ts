@@ -20,6 +20,7 @@ export const QUEUE_NAMES = {
   LIBRARY_REMUX: "library-remux",
   LIBRARY_POST_PROCESS: "library-post-process",
   BOOK_POSITION_SYNC: "book-position-sync",
+  CLIPS: "clips",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -44,6 +45,7 @@ export const SCHEDULED_JOB_NAMES = {
   SWEEP_SEEDING_TORRENTS: "sweep-seeding-torrents",
   PROCESS_PENDING_RELEASES: "process-pending-releases",
   SYNC_JELLYFIN_USERS: "sync-jellyfin-users",
+  RECONCILE_PREVIEW_CLIPS: "reconcile-preview-clips",
 } as const;
 
 export const NOTIFICATION_JOB_NAMES = {
@@ -122,6 +124,15 @@ export const bookPositionSyncQueue = new Queue(QUEUE_NAMES.BOOK_POSITION_SYNC, {
     removeOnFail: { age: 24 * 3600 },
   },
 });
+// Failures live on the PreviewClip row, so jobs vanish when done: a stale job id never blocks a re-cut.
+export const clipsQueue = new Queue(QUEUE_NAMES.CLIPS, {
+  ...defaultQueueOptions,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: true,
+    removeOnFail: true,
+  },
+});
 const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.EXPRESS]: expressQueue,
   [QUEUE_NAMES.SCHEDULED_TASKS]: scheduledTasksQueue,
@@ -130,6 +141,7 @@ const queues: Record<QueueName, Queue> = {
   [QUEUE_NAMES.LIBRARY_REMUX]: libraryRemuxQueue,
   [QUEUE_NAMES.LIBRARY_POST_PROCESS]: libraryPostProcessQueue,
   [QUEUE_NAMES.BOOK_POSITION_SYNC]: bookPositionSyncQueue,
+  [QUEUE_NAMES.CLIPS]: clipsQueue,
 };
 
 export async function addJob<T = Record<string, unknown>>(
@@ -302,6 +314,21 @@ export function initWorkers() {
     ),
     QUEUE_NAMES.BOOK_POSITION_SYNC,
   );
+  // 10. Preview clips (concurrency 1 — one encode at a time)
+  registerWorker(
+    new Worker(
+      QUEUE_NAMES.CLIPS,
+      async (job: Job) => {
+        const { processClipJob } = await import("../workers/generateClip");
+        return processClipJob(job);
+      },
+      { connection: valkeyConnection, concurrency: 1 },
+    ),
+    QUEUE_NAMES.CLIPS,
+  );
+  void import("./clips/clipService")
+    .then(({ syncQueuePause }) => syncQueuePause())
+    .catch((err) => console.error("[clips] queue pause sync failed:", err));
   void import("./transcode").then(({ transcodeDispatcher }) =>
     transcodeDispatcher.start(),
   );
@@ -388,6 +415,11 @@ export async function setupScheduledJobs() {
       name: SCHEDULED_JOB_NAMES.PROCESS_PENDING_RELEASES,
       // Offset off the RSS poll's ticks at every interval (they fall on :02/:07) so a due grab doesn't race a poll.
       pattern: "1-59/5 * * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.RECONCILE_PREVIEW_CLIPS,
+      // No-op while clips are disabled; picks up newly imported movies and seasons.
+      pattern: "*/10 * * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.SYNC_JELLYFIN_USERS,
