@@ -111,7 +111,7 @@ export async function cutClip(
   if (!settings?.enabled) return;
 
   const fail = (error: string) =>
-    prisma.previewClip.update({
+    prisma.previewClip.updateMany({
       where: { id: clipId },
       data: { status: "failed", error, finishedAt: new Date() },
     });
@@ -129,7 +129,7 @@ export async function cutClip(
     return;
   }
 
-  await prisma.previewClip.update({
+  await prisma.previewClip.updateMany({
     where: { id: clipId },
     data: {
       status: "running",
@@ -170,7 +170,7 @@ export async function cutClip(
 
     const bytes = await publish(clipId, temp.name);
     tempName = null;
-    await prisma.previewClip.update({
+    await prisma.previewClip.updateMany({
       where: { id: clipId },
       data: {
         status: "done",

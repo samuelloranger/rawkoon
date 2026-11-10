@@ -156,8 +156,22 @@ export async function reconcileClips(): Promise<void> {
   const wantedByKey = new Map(
     wanted.map((w) => [`${w.mediaId}:${w.seasonNumber}`, w]),
   );
+  // A title that is only between files keeps its clip. Movie clips go with their LibraryMedia row (FK cascade, orphan sweep);
+  // a season clip goes once the season has no episodes left in the library.
+  const seasonsLeft = new Set(
+    (
+      await prisma.libraryEpisode.findMany({
+        where: { season: { gte: 1 } },
+        distinct: ["mediaId", "season"],
+        select: { mediaId: true, season: true },
+      })
+    ).map((e) => `${e.mediaId}:${e.season}`),
+  );
   for (const c of existing) {
-    if (!wantedByKey.has(`${c.mediaId}:${c.seasonNumber}`)) {
+    if (
+      c.kind === "season" &&
+      !seasonsLeft.has(`${c.mediaId}:${c.seasonNumber}`)
+    ) {
       // The row goes after the file, so a failed delete is retried next sweep.
       await deleteClip(c.id);
       await prisma.previewClip.deleteMany({ where: { id: c.id } });
@@ -225,10 +239,15 @@ export async function retryFailed(): Promise<number> {
 
 /** Only while disabled, so no encode can be writing into the folder being emptied. */
 export async function deleteAllClips(): Promise<
-  { ok: true; files: number; bytes: number } | { ok: false; reason: "enabled" }
+  | { ok: true; files: number; bytes: number }
+  | { ok: false; reason: "enabled" | "running" }
 > {
   if ((await loadClipSettings()).enabled)
     return { ok: false, reason: "enabled" };
+  // A job started before disabling may still be encoding into the folder.
+  if ((await prisma.previewClip.count({ where: { status: "running" } })) > 0) {
+    return { ok: false, reason: "running" };
+  }
   await assertClipsRootSafe();
   const removed = await deleteAllClipFiles();
   await prisma.previewClip.deleteMany();
