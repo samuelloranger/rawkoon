@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 Bun.env.IMAGE_STORAGE_DIR = "/tmp/clip-args-test/data/images";
@@ -45,6 +47,7 @@ describe("buildClipArgs", () => {
     expect(args[args.indexOf("-g") + 1]).toBe("48");
     expect(args[args.indexOf("-movflags") + 1]).toBe("+faststart");
     expect(args[args.indexOf("-map_metadata") + 1]).toBe("-1");
+    expect(args[args.indexOf("-map_chapters") + 1]).toBe("-1");
   });
 
   it("uses libx264 on CPU and h264_vaapi with a device when given one", () => {
@@ -85,6 +88,42 @@ describe("crop detection", () => {
     expect(args.slice(-3)).toEqual(["-f", "null", "-"]);
     expect(args).not.toContain("-y");
   });
+
+  // A letterboxed 10-bit source: black there is 64 of 1023, above an absolute limit of 24.
+  it.skipIf(!Bun.which("ffmpeg"))(
+    "finds the bars of a 10-bit source",
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), "clip-crop-"));
+      try {
+        const src = join(dir, "letterboxed.mkv");
+        const make = Bun.spawn(
+          [
+            "ffmpeg",
+            "-nostdin",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=gray:s=320x136:d=1,format=yuv420p10le,pad=320:180:0:22:black",
+            "-c:v",
+            "ffv1",
+            src,
+          ],
+          { stderr: "pipe" },
+        );
+        expect(await make.exited).toBe(0);
+        const [cmd, ...rest] = buildCropDetectArgs(src, 0);
+        const run = Bun.spawn([cmd as string, ...rest], { stderr: "pipe" });
+        const stderr = await new Response(run.stderr).text();
+        await run.exited;
+        expect(parseCrop(stderr)).toBe("320:136:0:22");
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 
   it("takes the last crop suggestion and ignores absurd ones", () => {
     expect(parseCrop("x crop=1920:800:0:140\ny crop=1920:816:0:132")).toBe(

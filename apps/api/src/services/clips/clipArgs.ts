@@ -78,6 +78,8 @@ export function buildClipArgs(i: ClipArgsInput): string[] {
     "+faststart",
     "-map_metadata",
     "-1",
+    "-map_chapters",
+    "-1",
     "-f",
     "mp4",
     i.output,
@@ -104,7 +106,8 @@ export function buildCropDetectArgs(
     "-map",
     "0:v:0",
     "-vf",
-    "cropdetect=limit=24:round=2:reset=0",
+    // A fraction scales with bit depth; a whole number is absolute, and 24 is brighter than 10-bit black.
+    "cropdetect=limit=0.094:round=2:reset=0",
     "-an",
     "-sn",
     "-dn",
