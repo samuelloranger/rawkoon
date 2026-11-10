@@ -13,6 +13,7 @@ import {
 } from "@rawkoon/api/services/clips/clipPipeline";
 import {
   deleteAllClipFiles,
+  ClipStoreError,
   deleteClip,
   sweepOrphans,
   sweepStaleTemps,
@@ -173,7 +174,15 @@ export async function reconcileClips(): Promise<void> {
       !seasonsLeft.has(`${c.mediaId}:${c.seasonNumber}`)
     ) {
       // The row goes after the file, so a failed delete is retried next sweep.
-      await deleteClip(c.id);
+      try {
+        await deleteClip(c.id);
+      } catch (e) {
+        // A non-plain file is never forced; drop the row and let it sit.
+        if (!(e instanceof ClipStoreError)) throw e;
+        console.warn(
+          `[clips] left a non-plain file for clip ${c.id}: ${e.message}`,
+        );
+      }
       await prisma.previewClip.deleteMany({ where: { id: c.id } });
     }
   }

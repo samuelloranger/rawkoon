@@ -22,7 +22,10 @@ import {
   retryFailed,
   updateClipSettings,
 } from "@rawkoon/api/services/clips/clipService";
-import { statClip } from "@rawkoon/api/services/clips/clipStore";
+import {
+  ClipStoreError,
+  statClip,
+} from "@rawkoon/api/services/clips/clipStore";
 
 const settingsPatch: z.ZodType<ClipSettingsPatch> = z.object({
   enabled: z.boolean().optional(),
@@ -75,7 +78,13 @@ export const clipsRoutes = new Hono<Env>()
     if (!(await loadClipSettings()).enabled) return notFound("No clip");
     const { tmdbId, type, season } = c.req.valid("query");
     const row = await findClipByTmdb(tmdbId, type, season);
-    const file = row ? await statClip(row.id) : null;
+    // A symlinked or hardlinked clip file is treated as no clip.
+    const file = row
+      ? await statClip(row.id).catch((e) => {
+          if (e instanceof ClipStoreError) return null;
+          throw e;
+        })
+      : null;
     if (!row || !file) return notFound("No clip");
 
     const etag = `"${row.id}-${file.size}-${Math.floor(file.mtimeMs)}"`;

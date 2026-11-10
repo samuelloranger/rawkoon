@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -224,6 +224,24 @@ describe("reconcileClips", () => {
       "clip-52.mp4",
       "other.mp4",
     ]);
+  });
+
+  it("removes a movie clip file whose row is gone (title deleted, FK cascade)", async () => {
+    clips = [];
+    await writeFile(join(root, "clip-88.mp4"), "x");
+    await svc.reconcileClips();
+    expect(await readdir(root)).toEqual([]);
+  });
+
+  it("drops the row but never forces a non-plain file, and still finishes the sweep", async () => {
+    const target = join(base, "media.mkv");
+    await writeFile(target, "media");
+    await link(target, join(root, "clip-30.mp4"));
+    clips = [done({ id: 30, kind: "season", mediaId: 2, seasonNumber: 3 })];
+    await writeFile(join(root, "clip-77.mp4"), "orphan");
+    await svc.reconcileClips();
+    expect(clips).toEqual([]);
+    expect(await readdir(root)).toEqual(["clip-30.mp4"]);
   });
 
   it("keeps the clip of a title that is momentarily without files", async () => {

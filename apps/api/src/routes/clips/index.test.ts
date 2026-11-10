@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -60,6 +60,7 @@ beforeEach(async () => {
   clip = { status: "done" };
   running = 0;
   lastWhere = null;
+  await rm(join(root, "clip-3.mp4"), { force: true });
   await writeFile(join(root, "clip-3.mp4"), "0123456789");
 });
 
@@ -132,6 +133,14 @@ describe("GET /file", () => {
     row = null;
     expect((await get(Q)).status).toBe(404);
     row = { id: 4 };
+    expect((await get(Q)).status).toBe(404);
+  });
+
+  it("is 404, not 500, when the clip file is a hardlink", async () => {
+    const target = join(base, "linked.mkv");
+    await writeFile(target, "media");
+    await rm(join(root, "clip-3.mp4"));
+    await link(target, join(root, "clip-3.mp4"));
     expect((await get(Q)).status).toBe(404);
   });
 
