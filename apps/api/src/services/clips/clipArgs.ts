@@ -125,3 +125,31 @@ export function parseCrop(stderr: string): string | null {
   const [, w, h, x, y] = m;
   return Number(w) < 16 || Number(h) < 16 ? null : `${w}:${h}:${x}:${y}`;
 }
+
+/**
+ * Keeps a suggested crop only when it looks like real bars: on one axis, centred, leaving a film-like
+ * shape. A dark scene makes cropdetect cut into the picture; then the full frame is kept instead.
+ */
+export function plausibleCrop(
+  crop: string | null,
+  frameW: number | null | undefined,
+  frameH: number | null | undefined,
+): string | null {
+  if (!crop || !frameW || !frameH) return null;
+  const [w, h, x, y] = crop.split(":").map(Number) as [
+    number,
+    number,
+    number,
+    number,
+  ];
+  const tolW = Math.max(8, Math.round(frameW * 0.01));
+  const tolH = Math.max(8, Math.round(frameH * 0.01));
+  const fullWidth = Math.abs(w - frameW) <= tolW;
+  const fullHeight = Math.abs(h - frameH) <= tolH;
+  if (fullWidth === fullHeight) return null;
+  const centred = fullWidth
+    ? Math.abs(2 * y + h - frameH) <= 2 * tolH
+    : Math.abs(2 * x + w - frameW) <= 2 * tolW;
+  const aspect = w / h;
+  return centred && aspect >= 1.2 && aspect <= 2.8 ? crop : null;
+}
