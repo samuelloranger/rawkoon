@@ -2,7 +2,7 @@ import { basename, dirname, resolve } from "node:path";
 import { clipsRoot } from "@rawkoon/api/services/clips/clipStore";
 
 export const CLIP_SECONDS = 12;
-export const CLIP_WIDTH = 960;
+export const CLIP_WIDTH = 1920;
 
 // Same tone-map chain the CPU path of a re-encode would use; HDR10 and HLG both land in BT.709.
 const TONEMAP =
@@ -69,8 +69,8 @@ export function buildClipArgs(i: ClipArgsInput): string[] {
     "-vf",
     filters.join(","),
     ...(i.vaapiDevice
-      ? ["-c:v", "h264_vaapi", "-qp", "26"]
-      : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "26"]),
+      ? ["-c:v", "h264_vaapi", "-qp", "25"]
+      : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "25"]),
     "-an",
     "-sn",
     "-dn",
