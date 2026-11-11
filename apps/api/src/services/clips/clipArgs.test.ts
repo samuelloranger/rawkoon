@@ -62,7 +62,7 @@ describe("buildClipArgs", () => {
     const vf = full[full.indexOf("-vf") + 1];
     expect(vf?.indexOf("crop=1920:800:0:140")).toBe(0);
     expect(vf?.indexOf("tonemap")).toBeGreaterThan(0);
-    expect(vf?.indexOf("scale=960:")).toBeGreaterThan(
+    expect(vf?.indexOf("scale=1920:")).toBeGreaterThan(
       vf?.indexOf("tonemap") ?? 0,
     );
   });
@@ -114,7 +114,7 @@ describe("buildClipArgs", () => {
           { stdout: "pipe" },
         );
         expect((await new Response(probe.stdout).text()).trim()).toBe(
-          "960,540,1:1",
+          "1920,1080,1:1",
         );
       } finally {
         await rm(dir, { recursive: true, force: true });
