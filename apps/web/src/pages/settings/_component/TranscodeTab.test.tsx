@@ -9,8 +9,6 @@ const actions = {
   moveTop: vi.fn(async () => {}),
   moveBefore: vi.fn(async () => {}),
   moveAfter: vi.fn(async () => {}),
-  removeBatch: vi.fn(async () => {}),
-  batchTop: vi.fn(async () => {}),
   clearHistory: vi.fn(async () => {}),
 };
 const update = vi.fn();

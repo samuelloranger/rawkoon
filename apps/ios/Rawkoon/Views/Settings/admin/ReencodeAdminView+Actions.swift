@@ -111,14 +111,6 @@ extension ReencodeAdminView {
         }
     }
 
-    func moveBatchTop(_ batchId: String) async {
-        await run(nil, failure: String(localized: "Couldn't move.")) { try await $0.moveTranscodeBatchToTop(id: batchId) }
-    }
-
-    func removeBatch(_ batchId: String) async {
-        await run(nil, failure: String(localized: "Couldn't remove.")) { try await $0.removeTranscodeBatch(id: batchId) }
-    }
-
     func retry(_ job: TranscodeJob) async {
         await run(job.id, failure: String(localized: "Couldn't retry.")) { try await $0.retryTranscodeJob(id: job.id) }
     }

@@ -1,12 +1,6 @@
 import RawkoonKit
 import SwiftUI
 
-/// A run of consecutive queued jobs from one enqueue.
-struct ReencodeBatch: Identifiable {
-    let id: String
-    var jobs: [TranscodeJob]
-}
-
 /// Settings → Jobs & Releases → Re-encode: queue controls, running job, queue, history.
 struct ReencodeAdminView: View {
     @Environment(AppModel.self) var model
@@ -34,19 +28,6 @@ struct ReencodeAdminView: View {
         active.filter { $0.status == "queued" }
     }
 
-    /// Consecutive runs of the same batch, in queue order.
-    var batches: [ReencodeBatch] {
-        var out: [ReencodeBatch] = []
-        for job in queued {
-            if let last = out.last, last.id == job.batchId {
-                out[out.count - 1].jobs.append(job)
-            } else {
-                out.append(ReencodeBatch(id: job.batchId, jobs: [job]))
-            }
-        }
-        return out
-    }
-
     var body: some View {
         Group {
             if !model.isAdmin {
@@ -68,7 +49,7 @@ struct ReencodeAdminView: View {
                 if let running {
                     runningSection(running)
                 }
-                queueSections
+                queueSection
                 historySection
                 advancedSection
             }
@@ -78,8 +59,7 @@ struct ReencodeAdminView: View {
         .background(Theme.base)
         .tint(Theme.apricot)
         .toolbar {
-            // Edit mode only reorders within a batch, so it is useless without one of 2+ jobs.
-            if batches.contains(where: { $0.jobs.count > 1 }) {
+            if queued.count > 1 {
                 ToolbarItem(placement: .primaryAction) { EditButton().requiresConnection(model.isOffline) }
             }
             ToolbarItem(placement: .secondaryAction) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
@@ -16,7 +16,6 @@ import { TranscodeHistoryTable } from "./TranscodeHistoryTable";
 import { TranscodeQueueTable } from "./TranscodeQueueTable";
 import { TranscodeRunningCard } from "./TranscodeRunningCard";
 import { TranscodeStat as Stat } from "./TranscodeStat";
-import { groupBatches } from "./transcodeTabHelpers";
 
 export function TranscodeTab() {
   const { t } = useTranslation("common");
@@ -30,7 +29,6 @@ export function TranscodeTab() {
 
   const running = active.find((j) => j.status === "running") ?? null;
   const queued = active.filter((j) => j.status === "queued");
-  const batches = useMemo(() => groupBatches(queued), [queued]);
 
   const { confirm } = useConfirm();
 
@@ -175,7 +173,6 @@ export function TranscodeTab() {
 
       <TranscodeQueueTable
         queued={queued}
-        batches={batches}
         act={act}
         safe={safe}
         dragId={dragId}

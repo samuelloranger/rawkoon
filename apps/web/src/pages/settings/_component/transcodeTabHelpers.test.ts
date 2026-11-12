@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TranscodeJob } from "@rawkoon/shared/types";
-import { groupBatches, settingsLabel } from "./transcodeTabHelpers";
+import { settingsLabel } from "./transcodeTabHelpers";
 
 const job = (id: number, batch_id: string, settings: object = {}) =>
   ({
@@ -31,21 +31,5 @@ describe("settingsLabel", () => {
       convertLosslessAudio: true,
     });
     expect(settingsLabel(j)).toBe("HEVC · GPU · →1080p · 4.5 Mbps · EAC3");
-  });
-});
-
-describe("groupBatches", () => {
-  it("groups only adjacent jobs sharing a batch id", () => {
-    const out = groupBatches([
-      job(1, "a"),
-      job(2, "a"),
-      job(3, "b"),
-      job(4, "a"),
-    ]);
-    expect(out.map((b) => [b.batchId, b.jobs.map((j) => j.id)])).toEqual([
-      ["a", [1, 2]],
-      ["b", [3]],
-      ["a", [4]],
-    ]);
   });
 });

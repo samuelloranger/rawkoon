@@ -2571,26 +2571,6 @@
         }
       }
     },
-    "Move batch to top": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mettre le lot en tête"
-          }
-        }
-      }
-    },
-    "Remove all": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tout retirer"
-          }
-        }
-      }
-    },
     "Move to top": {
       "localizations": {
         "fr": {
@@ -2737,16 +2717,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossible de déplacer."
-          }
-        }
-      }
-    },
-    "Couldn't remove.": {
-      "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de retirer."
           }
         }
       }
