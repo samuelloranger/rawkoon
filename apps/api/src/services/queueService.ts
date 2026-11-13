@@ -46,6 +46,7 @@ export const SCHEDULED_JOB_NAMES = {
   PROCESS_PENDING_RELEASES: "process-pending-releases",
   SYNC_JELLYFIN_USERS: "sync-jellyfin-users",
   RECONCILE_PREVIEW_CLIPS: "reconcile-preview-clips",
+  SWEEP_TITLE_FACTS: "sweep-title-facts",
 } as const;
 
 export const NOTIFICATION_JOB_NAMES = {
@@ -423,6 +424,11 @@ export async function setupScheduledJobs() {
       name: SCHEDULED_JOB_NAMES.RECONCILE_PREVIEW_CLIPS,
       // No-op while clips are disabled; picks up newly imported movies and seasons.
       pattern: "*/10 * * * *",
+    },
+    {
+      name: SCHEDULED_JOB_NAMES.SWEEP_TITLE_FACTS,
+      // Nightly, off the other 3 AM job; TMDB facts for shelf rules, then auto-join.
+      pattern: "20 3 * * *",
     },
     {
       name: SCHEDULED_JOB_NAMES.SYNC_JELLYFIN_USERS,

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type {
   ShelfCoverStyle,
   ShelfDetail,
@@ -5,6 +6,7 @@ import type {
   ShelfMediaType,
   ShelfMembership,
   ShelfOrderMode,
+  ShelfRules,
   ShelfSeedSummary,
   ShelfSummary,
 } from "@rawkoon/shared/types";
@@ -18,6 +20,7 @@ import {
   mapShelfEntries,
   mapShelfSummary,
   orderModeOf,
+  rulesOf,
   type ShelfEntryRow,
   type ShelfRow,
 } from "./shelfMapping";
@@ -29,6 +32,8 @@ import {
 import { findSeed, listSeeds, type SeedLanguage } from "./seeds";
 import { entryRowSelect, key, shelfRowSelect } from "./shelfRows";
 import { isVisibleNow } from "./shelfVisibility";
+import { hasRules } from "./shelfRules";
+import { addRuleMatches, attachRuleReasons } from "./shelfRulesService";
 
 const BACKDROP_TTL = 24 * 60 * 60;
 
@@ -57,6 +62,8 @@ export type ShelfPatch = Partial<{
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
+  rules: ShelfRules | null;
+  autoJoin: boolean;
 }>;
 
 /** The chosen cover title's backdrop: a library override first, else TMDB (cached a day). */
@@ -113,6 +120,7 @@ async function summariesOf(
         shelf,
         entries: views,
         backdropUrl: await coverBackdropUrl(shelf),
+        isAdmin,
         origin,
         now,
       }),
@@ -166,9 +174,14 @@ export async function getShelfDetail(
     shelf,
     entries: views,
     backdropUrl: await coverBackdropUrl(shelf),
+    isAdmin,
     origin,
   });
-  return mapShelfDetail(summary, views);
+  // Reasons are for the editor; everyone else gets rule entries like any other
+  return mapShelfDetail(
+    summary,
+    isAdmin ? await attachRuleReasons(views, rulesOf(shelf.rules)) : views,
+  );
 }
 
 export function seedSummaries(language: SeedLanguage): ShelfSeedSummary[] {
@@ -213,7 +226,9 @@ export async function createShelf(
         const apiKey = (seed.needsTmdb ? await fetchShelfTmdbKey() : "") ?? "";
         if (seed.needsTmdb && !apiKey) return "tmdb_not_configured" as const;
         const entries = await seed.load(apiKey);
-        return entries.length ? entries : ("empty_seed" as const);
+        return entries.length || seed.rules || seed.allowEmpty
+          ? entries
+          : ("empty_seed" as const);
       })()
     : [];
   if (seedEntries === "tmdb_not_configured") {
@@ -239,6 +254,9 @@ export async function createShelf(
       visibleFrom: input.visibleFrom ?? seed?.visibleFrom ?? null,
       visibleTo: input.visibleTo ?? seed?.visibleTo ?? null,
       seedKey: seed?.key ?? null,
+      rules:
+        (seed?.rules as Prisma.InputJsonObject | undefined) ?? Prisma.JsonNull,
+      autoJoin: false,
       position,
     },
     select: { id: true },
@@ -261,13 +279,17 @@ export async function createShelf(
       skipDuplicates: true,
     });
   }
+  // A rules seed fills once from whatever facts exist now; an empty library of facts gives an empty shelf
+  if (seed?.rules) await addRuleMatches(created.id, seed.rules);
   return { ok: true, id: created.id };
 }
+
+export type UpdateShelfResult = "ok" | "not_found" | "auto_join_needs_rules";
 
 export async function updateShelf(
   id: number,
   patch: ShelfPatch,
-): Promise<boolean> {
+): Promise<UpdateShelfResult> {
   const data: Record<string, unknown> = {};
   if (patch.name !== undefined) data.name = patch.name;
   if (patch.description !== undefined) data.description = patch.description;
@@ -285,9 +307,29 @@ export async function updateShelf(
   if (patch.homeRow !== undefined) data.homeRow = patch.homeRow;
   if (patch.visibleFrom !== undefined) data.visibleFrom = patch.visibleFrom;
   if (patch.visibleTo !== undefined) data.visibleTo = patch.visibleTo;
-  if (!Object.keys(data).length) return true;
+  if (patch.rules !== undefined || patch.autoJoin !== undefined) {
+    const current = (await prisma.shelf.findUnique({
+      where: { id },
+      select: { rules: true, autoJoin: true },
+    })) as { rules: unknown; autoJoin: boolean } | null;
+    if (!current) return "not_found";
+    const rules =
+      patch.rules !== undefined ? patch.rules : rulesOf(current.rules);
+    const ruled = hasRules(rules);
+    const autoJoin = patch.autoJoin ?? current.autoJoin;
+    if (patch.autoJoin && !ruled) return "auto_join_needs_rules";
+    if (patch.rules !== undefined) {
+      data.rules = ruled
+        ? (patch.rules as Prisma.InputJsonObject)
+        : Prisma.JsonNull;
+    }
+    // Clearing the rules switches auto-join off: nothing is left to match
+    if (autoJoin !== current.autoJoin || !ruled)
+      data.autoJoin = autoJoin && ruled;
+  }
+  if (!Object.keys(data).length) return "ok";
   const result = await prisma.shelf.updateMany({ where: { id }, data });
-  return result.count > 0;
+  return result.count > 0 ? "ok" : "not_found";
 }
 
 /** Makes an uploaded file a shelf's cover. */

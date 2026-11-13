@@ -13,6 +13,8 @@ export const shelfRowSelect = {
   visibleFrom: true,
   visibleTo: true,
   seedKey: true,
+  rules: true,
+  autoJoin: true,
   position: true,
 } as const;
 

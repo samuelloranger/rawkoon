@@ -1,4 +1,8 @@
-import type { ShelfMediaType, ShelfOrderMode } from "@rawkoon/shared/types";
+import type {
+  ShelfMediaType,
+  ShelfOrderMode,
+  ShelfRules,
+} from "@rawkoon/shared/types";
 import { fetchCollectionDetails } from "@rawkoon/api/utils/medias/tmdbFetcherEndpoints";
 import {
   discoverShelfTitles,
@@ -31,6 +35,10 @@ export interface ShelfSeed {
   needsTmdb: boolean;
   /** Fetch (or read) the titles the seed fills the new shelf with. */
   load: (apiKey: string) => Promise<SeedEntry[]>;
+  /** Rules the new shelf starts with; they also fill it once from the facts the library has. Auto-join stays off. */
+  rules?: ShelfRules;
+  /** A shelf meant to be hand-picked: creating it with no titles is not an error. */
+  allowEmpty?: boolean;
 }
 
 const toEntry = (title: ShelfTmdbTitle): SeedEntry => ({
@@ -48,6 +56,15 @@ const DISNEY_COMPANIES = "2|6125";
 const PIXAR = 3;
 const GHIBLI = 10342;
 const BOND_COLLECTION = 645;
+
+// Genres: Horror 27, Comedy 35, Family 10751, Animation 16. Keywords, checked
+// against TMDB: spoof 11931, parody 9755, horror comedy 379671.
+export const REAL_HORROR_RULES: ShelfRules = {
+  genres_any: [27],
+  genres_none: [35, 10751, 16],
+  keywords_none: [11931, 9755, 379671],
+  votes_min: 300,
+};
 
 const discover = (
   type: ShelfMediaType,
@@ -208,6 +225,36 @@ const SEEDS: ShelfSeed[] = [
     visibleTo: null,
     needsTmdb: false,
     load: async () => loadMcu(),
+  },
+  {
+    key: "real_horror",
+    name: { en: "Real horror", fr: "Vraie horreur" },
+    description: {
+      en: "Horror that takes itself seriously: no comedies, spoofs or family films.",
+      fr: "De l'horreur qui se prend au sérieux : ni comédies, ni parodies, ni films familiaux.",
+    },
+    orderMode: "rating",
+    homeRow: false,
+    visibleFrom: null,
+    visibleTo: null,
+    needsTmdb: false,
+    load: async () => [],
+    rules: REAL_HORROR_RULES,
+  },
+  {
+    key: "cozy_sunday",
+    name: { en: "Cozy Sunday", fr: "Dimanche cocooning" },
+    description: {
+      en: "Hand-picked comfort watches for a slow Sunday.",
+      fr: "Des visionnements réconfortants choisis à la main pour un dimanche tranquille.",
+    },
+    orderMode: "manual",
+    homeRow: false,
+    visibleFrom: null,
+    visibleTo: null,
+    needsTmdb: false,
+    load: async () => [],
+    allowEmpty: true,
   },
 ];
 
