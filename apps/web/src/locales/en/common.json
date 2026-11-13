@@ -3551,6 +3551,10 @@
       "pin": "Pin in",
       "truncated": "Only the first results are shown.",
       "badge": "Rule"
-    }
+    },
+    "removedTitle": "Removed titles",
+    "removedHint": "You took these off; the rules won't add them back.",
+    "putBack": "Put back",
+    "putBackError": "Couldn't put the title back."
   }
 }

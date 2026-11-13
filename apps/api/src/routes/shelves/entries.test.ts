@@ -117,7 +117,7 @@ describe("shelf entries", () => {
     ]);
   });
 
-  it("hides excluded entries from users but shows them to admins", async () => {
+  it("keeps excluded entries off the shelf, except in the editor's view", async () => {
     const shelf = seedShelf();
     addEntry(shelf.id, { title: "Kept", tmdbId: 1 });
     addEntry(shelf.id, {
@@ -127,19 +127,36 @@ describe("shelf entries", () => {
       excluded: true,
     });
 
-    const adminView = (await (await call(`/${shelf.id}`)).json()) as {
-      shelf: { entries: unknown[] };
+    type View = {
+      shelf: {
+        entries: Array<{ title: string; excluded: boolean }>;
+        entry_count: number;
+      };
     };
-    expect(adminView.shelf.entries).toHaveLength(2);
+    // An admin browsing (the TV, a phone) sees the shelf as everyone does
+    const adminView = (await (await call(`/${shelf.id}`)).json()) as View;
+    expect(adminView.shelf.entries.map((entry) => entry.title)).toEqual([
+      "Kept",
+    ]);
+    expect(adminView.shelf.entry_count).toBe(1);
+
+    const editorView = (await (
+      await call(`/${shelf.id}?excluded=1`)
+    ).json()) as View;
+    expect(
+      editorView.shelf.entries.map((entry) => [entry.title, entry.excluded]),
+    ).toEqual([
+      ["Kept", false],
+      ["Excluded", true],
+    ]);
+    expect(editorView.shelf.entry_count).toBe(1);
 
     session.user = { ...user };
-    const userView = (await (await call(`/${shelf.id}`)).json()) as {
-      shelf: { entries: Array<{ title: string }>; entry_count: number };
-    };
+    const userView = (await (await call(`/${shelf.id}`)).json()) as View;
     expect(userView.shelf.entries.map((entry) => entry.title)).toEqual([
       "Kept",
     ]);
-    expect(userView.shelf.entry_count).toBe(1);
+    expect((await call(`/${shelf.id}?excluded=1`)).status).toBe(403);
   });
 
   it("excludes a rule-sourced entry instead of deleting it", async () => {

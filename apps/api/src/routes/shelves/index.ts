@@ -260,7 +260,10 @@ export const shelfRoutes = new Hono<Env>()
   .get("/:id", async (c) => {
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");
-    const shelf = await getShelfDetail(id, c.get("user").is_admin, originOf(c));
+    const isAdmin = c.get("user").is_admin;
+    const withExcluded = isFlag(c.req.query("excluded"));
+    if (withExcluded && !isAdmin) return forbidden("Admins only");
+    const shelf = await getShelfDetail(id, isAdmin, originOf(c), withExcluded);
     if (!shelf) return notFound("Shelf not found");
     c.header("Cache-Control", "private, no-store");
     return ok({ shelf });

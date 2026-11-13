@@ -127,7 +127,7 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
         },
       ),
     onSuccess: async ({ shelf: next }) => {
-      const added = Math.max(0, next.entries.length - shelf.entries.length);
+      const added = Math.max(0, next.entry_count - shelf.entry_count);
       queryClient.setQueryData(queryKeys.shelves.detail(shelf.id), {
         shelf: next,
       });

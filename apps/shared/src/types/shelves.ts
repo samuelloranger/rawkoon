@@ -52,6 +52,8 @@ export interface ShelfEntryView {
   source: "manual" | "rule";
   /** Why a rule-sourced entry matches, for admins (possibly empty once the rules changed); null otherwise. */
   reason: string[] | null;
+  /** Removed by an admin after rules added it; only sent to the editor (`?excluded=1`), so rules never re-add it. */
+  excluded: boolean;
 }
 
 export interface ShelfDetail extends ShelfSummary {

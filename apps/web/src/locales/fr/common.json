@@ -3551,6 +3551,10 @@
       "pin": "Épingler",
       "truncated": "Seuls les premiers résultats sont affichés.",
       "badge": "Règle"
-    }
+    },
+    "removedTitle": "Titres retirés",
+    "removedHint": "Vous les avez retirés ; les règles ne les rajouteront pas.",
+    "putBack": "Remettre",
+    "putBackError": "Impossible de remettre le titre."
   }
 }

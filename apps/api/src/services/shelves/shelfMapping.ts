@@ -183,6 +183,7 @@ export function mapShelfEntry(
     library_id: there ? (ref?.id ?? null) : null,
     source: entry.source === "rule" ? "rule" : "manual",
     reason: null,
+    excluded: entry.excluded,
   };
 }
 
@@ -190,10 +191,12 @@ export function mapShelfEntries(
   rawEntries: ShelfEntryRow[],
   refs: Map<string, LibraryRef>,
   mode: ShelfOrderMode,
-  isAdmin: boolean,
+  includeExcluded: boolean,
   seasons?: SeasonAvailability,
 ): ShelfEntryView[] {
-  const visible = isAdmin ? rawEntries : rawEntries.filter((e) => !e.excluded);
+  const visible = includeExcluded
+    ? rawEntries
+    : rawEntries.filter((e) => !e.excluded);
   // Ratings come from the library's facts; entries without them sort after rated ones
   const ordered =
     mode === "rating"

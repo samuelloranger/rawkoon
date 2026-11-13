@@ -103,8 +103,8 @@ async function summariesOf(
     where: { shelfId: { in: shelves.map((s) => s.id) } },
     select: entryRowSelect,
   })) as ShelfEntryRow[];
-  // Excluded entries only show to admins, so don't resolve them for anyone else
-  const entries = isAdmin ? found : found.filter((e) => !e.excluded);
+  // An excluded entry is off the shelf for everyone: it never counts or shows in a cover
+  const entries = found.filter((e) => !e.excluded);
   const refs = await loadLibraryRefs(entries);
   const seasons = await loadLibrarySeasons(entries);
   const byShelf = new Map<number, ShelfEntryRow[]>();
@@ -119,7 +119,7 @@ async function summariesOf(
       byShelf.get(shelf.id) ?? [],
       refs,
       orderModeOf(shelf.orderMode),
-      isAdmin,
+      false,
       seasons,
     );
     out.push(
@@ -161,6 +161,8 @@ export async function getShelfDetail(
   id: number,
   isAdmin: boolean,
   origin: string,
+  /** The editor's view: also the entries an admin removed, flagged `excluded`. */
+  withExcluded = false,
 ): Promise<ShelfDetail | null> {
   const shelf = (await prisma.shelf.findUnique({
     where: { id },
@@ -180,12 +182,12 @@ export async function getShelfDetail(
     entries,
     refs,
     orderModeOf(shelf.orderMode),
-    isAdmin,
+    isAdmin && withExcluded,
     seasons,
   );
   const summary = mapShelfSummary({
     shelf,
-    entries: views,
+    entries: views.filter((v) => !v.excluded),
     backdropUrl: await coverBackdropUrl(shelf),
     isAdmin,
     origin,

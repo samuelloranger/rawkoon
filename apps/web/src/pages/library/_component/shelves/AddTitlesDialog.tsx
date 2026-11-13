@@ -143,6 +143,7 @@ export function AddTitlesDialog({
           library_id: null,
           source: "manual",
           reason: null,
+          excluded: false,
         },
       ],
     }),

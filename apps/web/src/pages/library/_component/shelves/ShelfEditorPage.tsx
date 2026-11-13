@@ -37,6 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog } from "@/components/dialog";
+import { GroupHeader } from "./GroupHeader";
+import { RemovedEntries } from "./RemovedEntries";
 import { AddTitlesDialog } from "./AddTitlesDialog";
 import { ShelfCoverEditor } from "./ShelfCoverEditor";
 import { MonthDayField } from "./MonthDayField";
@@ -92,8 +94,14 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
 
   const shelf = useQuery({
     queryKey: queryKeys.shelves.detail(shelfId),
+    // Admins also get the titles they removed, so they can put one back
     queryFn: () =>
-      fetcher<{ shelf: ShelfDetail }>(SHELVES_ENDPOINTS.DETAIL(shelfId)),
+      fetcher<{ shelf: ShelfDetail }>(
+        isAdmin
+          ? `${SHELVES_ENDPOINTS.DETAIL(shelfId)}?excluded=1`
+          : SHELVES_ENDPOINTS.DETAIL(shelfId),
+      ),
+    enabled: user !== undefined,
   });
 
   const detail = shelf.data?.shelf;
@@ -170,7 +178,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         }),
       apply: (shelf: ShelfDetail, entries: ShelfEntryView[]) => ({
         ...shelf,
-        entries,
+        entries: [...entries, ...shelf.entries.filter((e) => e.excluded)],
       }),
     });
 
@@ -184,13 +192,44 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
       fetcher(SHELVES_ENDPOINTS.ENTRY(shelfId, entryId), {
         method: "DELETE",
       }),
+    // A rule entry stays as excluded, so the rules never add it back
     apply: (shelf, entryId) => {
-      const entries = shelf.entries.filter((entry) => entry.id !== entryId);
-      return { ...shelf, entries, entry_count: entries.length };
+      const entries = shelf.entries
+        .filter((entry) => entry.id !== entryId || entry.source === "rule")
+        .map((entry) =>
+          entry.id === entryId ? { ...entry, excluded: true } : entry,
+        );
+      const count = entries.filter((entry) => !entry.excluded).length;
+      return { ...shelf, entries, entry_count: count };
     },
   });
 
-  const entries = detail?.entries ?? [];
+  const putBack = useShelfMutation({
+    shelfId,
+    errorMessage: t("shelves.putBackError"),
+    mutationFn: (entry: ShelfEntryView) =>
+      fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
+        method: "POST",
+        body: {
+          tmdb_id: entry.tmdb_id,
+          type: entry.type,
+          season: entry.season,
+        },
+      }),
+    apply: (shelf, back) => ({
+      ...shelf,
+      entries: shelf.entries.map((entry) =>
+        entry.id === back.id
+          ? { ...entry, excluded: false, source: "manual" as const }
+          : entry,
+      ),
+      entry_count: shelf.entry_count + 1,
+    }),
+  });
+
+  const allEntries = detail?.entries ?? [];
+  const entries = allEntries.filter((entry) => !entry.excluded);
+  const removed = allEntries.filter((entry) => entry.excluded);
 
   /** Moves a title to another index, from the cache's latest order. */
   const moveTo = (fromId: number, toIndex: number) => {
@@ -555,6 +594,12 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
               ))}
             </ul>
           )}
+          {isAdmin && (
+            <RemovedEntries
+              entries={removed}
+              onPutBack={(entry) => putBack.mutate(entry)}
+            />
+          )}
         </div>
       </div>
 
@@ -594,54 +639,5 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         </div>
       </Dialog>
     </PageLayout>
-  );
-}
-
-/** A group's header row; the input follows the server's label, so a failed rename snaps back. */
-function GroupHeader({
-  label,
-  editable,
-  onRename,
-}: {
-  label: string;
-  editable: boolean;
-  onRename: (label: string) => void;
-}) {
-  const { t } = useTranslation("common");
-  const [text, setText] = useState(label);
-  useEffect(() => setText(label), [label]);
-
-  return (
-    <li className="flex items-center gap-2 bg-neutral-900/60 px-3 py-1.5">
-      {editable ? (
-        <>
-          <Input
-            value={text}
-            maxLength={80}
-            aria-label={t("shelves.groupLabel")}
-            className="h-8 min-w-0 flex-1 text-xs font-medium"
-            onChange={(event) => setText(event.target.value)}
-            onBlur={() => {
-              if (text.trim() !== label) onRename(text);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur();
-            }}
-          />
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={t("shelves.groupRemove", { label })}
-            onClick={() => onRename("")}
-          >
-            <X size={15} />
-          </Button>
-        </>
-      ) : (
-        <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-          {label}
-        </span>
-      )}
-    </li>
   );
 }
