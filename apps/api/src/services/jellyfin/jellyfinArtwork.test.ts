@@ -38,7 +38,7 @@ let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
 /** Answers Jellyfin requests by path; search hits come from `search(name, year)`. */
 function serve(opts: {
   search: (name: string, year: string | null) => unknown[];
-  backdrops?: number;
+  backdropsAt?: () => number;
   downloadStatus?: number;
 }) {
   fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async (
@@ -61,7 +61,7 @@ function serve(opts: {
       return new Response(null, { status: 204 });
     return Response.json({
       BackdropImageTags: Array.from(
-        { length: opts.backdrops ?? 1 },
+        { length: opts.backdropsAt?.() ?? 1 },
         (_, i) => `t${i}`,
       ),
     });
@@ -75,28 +75,40 @@ beforeEach(() => {
 afterEach(() => fetchSpy?.mockRestore());
 
 describe("pickJellyfinCandidate", () => {
-  it("keeps the hit whose TMDB id matches", () => {
-    const hits = [
-      { id: "a", tmdbId: "7" },
-      { id: "b", tmdbId: "42" },
-    ];
-    expect(pickJellyfinCandidate(hits, 42)?.id).toBe("b");
+  const title = { tmdbId: 42, names: ["Dune"], year: 2021 };
+  const hit = (
+    id: string,
+    tmdbId: string | null,
+    name = "Dune",
+    year: number | null = 2021,
+  ) => ({
+    id,
+    tmdbId,
+    name,
+    year,
   });
 
-  it("takes a lone hit with no TMDB id, but not several", () => {
-    expect(pickJellyfinCandidate([{ id: "a", tmdbId: null }], 42)?.id).toBe(
+  it("keeps the hit whose TMDB id matches", () => {
+    expect(
+      pickJellyfinCandidate([hit("a", "7"), hit("b", "42")], title)?.id,
+    ).toBe("b");
+  });
+
+  it("takes a lone unverified hit only when its name and year are the title's", () => {
+    expect(pickJellyfinCandidate([hit("a", null, "dune")], title)?.id).toBe(
       "a",
     );
+    // The search is fuzzy: a longer name is another title
     expect(
-      pickJellyfinCandidate(
-        [
-          { id: "a", tmdbId: null },
-          { id: "b", tmdbId: null },
-        ],
-        42,
-      ),
+      pickJellyfinCandidate([hit("a", null, "Dune: Part Two")], title),
     ).toBeNull();
-    expect(pickJellyfinCandidate([{ id: "a", tmdbId: "7" }], 42)).toBeNull();
+    expect(
+      pickJellyfinCandidate([hit("a", null, "Dune", 1984)], title),
+    ).toBeNull();
+    expect(
+      pickJellyfinCandidate([hit("a", null), hit("b", null)], title),
+    ).toBeNull();
+    expect(pickJellyfinCandidate([hit("a", "7")], title)).toBeNull();
   });
 });
 
@@ -117,9 +129,10 @@ describe("pushArtworkToJellyfin", () => {
   });
 
   it("moves a new backdrop first, where clients read it", async () => {
+    let reads = 0;
     serve({
+      backdropsAt: () => (reads++ === 0 ? 2 : 3),
       search: () => [{ Id: "item-1", ProviderIds: { Tmdb: "42" } }],
-      backdrops: 3,
     });
     expect(
       await pushArtworkToJellyfin(movie, "backdrop", "https://img.test/b.jpg"),
@@ -127,6 +140,17 @@ describe("pushArtworkToJellyfin", () => {
     const move = calls.find((c) => c.url.pathname.endsWith("/Index"));
     expect(move?.url.pathname).toBe("/Items/item-1/Images/Backdrop/2/Index");
     expect(move?.url.searchParams.get("newIndex")).toBe("0");
+  });
+
+  it("leaves the backdrops alone when the download added none", async () => {
+    serve({
+      backdropsAt: () => 3,
+      search: () => [{ Id: "item-1", ProviderIds: { Tmdb: "42" } }],
+    });
+    expect(
+      await pushArtworkToJellyfin(movie, "backdrop", "https://img.test/b.jpg"),
+    ).toBe("synced");
+    expect(calls.some((c) => c.url.pathname.endsWith("/Index"))).toBe(false);
   });
 
   it("falls back to the original title and to no year", async () => {

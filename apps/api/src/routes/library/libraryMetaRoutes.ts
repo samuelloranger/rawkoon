@@ -318,14 +318,18 @@ export const libraryMetaRoutes = new Hono<Env>()
 
         const item = await updateLibraryOverrides(id, merged);
         // Jellyfin clients (the TV app) read artwork from Jellyfin, so a picked image goes there too
-        const artwork_sync: Partial<Record<ArtworkKind, ArtworkSyncResult>> =
-          {};
-        for (const [field, kind] of ARTWORK_FIELDS) {
+        const pushes = ARTWORK_FIELDS.flatMap(([field, kind]) => {
           const url = body[field];
-          if (typeof url === "string" && /^https?:\/\//i.test(url)) {
-            artwork_sync[kind] = await pushArtworkToJellyfin(item, kind, url);
-          }
-        }
+          return typeof url === "string" && /^https?:\/\//i.test(url)
+            ? [
+                pushArtworkToJellyfin(item, kind, url).then(
+                  (result) => [kind, result] as const,
+                ),
+              ]
+            : [];
+        });
+        const artwork_sync: Partial<Record<ArtworkKind, ArtworkSyncResult>> =
+          Object.fromEntries(await Promise.all(pushes));
         return ok({ item: mapLibraryMedia(item), artwork_sync });
       } catch {
         return serverError("Failed to update overrides");
