@@ -124,16 +124,29 @@ describe("rules on a shelf", () => {
   });
 
   it("shows rules to admins only", async () => {
-    const shelf = seedShelf({ rules: HORROR, autoJoin: true });
-    const asAdmin = (await (await call(`/${shelf.id}`)).json()) as {
-      shelf: { rules: unknown; auto_join: boolean };
+    const shelf = seedShelf({
+      rules: { ...HORROR, keywords_any: [207317] },
+      autoJoin: true,
+    });
+    type View = {
+      shelf: {
+        rules: unknown;
+        auto_join: boolean;
+        rule_names?: Record<string, string>;
+      };
     };
-    expect(asAdmin.shelf).toMatchObject({ rules: HORROR, auto_join: true });
+    const asAdmin = (await (await call(`/${shelf.id}`)).json()) as View;
+    expect(asAdmin.shelf).toMatchObject({ auto_join: true });
+    // The editor's chips show names, not bare ids
+    expect(asAdmin.shelf.rule_names).toMatchObject({
+      "genre:27": "Horror",
+      "genre:35": "Comedy",
+      "keyword:207317": "kw 207317",
+    });
     session.user = { ...user };
-    const asUser = (await (await call(`/${shelf.id}`)).json()) as {
-      shelf: { rules: unknown; auto_join: boolean };
-    };
+    const asUser = (await (await call(`/${shelf.id}`)).json()) as View;
     expect(asUser.shelf).toMatchObject({ rules: null, auto_join: false });
+    expect(asUser.shelf.rule_names).toBeUndefined();
   });
 });
 

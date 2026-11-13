@@ -58,6 +58,8 @@ export interface ShelfEntryView {
 
 export interface ShelfDetail extends ShelfSummary {
   entries: ShelfEntryView[];
+  /** Admins only: TMDB names for the ids the rules mention, keyed `keyword:<id>`, `company:<id>`, `network:<id>`, `collection:<id>`, `genre:<id>`. */
+  rule_names?: Record<string, string>;
 }
 
 /** One seed card in the "New shelf" dialog. */

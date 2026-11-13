@@ -33,6 +33,7 @@ import { deleteShelfCover } from "./shelfCoverService";
 import { findSeed, listSeeds, type SeedLanguage } from "./seeds";
 import { entryRowSelect, key, shelfRowSelect } from "./shelfRows";
 import { isVisibleNow } from "./shelfVisibility";
+import { ruleNameMap } from "./shelfLookups";
 import { hasRules } from "./shelfRules";
 import { addRuleMatches, attachRuleReasons } from "./shelfRulesService";
 
@@ -192,11 +193,13 @@ export async function getShelfDetail(
     isAdmin,
     origin,
   });
-  // Reasons are for the editor; everyone else gets rule entries like any other
-  return mapShelfDetail(
-    summary,
-    isAdmin ? await attachRuleReasons(views, rulesOf(shelf.rules)) : views,
-  );
+  // Reasons and rule names are for the editor; everyone else gets rule entries like any other
+  const rules = rulesOf(shelf.rules);
+  if (!isAdmin) return mapShelfDetail(summary, views);
+  const detail = mapShelfDetail(summary, await attachRuleReasons(views, rules));
+  return rules && hasRules(rules)
+    ? { ...detail, rule_names: await ruleNameMap(rules) }
+    : detail;
 }
 
 export function seedSummaries(language: SeedLanguage): ShelfSeedSummary[] {

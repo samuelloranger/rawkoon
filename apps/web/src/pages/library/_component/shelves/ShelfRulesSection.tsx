@@ -47,8 +47,22 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
   const [draft, setDraft] = useState<RulesDraft>(() =>
     draftFromRules(shelf.rules),
   );
-  // Names for picked keywords/companies live only in this session; saved rules carry ids, shown as #id
-  const [names, setNames] = useState(() => new Map<string, string>());
+  // Saved ids get their names from the server; new picks add theirs as they're made
+  const [names, setNames] = useState(
+    () =>
+      new Map(
+        Object.entries(shelf.rule_names ?? {}).flatMap(([key, name]) => {
+          const [kind, id] = key.split(":");
+          const field =
+            kind === "keyword"
+              ? "keywords"
+              : kind === "company"
+                ? "companies"
+                : null;
+          return field ? [[`${field}:${id}`, name] as const] : [];
+        }),
+      ),
+  );
   const patch = (next: Partial<RulesDraft>) =>
     setDraft((d) => ({ ...d, ...next }));
   const toggle = <K extends "genresAny" | "genresNone" | "types">(

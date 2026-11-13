@@ -78,7 +78,7 @@ const ENDPOINT: Record<Exclude<NameKind, "genre">, string> = {
  * Names for every id a set of rules mentions, resolved up front so reasons can be
  * built synchronously. An id TMDB can't name falls back to the number.
  */
-export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
+function ruleIds(rules: ShelfRules): Array<[NameKind, number]> {
   const wanted: Array<[NameKind, number]> = [
     ...(rules.genres_any ?? []),
     ...(rules.genres_none ?? []),
@@ -97,6 +97,11 @@ export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
   ] as Array<[NameKind, number[]]>) {
     for (const id of ids) wanted.push([kind, id]);
   }
+  return wanted;
+}
+
+export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
+  const wanted = ruleIds(rules);
   const apiKey = wanted.length ? await fetchShelfTmdbKey() : null;
   const genres = new Map<number, string>();
   if (apiKey && wanted.some(([kind]) => kind === "genre")) {
@@ -131,4 +136,17 @@ export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
   return (kind, id) =>
     (kind === "genre" ? genres.get(id) : names.get(`${kind}:${id}`)) ??
     String(id);
+}
+
+/** The rules' ids with their names, for the editor's chips; ids TMDB can't name are left out. */
+export async function ruleNameMap(
+  rules: ShelfRules,
+): Promise<Record<string, string>> {
+  const nameOf = await loadRuleNames(rules);
+  const out: Record<string, string> = {};
+  for (const [kind, id] of ruleIds(rules)) {
+    const name = nameOf(kind, id);
+    if (name !== String(id)) out[`${kind}:${id}`] = name;
+  }
+  return out;
 }
