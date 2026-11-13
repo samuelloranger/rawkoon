@@ -138,7 +138,8 @@ export const shelfRoutes = new Hono<Env>()
     const user = c.get("user");
     const all = isFlag(c.req.valid("query").all);
     if (all && !user.is_admin) return forbidden();
-    c.header("Cache-Control", "private, max-age=60");
+    // Editors read this right after a write; a browser cache would show them the old cover
+    c.header("Cache-Control", "private, no-store");
     return ok({
       shelves: await listShelves(user.is_admin, all, originOf(c.req.url)),
     });
@@ -186,7 +187,7 @@ export const shelfRoutes = new Hono<Env>()
       originOf(c.req.url),
     );
     if (!shelf) return notFound("Shelf not found");
-    c.header("Cache-Control", "private, max-age=60");
+    c.header("Cache-Control", "private, no-store");
     return ok({ shelf });
   })
   // POST /api/shelves — create empty, or fill once from a seed
