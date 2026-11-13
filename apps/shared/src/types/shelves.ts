@@ -25,6 +25,9 @@ export interface ShelfSummary {
   visible_to: string | null;
   visible_now: boolean;
   order_mode: ShelfOrderMode;
+  /** The title whose backdrop is the cover, when the style is "backdrop". */
+  cover_tmdb_id: number | null;
+  cover_type: ShelfMediaType | null;
   seed_key: string | null;
 }
 

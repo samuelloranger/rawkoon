@@ -178,6 +178,13 @@ export function mapShelfSummary(input: {
     visible_to: shelf.visibleTo,
     visible_now: isVisibleNow(shelf.visibleFrom, shelf.visibleTo, now),
     order_mode: orderModeOf(shelf.orderMode),
+    cover_tmdb_id: shelf.coverTmdbId,
+    cover_type:
+      shelf.coverType === "show"
+        ? "show"
+        : shelf.coverType === "movie"
+          ? "movie"
+          : null,
     seed_key: shelf.seedKey,
   };
 }
