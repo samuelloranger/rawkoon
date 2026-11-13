@@ -16,6 +16,7 @@ struct AddTitlesSheet: View {
     @State private var library: [LibraryMedia] = []
     @State private var tmdb: [TmdbSearchItem] = []
     @State private var searching = false
+    @State private var searchFailed = false
     @State private var adding: Int?
     @State private var error: String?
 
@@ -80,6 +81,9 @@ struct AddTitlesSheet: View {
                         Text("Searching…")
                             .foregroundStyle(Theme.muted)
                     }
+                } else if candidates.isEmpty, searchFailed {
+                    Text("Couldn't search. Check your connection and try again.")
+                        .foregroundStyle(Theme.muted)
                 } else if candidates.isEmpty {
                     Text("Nothing found.")
                         .foregroundStyle(Theme.muted)
@@ -183,8 +187,12 @@ struct AddTitlesSheet: View {
         defer { searching = false }
         async let libraryResult = try? client.libraryList(q: text, page: 1, limit: 8)
         async let tmdbResult = try? client.tmdbSearch(q: text)
-        library = await (libraryResult)?.items ?? []
-        tmdb = await (tmdbResult)?.items ?? []
+        let (libraryPage, tmdbPage) = await (libraryResult, tmdbResult)
+        // A newer keystroke has taken over; don't overwrite its results with these
+        guard !Task.isCancelled else { return }
+        library = libraryPage?.items ?? []
+        tmdb = tmdbPage?.items ?? []
+        searchFailed = libraryPage == nil && tmdbPage == nil
     }
 
     private func add(_ candidate: Candidate) async {

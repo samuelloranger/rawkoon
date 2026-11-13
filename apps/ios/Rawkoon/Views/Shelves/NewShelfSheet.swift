@@ -11,6 +11,7 @@ struct NewShelfSheet: View {
 
     @State private var name = ""
     @State private var seeds: [ShelfSeed] = []
+    @State private var seedsFailed = false
     @State private var creating = false
     @State private var error: String?
 
@@ -24,7 +25,17 @@ struct NewShelfSheet: View {
                 } footer: {
                     Text("Start empty and add titles once it exists.")
                 }
-                if !seeds.isEmpty {
+                if seedsFailed {
+                    Section("Or start from a recipe") {
+                        HStack {
+                            Text("Couldn't load the recipes.")
+                                .foregroundStyle(Theme.muted)
+                            Spacer()
+                            Button("Retry") { Task { await loadSeeds() } }
+                                .requiresConnection(model.isOffline)
+                        }
+                    }
+                } else if !seeds.isEmpty {
                     Section("Or start from a recipe") {
                         ForEach(seeds) { seed in
                             Button {
@@ -39,6 +50,7 @@ struct NewShelfSheet: View {
                                 }
                             }
                             .disabled(creating)
+                            .requiresConnection(model.isOffline)
                         }
                     }
                 }
@@ -66,10 +78,7 @@ struct NewShelfSheet: View {
                     .requiresConnection(model.isOffline)
                 }
             }
-            .task {
-                guard let client = model.api() else { return }
-                seeds = await (try? client.shelfSeeds()) ?? []
-            }
+            .task { await loadSeeds() }
             .alert(
                 "Couldn't create the shelf",
                 isPresented: Binding(get: { error != nil }, set: {
@@ -82,6 +91,18 @@ struct NewShelfSheet: View {
             } message: {
                 Text(error ?? "")
             }
+        }
+    }
+
+    private func loadSeeds() async {
+        guard let client = model.api() else { return }
+        do {
+            seeds = try await client.shelfSeeds()
+            seedsFailed = false
+        } catch is CancellationError {
+            return
+        } catch {
+            seedsFailed = true
         }
     }
 

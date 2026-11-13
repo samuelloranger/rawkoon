@@ -17402,6 +17402,26 @@
           }
         }
       }
+    },
+    "Couldn't load the recipes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les recettes."
+          }
+        }
+      }
+    },
+    "Couldn't search. Check your connection and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche impossible. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
