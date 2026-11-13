@@ -22,3 +22,4 @@ export * from "./seeding";
 export * from "./request";
 export * from "./transcode";
 export * from "./clips";
+export * from "./shelves";

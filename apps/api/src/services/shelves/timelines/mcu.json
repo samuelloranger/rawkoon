@@ -1,0 +1,376 @@
+{
+  "_comment": "MCU in-universe story order. IDs verified against TMDB; see scripts/verifyMcuTimeline.ts.",
+  "entries": [
+    {
+      "tmdb_id": 1771,
+      "type": "movie",
+      "title": "Captain America: The First Avenger",
+      "year": 2011,
+      "group": "Origins"
+    },
+    {
+      "tmdb_id": 299537,
+      "type": "movie",
+      "title": "Captain Marvel",
+      "year": 2019,
+      "group": "Origins"
+    },
+    {
+      "tmdb_id": 1726,
+      "type": "movie",
+      "title": "Iron Man",
+      "year": 2008,
+      "group": "The Avengers Assemble"
+    },
+    {
+      "tmdb_id": 10138,
+      "type": "movie",
+      "title": "Iron Man 2",
+      "year": 2010,
+      "group": "The Avengers Assemble"
+    },
+    {
+      "tmdb_id": 1724,
+      "type": "movie",
+      "title": "The Incredible Hulk",
+      "year": 2008,
+      "group": "The Avengers Assemble"
+    },
+    {
+      "tmdb_id": 10195,
+      "type": "movie",
+      "title": "Thor",
+      "year": 2011,
+      "group": "The Avengers Assemble"
+    },
+    {
+      "tmdb_id": 24428,
+      "type": "movie",
+      "title": "The Avengers",
+      "year": 2012,
+      "group": "The Avengers Assemble"
+    },
+    {
+      "tmdb_id": 68721,
+      "type": "movie",
+      "title": "Iron Man 3",
+      "year": 2013,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 76338,
+      "type": "movie",
+      "title": "Thor: The Dark World",
+      "year": 2013,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 100402,
+      "type": "movie",
+      "title": "Captain America: The Winter Soldier",
+      "year": 2014,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 118340,
+      "type": "movie",
+      "title": "Guardians of the Galaxy",
+      "year": 2014,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 283995,
+      "type": "movie",
+      "title": "Guardians of the Galaxy Vol. 2",
+      "year": 2017,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 99861,
+      "type": "movie",
+      "title": "Avengers: Age of Ultron",
+      "year": 2015,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 102899,
+      "type": "movie",
+      "title": "Ant-Man",
+      "year": 2015,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 271110,
+      "type": "movie",
+      "title": "Captain America: Civil War",
+      "year": 2016,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 497698,
+      "type": "movie",
+      "title": "Black Widow",
+      "year": 2021,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 284054,
+      "type": "movie",
+      "title": "Black Panther",
+      "year": 2018,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 315635,
+      "type": "movie",
+      "title": "Spider-Man: Homecoming",
+      "year": 2017,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 284052,
+      "type": "movie",
+      "title": "Doctor Strange",
+      "year": 2016,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 284053,
+      "type": "movie",
+      "title": "Thor: Ragnarok",
+      "year": 2017,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 363088,
+      "type": "movie",
+      "title": "Ant-Man and the Wasp",
+      "year": 2018,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 299536,
+      "type": "movie",
+      "title": "Avengers: Infinity War",
+      "year": 2018,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 299534,
+      "type": "movie",
+      "title": "Avengers: Endgame",
+      "year": 2019,
+      "group": "The Infinity Saga"
+    },
+    {
+      "tmdb_id": 84958,
+      "type": "show",
+      "title": "Loki",
+      "year": 2021,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 84958,
+      "type": "show",
+      "title": "Loki",
+      "year": 2021,
+      "group": "The Multiverse Saga",
+      "season": 2
+    },
+    {
+      "tmdb_id": 85271,
+      "type": "show",
+      "title": "WandaVision",
+      "year": 2021,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 88396,
+      "type": "show",
+      "title": "The Falcon and the Winter Soldier",
+      "year": 2021,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 566525,
+      "type": "movie",
+      "title": "Shang-Chi and the Legend of the Ten Rings",
+      "year": 2021,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 429617,
+      "type": "movie",
+      "title": "Spider-Man: Far From Home",
+      "year": 2019,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 524434,
+      "type": "movie",
+      "title": "Eternals",
+      "year": 2021,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 88329,
+      "type": "show",
+      "title": "Hawkeye",
+      "year": 2021,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 92749,
+      "type": "show",
+      "title": "Moon Knight",
+      "year": 2022,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 92783,
+      "type": "show",
+      "title": "She-Hulk: Attorney at Law",
+      "year": 2022,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 92782,
+      "type": "show",
+      "title": "Ms. Marvel",
+      "year": 2022,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 616037,
+      "type": "movie",
+      "title": "Thor: Love and Thunder",
+      "year": 2022,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 505642,
+      "type": "movie",
+      "title": "Black Panther: Wakanda Forever",
+      "year": 2022,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 634649,
+      "type": "movie",
+      "title": "Spider-Man: No Way Home",
+      "year": 2021,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 453395,
+      "type": "movie",
+      "title": "Doctor Strange in the Multiverse of Madness",
+      "year": 2022,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 640146,
+      "type": "movie",
+      "title": "Ant-Man and the Wasp: Quantumania",
+      "year": 2023,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 447365,
+      "type": "movie",
+      "title": "Guardians of the Galaxy Vol. 3",
+      "year": 2023,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 114472,
+      "type": "show",
+      "title": "Secret Invasion",
+      "year": 2023,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 609681,
+      "type": "movie",
+      "title": "The Marvels",
+      "year": 2023,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 122226,
+      "type": "show",
+      "title": "Echo",
+      "year": 2024,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 138501,
+      "type": "show",
+      "title": "Agatha All Along",
+      "year": 2024,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 533535,
+      "type": "movie",
+      "title": "Deadpool & Wolverine",
+      "year": 2024,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 822119,
+      "type": "movie",
+      "title": "Captain America: Brave New World",
+      "year": 2025,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 986056,
+      "type": "movie",
+      "title": "Thunderbolts*",
+      "year": 2025,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 617126,
+      "type": "movie",
+      "title": "The Fantastic Four: First Steps",
+      "year": 2025,
+      "group": "The Multiverse Saga"
+    },
+    {
+      "tmdb_id": 202555,
+      "type": "show",
+      "title": "Daredevil: Born Again",
+      "year": 2025,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 114471,
+      "type": "show",
+      "title": "Ironheart",
+      "year": 2025,
+      "group": "The Multiverse Saga",
+      "season": 1
+    },
+    {
+      "tmdb_id": 241388,
+      "type": "show",
+      "title": "Eyes of Wakanda",
+      "year": 2025,
+      "group": "The Multiverse Saga",
+      "season": 1
+    }
+  ]
+}
