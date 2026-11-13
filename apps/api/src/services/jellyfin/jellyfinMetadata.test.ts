@@ -28,6 +28,7 @@ const movie = {
   title: "The Title",
   originalTitle: null,
   year: 2024,
+  overview: "Rawkoon overview",
 };
 
 type Call = { method: string; url: URL; body: string | null };
@@ -67,8 +68,6 @@ const saved = () =>
     calls.find((c) => c.method === "POST" && c.url.pathname === "/Items/item-1")
       ?.body ?? "{}",
   );
-const refreshed = () =>
-  calls.find((c) => c.url.pathname === "/Items/item-1/Refresh");
 
 beforeEach(() => {
   calls = [];
@@ -90,21 +89,24 @@ describe("pushMetadataToJellyfin", () => {
     // The rest of the item goes back as Jellyfin sent it
     expect(dto.Overview).toBe("Jellyfin overview");
     expect(dto.LockedFields.sort()).toEqual(["Genres", "Name", "Overview"]);
-    expect(refreshed()).toBeUndefined();
+    expect(calls.some((c) => c.url.pathname.endsWith("/Refresh"))).toBe(false);
   });
 
-  it("unlocks a cleared field and refreshes the item without touching its images", async () => {
+  it("gives a cleared field Rawkoon's own value back and unlocks it, without a refresh", async () => {
     serve(true);
     expect(
-      await pushMetadataToJellyfin(movie, { overview: null, sort_title: null }),
+      await pushMetadataToJellyfin(movie, {
+        overview: null,
+        title: "  ",
+        sort_title: null,
+      }),
     ).toBe("synced");
     const dto = saved();
+    expect(dto.Overview).toBe("Rawkoon overview");
+    expect(dto.Name).toBe("The Title");
     expect(dto.LockedFields).toEqual(["Genres"]);
     expect(dto.ForcedSortName).toBeNull();
-    const refresh = refreshed();
-    expect(refresh?.url.searchParams.get("replaceAllMetadata")).toBe("true");
-    expect(refresh?.url.searchParams.get("imageRefreshMode")).toBe("None");
-    expect(refresh?.url.searchParams.get("replaceAllImages")).toBe("false");
+    expect(calls.some((c) => c.url.pathname.endsWith("/Refresh"))).toBe(false);
   });
 
   it("says when Jellyfin doesn't have the title, without writing anything", async () => {

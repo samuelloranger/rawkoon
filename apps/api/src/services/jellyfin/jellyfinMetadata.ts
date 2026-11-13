@@ -21,15 +21,12 @@ export function hasTextChanges(changes: TitleTextChanges): boolean {
   return "title" in changes || "sort_title" in changes || "overview" in changes;
 }
 
-/**
- * Applies the title's name, sort name and overview overrides to its Jellyfin
- * item. A set value is written and locked; a cleared one is unlocked and the
- * item's metadata refreshed, so Jellyfin's own value comes back.
- */
+/** Sets a title's name, sort name and overview in Jellyfin; a cleared one gets Rawkoon's value back, unlocked, with no refresh (it would replace other fields). */
 export function pushMetadataToJellyfin(
-  media: Title,
+  media: Title & { overview: string | null },
   changes: TitleTextChanges,
 ): Promise<ArtworkSyncResult> {
+  const fallback = { title: media.title, overview: media.overview ?? "" };
   return withJellyfinItem(media, "metadata", async (request, item) => {
     const read = await request(`/Items/${item}`);
     if (!read.ok) throw new Error(`Jellyfin item read returned ${read.status}`);
@@ -38,21 +35,17 @@ export function pushMetadataToJellyfin(
       LockedFields?: string[];
     };
     const locked = new Set(dto.LockedFields ?? []);
-    let refresh = false;
     for (const [field, jellyfinField] of LOCKED) {
       if (!(field in changes)) continue;
-      const value = changes[field];
-      if (value) {
-        dto[jellyfinField] = value;
-        locked.add(jellyfinField);
-      } else {
-        locked.delete(jellyfinField);
-        refresh = true;
-      }
+      const value = changes[field]?.trim();
+      dto[jellyfinField] = value || fallback[field];
+      if (value) locked.add(jellyfinField);
+      else locked.delete(jellyfinField);
     }
     // Jellyfin keeps a forced sort name through refreshes, so it needs no lock
-    if ("sort_title" in changes)
-      dto.ForcedSortName = changes.sort_title || null;
+    if ("sort_title" in changes) {
+      dto.ForcedSortName = changes.sort_title?.trim() || null;
+    }
     dto.LockedFields = [...locked];
     const save = await request(`/Items/${item}`, {
       method: "POST",
@@ -61,18 +54,5 @@ export function pushMetadataToJellyfin(
     });
     if (!save.ok)
       throw new Error(`Jellyfin item update returned ${save.status}`);
-    if (!refresh) return;
-    const params = new URLSearchParams({
-      metadataRefreshMode: "FullRefresh",
-      imageRefreshMode: "None",
-      replaceAllMetadata: "true",
-      replaceAllImages: "false",
-    });
-    const refreshed = await request(`/Items/${item}/Refresh?${params}`, {
-      method: "POST",
-    });
-    if (!refreshed.ok) {
-      throw new Error(`Jellyfin refresh returned ${refreshed.status}`);
-    }
   });
 }

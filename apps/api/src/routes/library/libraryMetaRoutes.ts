@@ -314,7 +314,8 @@ export const libraryMetaRoutes = new Hono<Env>()
         const current = (existing.overrides ?? {}) as Record<string, unknown>;
         const merged: Record<string, unknown> = { ...current };
         for (const [key, val] of Object.entries(body)) {
-          if (val === null) {
+          // An empty text override is a cleared one, here and in Jellyfin
+          if (val === null || (typeof val === "string" && val.trim() === "")) {
             delete merged[key];
           } else {
             merged[key] = val;
