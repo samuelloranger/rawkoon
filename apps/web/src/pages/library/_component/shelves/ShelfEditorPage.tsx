@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Dialog } from "@/components/dialog";
 import { AddTitlesDialog } from "./AddTitlesDialog";
+import { ShelfCoverEditor } from "./ShelfCoverEditor";
 import { MonthDayField } from "./MonthDayField";
 import { ShelfCover } from "./ShelfCover";
 
@@ -39,13 +40,11 @@ type Draft = {
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
-  coverStyle: "mosaic" | "backdrop";
+  coverStyle: "mosaic" | "backdrop" | "upload";
   coverTmdbId: number | null;
   coverType: "movie" | "show" | null;
+  coverUrl: string | null;
 };
-
-/** What a shelf's cover title is called in the picker: its type and TMDB id, as the API takes them. */
-const coverValue = (entry: ShelfEntryView) => `${entry.type}-${entry.tmdb_id}`;
 
 const draftOf = (shelf: ShelfDetail): Draft => ({
   name: shelf.name,
@@ -57,6 +56,7 @@ const draftOf = (shelf: ShelfDetail): Draft => ({
   coverStyle: shelf.cover.style,
   coverTmdbId: shelf.cover_tmdb_id,
   coverType: shelf.cover_type,
+  coverUrl: shelf.cover.style === "backdrop" ? shelf.cover.backdrop_url : null,
 });
 
 /** Library → Shelves → one shelf: its settings, and its titles in display order. */
@@ -106,6 +106,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
           cover_style: next.coverStyle,
           cover_tmdb_id: next.coverTmdbId,
           cover_type: next.coverType,
+          cover_url: next.coverStyle === "backdrop" ? next.coverUrl : null,
         },
       }),
     onSuccess: async () => {
@@ -180,8 +181,6 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
     moveEntries.mutate(next);
   };
 
-  const coverChoices = entries;
-
   if (shelf.isLoading || !detail || !draft) return <LoadingState />;
 
   const dirty =
@@ -193,7 +192,10 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
     draft.visibleTo !== detail.visible_to ||
     draft.coverStyle !== detail.cover.style ||
     draft.coverTmdbId !== detail.cover_tmdb_id ||
-    draft.coverType !== detail.cover_type;
+    draft.coverType !== detail.cover_type ||
+    (draft.coverStyle === "backdrop" &&
+      draft.coverUrl !==
+        (detail.cover.style === "backdrop" ? detail.cover.backdrop_url : null));
 
   return (
     <PageLayout>
@@ -352,74 +354,25 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                   {t("shelves.christmasPreset")}
                 </Button>
               </div>
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-neutral-400">
-                  {t("shelves.cover")}
-                </p>
-                <Select
-                  value={draft.coverStyle}
-                  onValueChange={(value) =>
-                    setDraft({
-                      ...draft,
-                      coverStyle: value as "mosaic" | "backdrop",
-                      coverTmdbId:
-                        value === "backdrop" ? draft.coverTmdbId : null,
-                      coverType: value === "backdrop" ? draft.coverType : null,
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mosaic">
-                      {t("shelves.coverMosaic")}
-                    </SelectItem>
-                    <SelectItem value="backdrop">
-                      {t("shelves.coverBackdrop")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {draft.coverStyle === "backdrop" && (
-                  <Select
-                    value={
-                      draft.coverTmdbId != null
-                        ? `${draft.coverType}-${draft.coverTmdbId}`
-                        : "none"
-                    }
-                    onValueChange={(value) => {
-                      if (value === "none") {
-                        setDraft({
-                          ...draft,
-                          coverTmdbId: null,
-                          coverType: null,
-                        });
-                        return;
-                      }
-                      const [type, id] = value.split("-");
-                      setDraft({
-                        ...draft,
-                        coverType: type === "show" ? "show" : "movie",
-                        coverTmdbId: Number(id),
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder={t("shelves.coverPick")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        {t("shelves.coverNone")}
-                      </SelectItem>
-                      {coverChoices.map((entry) => (
-                        <SelectItem key={entry.id} value={coverValue(entry)}>
-                          {entry.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+              <ShelfCoverEditor
+                shelfId={shelfId}
+                style={draft.coverStyle}
+                tmdbId={draft.coverTmdbId}
+                type={draft.coverType}
+                entries={entries}
+                uploadedUrl={
+                  detail.cover.style === "upload" ? detail.cover.url : null
+                }
+                coverUrl={draft.coverUrl}
+                onChange={(next) => setDraft({ ...draft, ...next })}
+                onUploaded={async (shelf) => {
+                  // The upload response is the freshest copy; the list refetch follows
+                  queryClient.setQueryData(queryKeys.shelves.detail(shelfId), {
+                    shelf,
+                  });
+                  await invalidate();
+                }}
+              />
               <Button
                 size="sm"
                 disabled={

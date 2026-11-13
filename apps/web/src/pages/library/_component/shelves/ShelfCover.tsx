@@ -4,7 +4,8 @@ import type { ShelfSummary } from "@rawkoon/shared/types";
 import { cn } from "@/lib/utils";
 
 /**
- * A shelf's cover: its 2×2 poster mosaic, or the backdrop it chose, with the
+ * A shelf's cover: its 2×2 poster mosaic, the backdrop it chose or an uploaded
+ * image, with the
  * name and how many titles it holds over the bottom of the art. The same
  * drawing the TV uses, so a shelf reads the same on every screen.
  */
@@ -18,8 +19,13 @@ export function ShelfCover({
   const { t } = useTranslation("common");
   const posters =
     shelf.cover.style === "mosaic" ? shelf.cover.posters.slice(0, 4) : [];
+  // An uploaded cover is drawn like a backdrop: one image, filling the card
   const backdrop =
-    shelf.cover.style === "backdrop" ? shelf.cover.backdrop_url : null;
+    shelf.cover.style === "backdrop"
+      ? shelf.cover.backdrop_url
+      : shelf.cover.style === "upload"
+        ? shelf.cover.url
+        : null;
   return (
     <div
       className={cn(

@@ -3490,6 +3490,15 @@
     "type": {
       "movie": "Movie",
       "show": "Show"
-    }
+    },
+    "coverUpload": "An uploaded image",
+    "coverUploadPick": "Upload an image",
+    "coverUploading": "Uploading…",
+    "coverUploadHint": "PNG, JPEG, GIF or WebP, up to 5 MB.",
+    "coverUploaded": "Cover uploaded.",
+    "coverUploadError": "Couldn't upload the cover.",
+    "coverSearchTmdb": "Or search TMDB for a backdrop",
+    "coverCurrent": "Current cover title",
+    "coverPickImage": "Use this backdrop"
   }
 }

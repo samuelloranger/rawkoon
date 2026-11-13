@@ -3490,6 +3490,15 @@
     "type": {
       "movie": "Film",
       "show": "Série"
-    }
+    },
+    "coverUpload": "Une image téléversée",
+    "coverUploadPick": "Téléverser une image",
+    "coverUploading": "Téléversement…",
+    "coverUploadHint": "PNG, JPEG, GIF ou WebP, jusqu'à 5 Mo.",
+    "coverUploaded": "Couverture téléversée.",
+    "coverUploadError": "Impossible de téléverser la couverture.",
+    "coverSearchTmdb": "Ou chercher un fond sur TMDB",
+    "coverCurrent": "Titre de la couverture",
+    "coverPickImage": "Utiliser ce fond"
   }
 }

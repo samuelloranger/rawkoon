@@ -9,6 +9,9 @@ export const SHELVES_ENDPOINTS = {
   ORDER: "/api/shelves/order",
   SEEDS: (language: string) =>
     `/api/shelves/seeds?lang=${encodeURIComponent(language)}`,
+  COVER: (id: number) => `/api/shelves/${id}/cover`,
+  COVER_CANDIDATES: (tmdbId: number, type: "movie" | "show") =>
+    `/api/shelves/cover-candidates?tmdb_id=${tmdbId}&type=${type}`,
   ENTRIES: (id: number) => `/api/shelves/${id}/entries`,
   ENTRY: (id: number, entryId: number) =>
     `/api/shelves/${id}/entries/${entryId}`,
