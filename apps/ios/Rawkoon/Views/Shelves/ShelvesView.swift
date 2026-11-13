@@ -51,9 +51,8 @@ struct ShelvesView: View {
             }
         }
         .sheet(isPresented: $newShelfOpen) {
-            NewShelfSheet { created in
-                shelves.append(created.summary)
-                shelves.sort { $0.id < $1.id }
+            NewShelfSheet { _ in
+                Task { await load() }
             }
             .environment(model)
         }
@@ -143,6 +142,7 @@ struct ShelvesView: View {
                             } label: {
                                 Label("Delete shelf", systemImage: "trash")
                             }
+                            .requiresConnection(model.isOffline)
                         }
                     }
                 }
