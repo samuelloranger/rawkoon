@@ -6,161 +6,184 @@
       "type": "movie",
       "title": "Captain America: The First Avenger",
       "year": 2011,
-      "group": "Origins"
+      "group": "Origins",
+      "poster_path": "/vSNxAJTlD0r02V9sPYpOjqDZXUK.jpg"
     },
     {
       "tmdb_id": 299537,
       "type": "movie",
       "title": "Captain Marvel",
       "year": 2019,
-      "group": "Origins"
+      "group": "Origins",
+      "poster_path": "/AtsgWhDnHTq68L0lLsUrCnM7TjG.jpg"
     },
     {
       "tmdb_id": 1726,
       "type": "movie",
       "title": "Iron Man",
       "year": 2008,
-      "group": "The Avengers Assemble"
+      "group": "The Avengers Assemble",
+      "poster_path": "/78lPtwv72eTNqFW9COBYI0dWDJa.jpg"
     },
     {
       "tmdb_id": 10138,
       "type": "movie",
       "title": "Iron Man 2",
       "year": 2010,
-      "group": "The Avengers Assemble"
+      "group": "The Avengers Assemble",
+      "poster_path": "/6WBeq4fCfn7AN0o21W9qNcRF2l9.jpg"
     },
     {
       "tmdb_id": 1724,
       "type": "movie",
       "title": "The Incredible Hulk",
       "year": 2008,
-      "group": "The Avengers Assemble"
+      "group": "The Avengers Assemble",
+      "poster_path": "/gKzYx79y0AQTL4UAk1cBQJ3nvrm.jpg"
     },
     {
       "tmdb_id": 10195,
       "type": "movie",
       "title": "Thor",
       "year": 2011,
-      "group": "The Avengers Assemble"
+      "group": "The Avengers Assemble",
+      "poster_path": "/prSfAi1xGrhLQNxVSUFh61xQ4Qy.jpg"
     },
     {
       "tmdb_id": 24428,
       "type": "movie",
       "title": "The Avengers",
       "year": 2012,
-      "group": "The Avengers Assemble"
+      "group": "The Avengers Assemble",
+      "poster_path": "/RYMX2wcKCBAr24UyPD7xwmjaTn.jpg"
     },
     {
       "tmdb_id": 68721,
       "type": "movie",
       "title": "Iron Man 3",
       "year": 2013,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/qhPtAc1TKbMPqNvcdXSOn9Bn7hZ.jpg"
     },
     {
       "tmdb_id": 76338,
       "type": "movie",
       "title": "Thor: The Dark World",
       "year": 2013,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/wp6OxE4poJ4G7c0U2ZIXasTSMR7.jpg"
     },
     {
       "tmdb_id": 100402,
       "type": "movie",
       "title": "Captain America: The Winter Soldier",
       "year": 2014,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/tVFRpFw3xTedgPGqxW0AOI8Qhh0.jpg"
     },
     {
       "tmdb_id": 118340,
       "type": "movie",
       "title": "Guardians of the Galaxy",
       "year": 2014,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/r7vmZjiyZw9rpJMQJdXpjgiCOk9.jpg"
     },
     {
       "tmdb_id": 283995,
       "type": "movie",
       "title": "Guardians of the Galaxy Vol. 2",
       "year": 2017,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/y4MBh0EjBlMuOzv9axM4qJlmhzz.jpg"
     },
     {
       "tmdb_id": 99861,
       "type": "movie",
       "title": "Avengers: Age of Ultron",
       "year": 2015,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/4ssDuvEDkSArWEdyBl2X5EHvYKU.jpg"
     },
     {
       "tmdb_id": 102899,
       "type": "movie",
       "title": "Ant-Man",
       "year": 2015,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/rQRnQfUl3kfp78nCWq8Ks04vnq1.jpg"
     },
     {
       "tmdb_id": 271110,
       "type": "movie",
       "title": "Captain America: Civil War",
       "year": 2016,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/rAGiXaUfPzY7CDEyNKUofk3Kw2e.jpg"
     },
     {
       "tmdb_id": 497698,
       "type": "movie",
       "title": "Black Widow",
       "year": 2021,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/qAZ0pzat24kLdO3o8ejmbLxyOac.jpg"
     },
     {
       "tmdb_id": 284054,
       "type": "movie",
       "title": "Black Panther",
       "year": 2018,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/uxzzxijgPIY7slzFvMotPv8wjKA.jpg"
     },
     {
       "tmdb_id": 315635,
       "type": "movie",
       "title": "Spider-Man: Homecoming",
       "year": 2017,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/c24sv2weTHPsmDa7jEMN0m2P3RT.jpg"
     },
     {
       "tmdb_id": 284052,
       "type": "movie",
       "title": "Doctor Strange",
       "year": 2016,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/uGBVj3bEbCoZbDjjl9wTxcygko1.jpg"
     },
     {
       "tmdb_id": 284053,
       "type": "movie",
       "title": "Thor: Ragnarok",
       "year": 2017,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/rzRwTcFvttcN1ZpX2xv4j3tSdJu.jpg"
     },
     {
       "tmdb_id": 363088,
       "type": "movie",
       "title": "Ant-Man and the Wasp",
       "year": 2018,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/cFQEO687n1K6umXbInzocxcnAQz.jpg"
     },
     {
       "tmdb_id": 299536,
       "type": "movie",
       "title": "Avengers: Infinity War",
       "year": 2018,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
     },
     {
       "tmdb_id": 299534,
       "type": "movie",
       "title": "Avengers: Endgame",
       "year": 2019,
-      "group": "The Infinity Saga"
+      "group": "The Infinity Saga",
+      "poster_path": "/jtDv3lCnST0fZRvdYFwR5CVwK2x.jpg"
     },
     {
       "tmdb_id": 84958,
@@ -168,7 +191,8 @@
       "title": "Loki",
       "year": 2021,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg"
     },
     {
       "tmdb_id": 84958,
@@ -176,7 +200,8 @@
       "title": "Loki",
       "year": 2021,
       "group": "The Multiverse Saga",
-      "season": 2
+      "season": 2,
+      "poster_path": "/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg"
     },
     {
       "tmdb_id": 85271,
@@ -184,7 +209,8 @@
       "title": "WandaVision",
       "year": 2021,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg"
     },
     {
       "tmdb_id": 88396,
@@ -192,28 +218,32 @@
       "title": "The Falcon and the Winter Soldier",
       "year": 2021,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/6kbAMLteGO8yyewYau6bJ683sw7.jpg"
     },
     {
       "tmdb_id": 566525,
       "type": "movie",
       "title": "Shang-Chi and the Legend of the Ten Rings",
       "year": 2021,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/9f2Q0U3IOsLgrI2HkvldwSABZy5.jpg"
     },
     {
       "tmdb_id": 429617,
       "type": "movie",
       "title": "Spider-Man: Far From Home",
       "year": 2019,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/4q2NNj4S5dG2RLF9CpXsej7yXl.jpg"
     },
     {
       "tmdb_id": 524434,
       "type": "movie",
       "title": "Eternals",
       "year": 2021,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/lFByFSLV5WDJEv3KabbdAF959F2.jpg"
     },
     {
       "tmdb_id": 88329,
@@ -221,7 +251,8 @@
       "title": "Hawkeye",
       "year": 2021,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/ct5pNE5dDHryHLDnxyZPYcqO1sz.jpg"
     },
     {
       "tmdb_id": 92749,
@@ -229,7 +260,8 @@
       "title": "Moon Knight",
       "year": 2022,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/9K3lbMf8TKvL9xGEbzi7TggWCNQ.jpg"
     },
     {
       "tmdb_id": 92783,
@@ -237,7 +269,8 @@
       "title": "She-Hulk: Attorney at Law",
       "year": 2022,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/5xz2orV8f0usyrfGNshcoXHmiaV.jpg"
     },
     {
       "tmdb_id": 92782,
@@ -245,49 +278,56 @@
       "title": "Ms. Marvel",
       "year": 2022,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/3HWWh92kZbD7odwJX7nKmXNZsYo.jpg"
     },
     {
       "tmdb_id": 616037,
       "type": "movie",
       "title": "Thor: Love and Thunder",
       "year": 2022,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/pIkRyD18kl4FhoCNQuWxWu5cBLM.jpg"
     },
     {
       "tmdb_id": 505642,
       "type": "movie",
       "title": "Black Panther: Wakanda Forever",
       "year": 2022,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/sv1xJUazXeYqALzczSZ3O6nkH75.jpg"
     },
     {
       "tmdb_id": 634649,
       "type": "movie",
       "title": "Spider-Man: No Way Home",
       "year": 2021,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg"
     },
     {
       "tmdb_id": 453395,
       "type": "movie",
       "title": "Doctor Strange in the Multiverse of Madness",
       "year": 2022,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/ddJcSKbcp4rKZTmuyWaMhuwcfMz.jpg"
     },
     {
       "tmdb_id": 640146,
       "type": "movie",
       "title": "Ant-Man and the Wasp: Quantumania",
       "year": 2023,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/qnqGbB22YJ7dSs4o6M7exTpNxPz.jpg"
     },
     {
       "tmdb_id": 447365,
       "type": "movie",
       "title": "Guardians of the Galaxy Vol. 3",
       "year": 2023,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg"
     },
     {
       "tmdb_id": 114472,
@@ -295,14 +335,16 @@
       "title": "Secret Invasion",
       "year": 2023,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/3rINdUPSy9AklJg74jWHOyUXuZd.jpg"
     },
     {
       "tmdb_id": 609681,
       "type": "movie",
       "title": "The Marvels",
       "year": 2023,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/9GBhzXMFjgcZ3FdR9w3bUMMTps5.jpg"
     },
     {
       "tmdb_id": 122226,
@@ -310,7 +352,8 @@
       "title": "Echo",
       "year": 2024,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/vFyJH630cF68LohVYjQW49074Sy.jpg"
     },
     {
       "tmdb_id": 138501,
@@ -318,35 +361,40 @@
       "title": "Agatha All Along",
       "year": 2024,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/mGsxKwXUjojitRv2E9qMTbxbBRd.jpg"
     },
     {
       "tmdb_id": 533535,
       "type": "movie",
       "title": "Deadpool & Wolverine",
       "year": 2024,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"
     },
     {
       "tmdb_id": 822119,
       "type": "movie",
       "title": "Captain America: Brave New World",
       "year": 2025,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/pzIddUEMWhWzfvLI3TwxUG2wGoi.jpg"
     },
     {
       "tmdb_id": 986056,
       "type": "movie",
       "title": "Thunderbolts*",
       "year": 2025,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/hqcexYHbiTBfDIdDWxrxPtVndBX.jpg"
     },
     {
       "tmdb_id": 617126,
       "type": "movie",
       "title": "The Fantastic Four: First Steps",
       "year": 2025,
-      "group": "The Multiverse Saga"
+      "group": "The Multiverse Saga",
+      "poster_path": "/nf5qaSEvyYSNeFH0YhSs5EsBLX9.jpg"
     },
     {
       "tmdb_id": 202555,
@@ -354,7 +402,8 @@
       "title": "Daredevil: Born Again",
       "year": 2025,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/xDUoAsU8lQHOOoRkFiBuarmACDN.jpg"
     },
     {
       "tmdb_id": 114471,
@@ -362,7 +411,8 @@
       "title": "Ironheart",
       "year": 2025,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/dOh6MJpdlQhYpLBhzhNQeYGKTZ5.jpg"
     },
     {
       "tmdb_id": 241388,
@@ -370,7 +420,8 @@
       "title": "Eyes of Wakanda",
       "year": 2025,
       "group": "The Multiverse Saga",
-      "season": 1
+      "season": 1,
+      "poster_path": "/yuOfb1MgnaGPa4guzV0n1IFYVGN.jpg"
     }
   ]
 }

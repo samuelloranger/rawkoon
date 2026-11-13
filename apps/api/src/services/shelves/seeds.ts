@@ -81,7 +81,8 @@ function loadMcu(): SeedEntry[] {
     season: "season" in entry ? (entry.season ?? null) : null,
     title: entry.title,
     year: entry.year,
-    posterPath: null,
+    // Shipped with the list: a curated shelf's cover needs its posters without a TMDB call
+    posterPath: entry.poster_path ?? null,
     groupLabel: entry.group,
   }));
 }
