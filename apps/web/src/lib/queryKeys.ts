@@ -17,6 +17,15 @@ export const queryKeys = {
     app: () => [...queryKeys.settings.all, "app"] as const,
   },
 
+  shelves: {
+    all: ["shelves"] as const,
+    list: (includeAll: boolean) =>
+      [...queryKeys.shelves.all, "list", includeAll] as const,
+    detail: (id: number) => [...queryKeys.shelves.all, "detail", id] as const,
+    seeds: (language: string) =>
+      [...queryKeys.shelves.all, "seeds", language] as const,
+  },
+
   books: {
     all: ["books"] as const,
     list: (params?: {
