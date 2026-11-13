@@ -15,6 +15,8 @@ struct AddToShelfSheet: View {
     @State private var busy = false
     @State private var newName = ""
     @State private var creating = false
+    /// A shelf created whose add then failed, so a retry only adds instead of creating a second one.
+    @State private var created: (id: Int, name: String)?
     @State private var error: String?
 
     private var manual: [ShelfMembership] {
@@ -139,11 +141,21 @@ struct AddToShelfSheet: View {
         guard let client = model.api() else { return }
         creating = true
         defer { creating = false }
+        let name = newName.trimmingCharacters(in: .whitespaces)
         do {
-            let shelf = try await client.createShelf(name: newName.trimmingCharacters(in: .whitespaces))
-            try await client.addShelfEntry(shelfId: shelf.id, tmdbId: item.tmdbId, type: item.type)
+            if created?.name != name {
+                let shelf = try await client.createShelf(name: name)
+                created = (shelf.id, name)
+                // Show the new shelf even if the add below fails
+                onChange()
+                await load()
+            }
+            if let created {
+                try await client.addShelfEntry(shelfId: created.id, tmdbId: item.tmdbId, type: item.type)
+                model.toast(String(localized: "Added to \(created.name)."), style: .success)
+            }
+            created = nil
             newName = ""
-            model.toast(String(localized: "Added to \(shelf.name)."), style: .success)
             onChange()
             await load()
         } catch let apiError as APIError {
