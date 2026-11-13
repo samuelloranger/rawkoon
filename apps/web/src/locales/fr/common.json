@@ -3526,7 +3526,7 @@
       "ratingMin": "Note minimum",
       "lookupPlaceholder": "Rechercher sur TMDB",
       "lookupError": "La recherche est indisponible.",
-      "remove": "Retirer",
+      "remove": "Retirer {{name}}",
       "save": "Enregistrer les règles",
       "saved": "Règles enregistrées",
       "clear": "Effacer les règles",

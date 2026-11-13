@@ -278,7 +278,7 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
           label={t("shelves.rules.certifications")}
           hint={t("shelves.rules.certificationsHint")}
           values={draft.certifications}
-          parse={(text) => (text ? text.slice(0, 12) : null)}
+          parse={(text) => (text ? text.toUpperCase().slice(0, 12) : null)}
           onChange={(certifications) => patch({ certifications })}
         />
         <NumberField

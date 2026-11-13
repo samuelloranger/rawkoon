@@ -26,9 +26,9 @@ const Chip = ({
         type="button"
         aria-label={removeLabel}
         onClick={onRemove}
-        className="focus-ring shrink-0 text-neutral-400 hover:text-neutral-100"
+        className="focus-ring -m-1 shrink-0 p-1 text-neutral-400 hover:text-neutral-100"
       >
-        <X size={12} />
+        <X size={14} />
       </button>
     )}
   </span>
@@ -68,7 +68,7 @@ export function GenrePills({
           aria-pressed={selected.includes(genre.id)}
           onClick={() => onToggle(genre.id)}
           className={cn(
-            "focus-ring rounded-full border px-2.5 py-1 text-xs",
+            "focus-ring min-h-9 rounded-full border px-3 py-1.5 text-xs",
             selected.includes(genre.id)
               ? "border-primary-400 bg-primary-500/20 text-neutral-100"
               : "border-neutral-700 text-neutral-400 hover:text-neutral-200",
@@ -119,7 +119,9 @@ export function LookupField({
           {ids.map((id) => (
             <Chip
               key={id}
-              removeLabel={t("shelves.rules.remove")}
+              removeLabel={t("shelves.rules.remove", {
+                name: names.get(`${kind}:${id}`) ?? `#${id}`,
+              })}
               onRemove={() => onRemove(id)}
             >
               {names.get(`${kind}:${id}`) ?? `#${id}`}
@@ -195,7 +197,7 @@ export function TokenField<T extends string | number>({
           {values.map((value) => (
             <Chip
               key={value}
-              removeLabel={t("shelves.rules.remove")}
+              removeLabel={t("shelves.rules.remove", { name: value })}
               onRemove={() => onChange(values.filter((v) => v !== value))}
             >
               {value}

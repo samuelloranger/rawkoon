@@ -3526,7 +3526,7 @@
       "ratingMin": "Minimum rating",
       "lookupPlaceholder": "Search TMDB",
       "lookupError": "Search is unavailable.",
-      "remove": "Remove",
+      "remove": "Remove {{name}}",
       "save": "Save rules",
       "saved": "Rules saved",
       "clear": "Clear rules",

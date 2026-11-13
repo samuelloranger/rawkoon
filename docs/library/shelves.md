@@ -47,17 +47,19 @@ and outside that window only administrators see it.
 A shelf can also fill itself from rules over the library's title facts: types,
 genres to include or exclude, keywords, companies, networks, a TMDB collection,
 year range, minimum votes and rating, and certifications. Unset fields don't
-filter. Keywords and companies are picked from a TMDB search; saved rules store
-only ids, so a reloaded chip shows `#id` until it is picked again.
+filter. Keywords and companies are picked from a TMDB search, and saved ones show
+their TMDB names.
 
 - **Preview** lists what the current (unsaved) rules select, with the reason each
-  title matches. Titles a *exclude* rule removed are listed apart, and **Pin in**
+  title matches. Titles an exclusion rule removed are listed apart, and **Pin in**
   adds one by hand.
 - **Seed from rules** adds the saved rules' current matches once. Titles you
   removed from the shelf stay out.
 - **Auto-join** adds matching titles by itself as the library grows. It needs
   saved rules, and clearing the rules turns it off.
 - Titles a rule added carry a **Rule** badge and the reason.
+- Removing a title a rule added keeps it under **Removed titles**, so the rules
+  never add it back; **Put back** returns it to the shelf.
 
 ## On the TV
 
