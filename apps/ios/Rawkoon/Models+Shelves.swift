@@ -66,9 +66,19 @@ nonisolated struct ShelfEntry: Decodable, Identifiable, Hashable, Sendable {
     let position: Int
     let inLibrary: Bool
     let libraryId: Int?
+    /// "manual" or "rule"; the rule fields only reach administrators.
+    let source: String?
+    /// Why a rule added this title; possibly empty once the rules changed.
+    let reason: [String]?
+    /// Removed by an administrator after rules added it; only sent when asked with `?excluded=1`.
+    let excluded: Bool?
 
     var isMovie: Bool {
         type == "movie"
+    }
+
+    var isRuleEntry: Bool {
+        source == "rule"
     }
 }
 
@@ -89,6 +99,11 @@ nonisolated struct ShelfDetail: Decodable, Hashable, Sendable {
     let coverType: String?
     let seedKey: String?
     let entries: [ShelfEntry]
+    /// Administrators only.
+    let rules: ShelfRules?
+    let autoJoin: Bool?
+    /// Names for saved ids, keyed `keyword:<id>` / `company:<id>` / ...
+    let ruleNames: [String: String]?
 
     var summary: ShelfSummary {
         ShelfSummary(
@@ -207,4 +222,148 @@ nonisolated struct MoveShelfEntry: Encodable, Sendable {
 
 nonisolated struct MoveShelfEntryBody: Encodable, Sendable {
     let entries: [MoveShelfEntry]
+}
+
+// MARK: - Rules
+
+/// What a shelf's rules select from the library; unset fields don't constrain.
+nonisolated struct ShelfRules: Codable, Hashable, Sendable {
+    var types: [String]?
+    var genresAny: [Int]?
+    var genresNone: [Int]?
+    var keywordsAny: [Int]?
+    var keywordsNone: [Int]?
+    var companiesAny: [Int]?
+    var networksAny: [Int]?
+    var tmdbCollection: Int?
+    var yearMin: Int?
+    var yearMax: Int?
+    var votesMin: Int?
+    var ratingMin: Double?
+    var certifications: [String]?
+}
+
+/// The editor's form state. Numbers stay text so a half-typed field doesn't fight the user.
+nonisolated struct ShelfRulesDraft: Equatable, Sendable {
+    var types: [String] = []
+    var genresAny: [Int] = []
+    var genresNone: [Int] = []
+    var keywordsAny: [Int] = []
+    var keywordsNone: [Int] = []
+    var companiesAny: [Int] = []
+    var networksAny: [Int] = []
+    var collection = ""
+    var yearMin = ""
+    var yearMax = ""
+    var votesMin = ""
+    var ratingMin = ""
+    var certifications: [String] = []
+
+    init() {}
+
+    init(_ rules: ShelfRules?) {
+        types = rules?.types ?? []
+        genresAny = rules?.genresAny ?? []
+        genresNone = rules?.genresNone ?? []
+        keywordsAny = rules?.keywordsAny ?? []
+        keywordsNone = rules?.keywordsNone ?? []
+        companiesAny = rules?.companiesAny ?? []
+        networksAny = rules?.networksAny ?? []
+        collection = rules?.tmdbCollection.map(String.init) ?? ""
+        yearMin = rules?.yearMin.map(String.init) ?? ""
+        yearMax = rules?.yearMax.map(String.init) ?? ""
+        votesMin = rules?.votesMin.map(String.init) ?? ""
+        ratingMin = rules?.ratingMin.map { String($0) } ?? ""
+        certifications = rules?.certifications ?? []
+    }
+
+    private static func integer(_ text: String) -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        if let whole = Int(trimmed) {
+            return whole
+        }
+        return Double(trimmed.replacingOccurrences(of: ",", with: ".")).flatMap { $0.isFinite ? Int($0) : nil }
+    }
+
+    /// Unset fields are dropped, and a draft with nothing set is nil (no rules), never `{}`.
+    var rules: ShelfRules? {
+        var rules = ShelfRules()
+        func list<T>(_ values: [T]) -> [T]? {
+            values.isEmpty ? nil : values
+        }
+        rules.types = list(["movie", "show"].filter(types.contains))
+        rules.genresAny = list(genresAny)
+        rules.genresNone = list(genresNone)
+        rules.keywordsAny = list(keywordsAny)
+        rules.keywordsNone = list(keywordsNone)
+        rules.companiesAny = list(companiesAny)
+        rules.networksAny = list(networksAny)
+        rules.certifications = list(
+            certifications.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        )
+        rules.tmdbCollection = Self.integer(collection).flatMap { $0 > 0 ? $0 : nil }
+        rules.yearMin = Self.integer(yearMin)
+        rules.yearMax = Self.integer(yearMax)
+        rules.votesMin = Self.integer(votesMin)
+        let rating = ratingMin.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+        rules.ratingMin = Double(rating).flatMap { $0.isFinite ? $0 : nil }
+        return rules == ShelfRules() ? nil : rules
+    }
+}
+
+/// A TMDB keyword or company, for the rules search.
+nonisolated struct ShelfLookupItem: Decodable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+}
+
+nonisolated struct ShelfLookupResponse: Decodable, Sendable {
+    let items: [ShelfLookupItem]
+}
+
+/// One title in a rules preview.
+nonisolated struct ShelfPreviewTitle: Decodable, Identifiable, Hashable, Sendable {
+    let tmdbId: Int
+    let type: String
+    let title: String
+    let year: Int?
+    let posterUrl: String?
+    /// Already on the shelf (and not excluded).
+    let inShelf: Bool
+    /// Matches: the rule parts that selected it. Excluded: the `*_none` parts that removed it.
+    let reason: [String]
+
+    var id: String {
+        "\(type)-\(tmdbId)"
+    }
+}
+
+nonisolated struct ShelfPreview: Decodable, Sendable {
+    let matches: [ShelfPreviewTitle]
+    /// Titles a `*_none` rule removed, so an administrator can pin them in by hand.
+    let excluded: [ShelfPreviewTitle]
+    /// Either list was cut at the server's cap.
+    let truncated: Bool
+}
+
+nonisolated struct PreviewShelfRulesBody: Encodable, Sendable {
+    let rules: ShelfRules
+}
+
+/// The server reads an omitted `rules` as "unchanged", so clearing must send an explicit null.
+nonisolated struct SaveShelfRulesBody: Encodable, Sendable {
+    let rules: ShelfRules?
+
+    private enum CodingKeys: String, CodingKey {
+        case rules
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(rules, forKey: .rules)
+    }
+}
+
+nonisolated struct ShelfAutoJoinBody: Encodable, Sendable {
+    let autoJoin: Bool
 }

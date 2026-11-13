@@ -19,6 +19,10 @@ struct ShelfEditorView: View {
     @State private var coverStyle: String
     @State private var coverEntryId: Int?
     @State private var entries: [ShelfEntry]
+    /// The server's order, which `entries` is compared against; rules can add titles behind the editor's back.
+    @State private var baseline: [ShelfEntry]
+    /// Rule titles an administrator removed; kept so the rules never add them back.
+    @State private var removed: [ShelfEntry] = []
     @State private var saving = false
     @State private var addTitlesOpen = false
     /// Adds and removes hit the server at once; this marks that the page behind needs a refetch.
@@ -39,6 +43,7 @@ struct ShelfEditorView: View {
             $0.tmdbId == detail.coverTmdbId && $0.type == (detail.coverType ?? "movie")
         }?.id)
         _entries = State(initialValue: detail.entries)
+        _baseline = State(initialValue: detail.entries)
     }
 
     private var coverEntry: ShelfEntry? {
@@ -46,7 +51,7 @@ struct ShelfEditorView: View {
     }
 
     private var savedCoverEntryId: Int? {
-        detail.entries.first {
+        baseline.first {
             $0.tmdbId == detail.coverTmdbId && $0.type == (detail.coverType ?? "movie")
         }?.id
     }
@@ -61,8 +66,8 @@ struct ShelfEditorView: View {
             until != MonthDay(detail.visibleTo),
             coverStyle != detail.cover.style,
             coverEntryId != savedCoverEntryId,
-            entries.map(\.id) != detail.entries.map(\.id),
-            entries.map(\.groupLabel) != detail.entries.map(\.groupLabel),
+            entries.map(\.id) != baseline.map(\.id),
+            entries.map(\.groupLabel) != baseline.map(\.groupLabel),
         ]
         return changed.contains(true)
     }
@@ -74,7 +79,12 @@ struct ShelfEditorView: View {
                 orderSection
                 windowSection
                 coverSection
+                ShelfRulesSections(detail: detail) { fresh in
+                    merge(fresh)
+                    wroteTitles = true
+                }
                 titlesSection
+                removedSection
             }
             .scrollContentBackground(.hidden)
             .background(Theme.base)
@@ -100,6 +110,7 @@ struct ShelfEditorView: View {
                 }
             }
             .onDisappear { reportTitleWrites() }
+            .task { await loadRemoved() }
             .sheet(isPresented: $addTitlesOpen) {
                 AddTitlesSheet(shelfId: detail.id, onShelf: entries) { added in
                     if !entries.contains(where: { $0.id == added.id }) {
@@ -219,6 +230,68 @@ struct ShelfEditorView: View {
         }
     }
 
+    private var removedSection: some View {
+        Section {
+            ForEach(removed) { entry in
+                HStack {
+                    Text(verbatim: [entry.title, entry.year.map(String.init)]
+                        .compactMap(\.self).joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Put back") { Task { await putBack(entry) } }
+                        .buttonStyle(.bordered)
+                        .requiresConnection(model.isOffline)
+                }
+            }
+        } header: {
+            if !removed.isEmpty {
+                Text("Removed titles")
+            }
+        } footer: {
+            if !removed.isEmpty {
+                Text("Rules skip these titles. Put one back to add it again.")
+            }
+        }
+    }
+
+    private func loadRemoved() async {
+        guard let client = model.api() else { return }
+        if let fresh = try? await client.shelf(id: detail.id, includeExcluded: true) {
+            merge(fresh)
+        }
+    }
+
+    /// Takes the server's titles without losing the order or group names edited here.
+    private func merge(_ fresh: ShelfDetail) {
+        let live = fresh.entries.filter { $0.excluded != true }
+        removed = fresh.entries.filter { $0.excluded == true }
+        var byId = Dictionary(uniqueKeysWithValues: live.map { ($0.id, $0) })
+        var merged: [ShelfEntry] = []
+        for local in entries {
+            guard var current = byId.removeValue(forKey: local.id) else { continue }
+            current.groupLabel = local.groupLabel
+            merged.append(current)
+        }
+        merged += live.filter { byId[$0.id] != nil }
+        entries = merged
+        baseline = live
+    }
+
+    private func putBack(_ entry: ShelfEntry) async {
+        guard let client = model.api() else { return }
+        do {
+            try await client.addShelfEntry(
+                shelfId: detail.id, tmdbId: entry.tmdbId, type: entry.type, season: entry.season
+            )
+            wroteTitles = true
+            await loadRemoved()
+        } catch {
+            model.toast(String(localized: "Couldn't add the title."), style: .error)
+        }
+    }
+
     private func save() async {
         guard let client = model.api() else { return }
         saving = true
@@ -238,8 +311,8 @@ struct ShelfEditorView: View {
                 clearCoverUrl: coverStyle == "backdrop" && coverEntryId != savedCoverEntryId
             )
             var updated = try await client.updateShelf(id: detail.id, body: body)
-            let orderChanged = entries.map(\.id) != detail.entries.map(\.id) ||
-                entries.map(\.groupLabel) != detail.entries.map(\.groupLabel)
+            let orderChanged = entries.map(\.id) != baseline.map(\.id) ||
+                entries.map(\.groupLabel) != baseline.map(\.groupLabel)
             if orderChanged {
                 try await client.moveShelfEntries(shelfId: detail.id, entries: entries)
                 updated = try await client.shelf(id: detail.id)
@@ -273,6 +346,9 @@ struct ShelfEditorView: View {
         do {
             try await client.removeShelfEntry(shelfId: detail.id, entryId: entry.id)
             wroteTitles = true
+            if entry.isRuleEntry {
+                await loadRemoved()
+            }
         } catch {
             // Put the row back where it was, since the server still has it
             entries.insert(entry, at: min(index, entries.count))
@@ -304,6 +380,17 @@ private struct ShelfEditorRow: View {
                     .compactMap(\.self).joined(separator: " · "))
                     .font(.caption2)
                     .foregroundStyle(Theme.muted)
+                if entry.isRuleEntry {
+                    HStack(spacing: 4) {
+                        RuleChip(text: String(localized: "Rule"))
+                        if let reason = entry.reason, !reason.isEmpty {
+                            Text(verbatim: reason.joined(separator: ", "))
+                                .font(.caption2)
+                                .foregroundStyle(Theme.muted)
+                                .lineLimit(1)
+                        }
+                    }
+                }
             }
             Spacer(minLength: 6)
             TextField(
@@ -320,66 +407,5 @@ private struct ShelfEditorRow: View {
         .swipeActions {
             Button("Remove", role: .destructive, action: onRemove)
         }
-    }
-}
-
-/// A month and a day as two menus; "Any" clears the bound, and picking a month
-/// or a day sets it.
-struct MonthDayRow: View {
-    let title: LocalizedStringKey
-    @Binding var value: MonthDay?
-
-    var body: some View {
-        HStack {
-            Text(title)
-            Spacer()
-            if let bound = Binding($value) {
-                Picker(title, selection: Binding(
-                    get: { bound.wrappedValue.month },
-                    set: { month in
-                        bound.wrappedValue = MonthDay(
-                            month: month,
-                            day: min(bound.wrappedValue.day, Self.daysIn(month))
-                        ) ?? bound.wrappedValue
-                    }
-                )) {
-                    ForEach(1 ... 12, id: \.self) { month in
-                        Text(verbatim: Calendar.current.shortMonthSymbols[month - 1]).tag(month)
-                    }
-                }
-                .labelsHidden()
-                Picker(title, selection: Binding(
-                    get: { bound.wrappedValue.day },
-                    set: { day in
-                        bound.wrappedValue = MonthDay(month: bound.wrappedValue.month, day: day) ?? bound.wrappedValue
-                    }
-                )) {
-                    ForEach(1 ... Self.daysIn(bound.wrappedValue.month), id: \.self) { day in
-                        Text(verbatim: String(day)).tag(day)
-                    }
-                }
-                .labelsHidden()
-                Button {
-                    value = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.muted)
-                .accessibilityLabel("Any day")
-            } else {
-                Button("Any") {
-                    value = MonthDay(month: 1, day: 1)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.apricot)
-            }
-        }
-    }
-
-    /// The days a month reaches in a leap year, as the server validates them.
-    private static func daysIn(_ month: Int) -> Int {
-        let days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        return days[max(1, min(12, month)) - 1]
     }
 }

@@ -17422,6 +17422,526 @@
           }
         }
       }
+    },
+    "Put back": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remettre"
+          }
+        }
+      }
+    },
+    "Removed titles": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titres retirés"
+          }
+        }
+      }
+    },
+    "Rules skip these titles. Put one back to add it again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les règles ignorent ces titres. Remettez-en un pour le rajouter."
+          }
+        }
+      }
+    },
+    "Couldn't add the title.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter le titre."
+          }
+        }
+      }
+    },
+    "Rule": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Règle"
+          }
+        }
+      }
+    },
+    "Seed from rules": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter selon les règles"
+          }
+        }
+      }
+    },
+    "Every title the saved rules select is added to this shelf. Titles you removed stay off.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les titres que les règles enregistrées sélectionnent sont ajoutés à cette étagère. Les titres que vous avez retirés restent exclus."
+          }
+        }
+      }
+    },
+    "Add the matching titles now?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter maintenant les titres correspondants ?"
+          }
+        }
+      }
+    },
+    "Rules": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Règles"
+          }
+        }
+      }
+    },
+    "Other filters": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres filtres"
+          }
+        }
+      }
+    },
+    "Save rules": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer les règles"
+          }
+        }
+      }
+    },
+    "Clear rules": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Effacer les règles"
+          }
+        }
+      }
+    },
+    "Save the rules before seeding.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrez les règles avant d'ajouter les titres."
+          }
+        }
+      }
+    },
+    "New library titles that match the rules join this shelf by themselves.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les nouveaux titres de la bibliothèque qui respectent les règles rejoignent seuls cette étagère."
+          }
+        }
+      }
+    },
+    "Save rules first: auto-join needs them.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrez d'abord des règles : l'ajout automatique en a besoin."
+          }
+        }
+      }
+    },
+    "Couldn't save the rules.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer les règles."
+          }
+        }
+      }
+    },
+    "Rules saved.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Règles enregistrées."
+          }
+        }
+      }
+    },
+    "Couldn't change auto-join.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de modifier l'ajout automatique."
+          }
+        }
+      }
+    },
+    "Couldn't add the titles.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter les titres."
+          }
+        }
+      }
+    },
+    "Fill in a rule to preview what it selects.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplissez une règle pour voir ce qu'elle sélectionne."
+          }
+        }
+      }
+    },
+    "Couldn't preview these rules.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de prévisualiser ces règles."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçu"
+          }
+        }
+      }
+    },
+    "Excluded by rules": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exclus par les règles"
+          }
+        }
+      }
+    },
+    "Pin in": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Épingler"
+          }
+        }
+      }
+    },
+    "Showing the first results only.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seuls les premiers résultats sont affichés."
+          }
+        }
+      }
+    },
+    "Genres": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genres"
+          }
+        }
+      }
+    },
+    "Any of": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au moins un de"
+          }
+        }
+      }
+    },
+    "None of": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun de"
+          }
+        }
+      }
+    },
+    "Keywords and companies": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mots-clés et sociétés"
+          }
+        }
+      }
+    },
+    "Keywords (any of)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mots-clés (au moins un)"
+          }
+        }
+      }
+    },
+    "Keywords (none of)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mots-clés (aucun)"
+          }
+        }
+      }
+    },
+    "Companies (any of)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sociétés (au moins une)"
+          }
+        }
+      }
+    },
+    "Networks": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réseaux"
+          }
+        }
+      }
+    },
+    "TMDB network id": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identifiant de réseau TMDB"
+          }
+        }
+      }
+    },
+    "Certifications": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Classifications"
+          }
+        }
+      }
+    },
+    "e.g. PG": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. ex. PG"
+          }
+        }
+      }
+    },
+    "Collection id": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identifiant de collection"
+          }
+        }
+      }
+    },
+    "Year from": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année de début"
+          }
+        }
+      }
+    },
+    "Year to": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année de fin"
+          }
+        }
+      }
+    },
+    "Minimum votes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votes minimum"
+          }
+        }
+      }
+    },
+    "Minimum rating": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Note minimum"
+          }
+        }
+      }
+    },
+    "Auto-join": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajout automatique"
+          }
+        }
+      }
+    },
+    "%lld titles added": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld title added"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld titles added"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld titre ajouté"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld titres ajoutés"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld matches": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld match"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld matches"
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld correspondance"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld correspondances"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Show all %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout afficher (%lld)"
+          }
+        }
+      }
+    },
+    "Library titles matching every filled-in field join the shelf. Empty fields are ignored.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les titres de la bibliothèque qui respectent tous les champs remplis rejoignent l'étagère. Les champs vides sont ignorés."
+          }
+        }
+      }
     }
   },
   "version": "1.0"
