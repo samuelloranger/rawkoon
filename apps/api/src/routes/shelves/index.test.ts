@@ -7,12 +7,21 @@ import {
   sendJson,
   session,
   state,
+  tmdb,
   user,
 } from "../../../test/helpers/shelvesHarness";
 
 beforeEach(resetHarness);
 
 describe("shelves routes", () => {
+  it("fails a seed when TMDB fails and creates no shelf", async () => {
+    tmdb.key = "test-key";
+    tmdb.discoverFails = true;
+    const res = await sendJson("POST", "/", { seed: "christmas" });
+    expect(res.status).toBe(502);
+    expect(state.shelves.length).toBe(0);
+  });
+
   it("lets any signed-in user read the list and refuses a user the admin-only view", async () => {
     seedShelf({ name: "Horror" });
     expect((await call("/")).status).toBe(200);

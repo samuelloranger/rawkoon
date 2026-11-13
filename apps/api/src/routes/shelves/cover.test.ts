@@ -6,7 +6,7 @@ import {
   expect,
   it,
 } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -167,5 +167,92 @@ describe("shelf covers", () => {
     session.user = null;
     expect((await callCover("/../../etc/passwd")).status).toBe(404);
     expect((await callCover("/not-a-cover.png")).status).toBe(404);
+    // An encoded slash passes a bare prefix check and would walk out of the cover names
+    expect((await callCover("/shelf-cover-%2F..%2Fx.png")).status).toBe(404);
+    expect(
+      (await callCover("/shelf-cover-%2F..%2F..%2F..%2Fetc%2Fx.png")).status,
+    ).toBe(404);
+  });
+
+  it("serves a cover with nosniff, typed from the image bytes", async () => {
+    const shelf = seedShelf();
+    // The file name lies about the type; the bytes are a PNG
+    const res = await upload(shelf.id, "cover.gif");
+    const body = (await res.json()) as { shelf: { cover: { url: string } } };
+    expect(body.shelf.cover.url).toEndWith(".png");
+    session.user = null;
+    const image = await callCover(
+      new URL(body.shelf.cover.url).pathname.replace("/api/shelves/covers", ""),
+    );
+    expect(image.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("builds the cover URL from the forwarded scheme and host", async () => {
+    const shelf = seedShelf();
+    const form = new FormData();
+    form.set("cover", new File([PNG], "c.png", { type: "image/png" }));
+    const res = await call(`/${shelf.id}/cover`, {
+      method: "POST",
+      body: form,
+      headers: {
+        "x-forwarded-proto": "https",
+        "x-forwarded-host": "media.example.com",
+      },
+    });
+    const body = (await res.json()) as { shelf: { cover: { url: string } } };
+    expect(body.shelf.cover.url).toStartWith(
+      "https://media.example.com/api/shelves/covers/",
+    );
+  });
+
+  it("deletes the stored file when the shelf is deleted, restyled or re-uploaded", async () => {
+    const files = async () =>
+      (await readdir(storageDir)).filter((n) => n.startsWith("shelf-cover-"));
+    const before = (await files()).length;
+
+    const a = seedShelf();
+    await upload(a.id);
+    expect((await files()).length).toBe(before + 1);
+    await upload(a.id);
+    expect((await files()).length).toBe(before + 1);
+    await sendJson("PATCH", `/${a.id}`, { cover_style: "mosaic" });
+    expect((await files()).length).toBe(before);
+
+    const b = seedShelf();
+    await upload(b.id);
+    expect((await files()).length).toBe(before + 1);
+    expect((await call(`/${b.id}`, { method: "DELETE" })).status).toBe(200);
+    expect((await files()).length).toBe(before);
+  });
+
+  it("refuses the upload style without a cover file and non-TMDB cover URLs", async () => {
+    const shelf = seedShelf();
+    expect(
+      (await sendJson("PATCH", `/${shelf.id}`, { cover_style: "upload" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await sendJson("POST", "/", { name: "x", cover_style: "upload" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await sendJson("PATCH", `/${shelf.id}`, {
+          cover_style: "backdrop",
+          cover_url: "https://evil.example.com/x.jpg",
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it("refuses a body over the upload limit", async () => {
+    const shelf = seedShelf();
+    const form = new FormData();
+    form.set("cover", new File([new Uint8Array(7 * 1024 * 1024)], "big.png"));
+    const res = await call(`/${shelf.id}/cover`, {
+      method: "POST",
+      body: form,
+    });
+    expect(res.status).toBe(400);
   });
 });

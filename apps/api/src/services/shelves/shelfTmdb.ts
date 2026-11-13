@@ -145,7 +145,8 @@ export async function discoverShelfTitles(
       page: String(page),
       include_adult: "false",
     });
-    if (!raw) break;
+    // A failed page must fail the seed: a silently shorter list would be saved as the whole shelf
+    if (!raw) throw new Error(`TMDB discover page ${page} failed`);
     const results = Array.isArray(raw.results) ? raw.results : [];
     for (const item of results) {
       if (!item || typeof item !== "object") continue;
