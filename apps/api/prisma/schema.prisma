@@ -1491,10 +1491,12 @@ model Shelf {
   description  String?
   /// "manual": entries are positioned by hand. "release" | "rating" | "added": the server sorts.
   orderMode    String       @default("manual") @map("order_mode")
-  /// "mosaic" (first 4 posters) or "backdrop" (coverTmdbId + coverType's backdrop).
+  /// "mosaic" (first 4 posters), "backdrop" (coverTmdbId + coverType's backdrop) or "upload".
   coverStyle   String       @default("mosaic") @map("cover_style")
   coverTmdbId  Int?         @map("cover_tmdb_id")
   coverType    String?      @map("cover_type")
+  /// The uploaded cover's file name under the image storage; served at /api/shelves/covers/<file>.
+  coverFile    String?      @map("cover_file")
   /// Where the TV shows it: "collections" only, or also as a Home row.
   homeRow      Boolean      @default(false) @map("home_row")
   /// Optional yearly window, "MM-DD", inclusive; both null = always. May wrap the year end.

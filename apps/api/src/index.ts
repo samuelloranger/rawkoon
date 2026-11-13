@@ -40,6 +40,7 @@ import { exportRoutes } from "./routes/export";
 import { releasesRoutes } from "./routes/releases";
 import { searchRoutes } from "./routes/search";
 import { shelfRoutes } from "./routes/shelves";
+import { shelfCoverRoutes } from "./routes/shelves/covers";
 import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
@@ -127,6 +128,7 @@ app
   .route("/api/requests", requestRoutes)
   .route("/api/tv", tvRoutes)
   .route("/api/search", searchRoutes)
+  .route("/api/shelves/covers", shelfCoverRoutes)
   .route("/api/shelves", shelfRoutes)
   .route("/api/system", systemRoutes);
 

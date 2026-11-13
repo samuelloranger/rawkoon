@@ -2,7 +2,7 @@
 // Collections and optionally as a Home row. Admins edit them in web and iOS.
 
 export type ShelfOrderMode = "manual" | "release" | "rating" | "added";
-export type ShelfCoverStyle = "mosaic" | "backdrop";
+export type ShelfCoverStyle = "mosaic" | "backdrop" | "upload";
 export type ShelfMediaType = "movie" | "show";
 
 export type ShelfCover =
@@ -11,7 +11,9 @@ export type ShelfCover =
       /** Up to 4 poster URLs, in display order. */
       posters: string[];
     }
-  | { style: "backdrop"; backdrop_url: string | null };
+  | { style: "backdrop"; backdrop_url: string | null }
+  /** An image an administrator uploaded; the URL is absolute for the client that asked. */
+  | { style: "upload"; url: string | null };
 
 export interface ShelfSummary {
   id: number;

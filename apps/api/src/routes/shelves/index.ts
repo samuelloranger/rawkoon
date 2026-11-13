@@ -24,13 +24,19 @@ import {
   listShelves,
   reorderShelves,
   seedSummaries,
+  setShelfCoverFile,
   updateShelf,
 } from "@rawkoon/api/services/shelves/shelfService";
+import { saveShelfCover } from "@rawkoon/api/services/shelves/shelfCoverService";
+import {
+  fetchShelfBackdropCandidates,
+  fetchShelfTmdbKey,
+} from "@rawkoon/api/services/shelves/shelfTmdb";
 import { seedLanguage } from "@rawkoon/api/services/shelves/seeds";
 import { isValidMmdd } from "@rawkoon/api/services/shelves/shelfVisibility";
 
 const orderModeV = z.enum(["manual", "release", "rating", "added"]);
-const coverStyleV = z.enum(["mosaic", "backdrop"]);
+const coverStyleV = z.enum(["mosaic", "backdrop", "upload"]);
 const mediaTypeV = z.enum(["movie", "show"]);
 
 const mmddV = z
@@ -110,6 +116,18 @@ const pathId = (raw: string): number | null => {
 
 const isFlag = (value: string | undefined) => value === "1" || value === "true";
 
+/** The scheme and host the caller used: an uploaded cover is served back from there. */
+const originOf = (url: string) => new URL(url).origin;
+
+const coverError = (reason: string) =>
+  reason === "too_large"
+    ? "The image is larger than 5 MB"
+    : reason === "invalid_type"
+      ? "Only PNG, JPEG, GIF and WebP images are accepted"
+      : reason === "not_an_image"
+        ? "That file is not an image"
+        : "The image could not be saved";
+
 // Mounted at /api/shelves by the edge. Every signed-in user reads; only admins write.
 export const shelfRoutes = new Hono<Env>()
   .use("*", requireUser)
@@ -119,7 +137,9 @@ export const shelfRoutes = new Hono<Env>()
     const all = isFlag(c.req.valid("query").all);
     if (all && !user.is_admin) return forbidden();
     c.header("Cache-Control", "private, max-age=60");
-    return ok({ shelves: await listShelves(user.is_admin, all) });
+    return ok({
+      shelves: await listShelves(user.is_admin, all, originOf(c.req.url)),
+    });
   })
   // GET /api/shelves/seeds — the shipped recipes for the "New shelf" dialog
   .get("/seeds", requireAdmin, queryV(seedsQuery), (c) => {
@@ -136,10 +156,33 @@ export const shelfRoutes = new Hono<Env>()
     const moved = await reorderShelves(c.req.valid("json").ids);
     return moved ? ok({ ok: true }) : badRequest("Unknown shelf id");
   })
+  // GET /api/shelves/cover-candidates — TMDB backdrops of one title, for the cover picker
+  .get(
+    "/cover-candidates",
+    requireAdmin,
+    queryV(
+      z.object({
+        tmdb_id: z.coerce.number().int().positive(),
+        type: mediaTypeV,
+      }),
+    ),
+    async (c) => {
+      const { tmdb_id, type } = c.req.valid("query");
+      const apiKey = await fetchShelfTmdbKey();
+      if (!apiKey) return badRequest("TMDB is not configured");
+      return ok({
+        backdrops: await fetchShelfBackdropCandidates(apiKey, tmdb_id, type),
+      });
+    },
+  )
   .get("/:id", async (c) => {
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");
-    const shelf = await getShelfDetail(id, c.get("user").is_admin);
+    const shelf = await getShelfDetail(
+      id,
+      c.get("user").is_admin,
+      originOf(c.req.url),
+    );
     if (!shelf) return notFound("Shelf not found");
     c.header("Cache-Control", "private, max-age=60");
     return ok({ shelf });
@@ -170,7 +213,7 @@ export const shelfRoutes = new Hono<Env>()
       }
       return badRequest("The seed returned no titles");
     }
-    const shelf = await getShelfDetail(created.id, true);
+    const shelf = await getShelfDetail(created.id, true, originOf(c.req.url));
     if (!shelf) return serverError("Shelf was not created");
     return ok({ shelf }, 201);
   })
@@ -190,7 +233,7 @@ export const shelfRoutes = new Hono<Env>()
       visibleTo: body.visible_to,
     });
     if (!updated) return notFound("Shelf not found");
-    const shelf = await getShelfDetail(id, true);
+    const shelf = await getShelfDetail(id, true, originOf(c.req.url));
     if (!shelf) return notFound("Shelf not found");
     return ok({ shelf });
   })
@@ -200,6 +243,21 @@ export const shelfRoutes = new Hono<Env>()
     return (await deleteShelf(id))
       ? ok({ ok: true })
       : notFound("Shelf not found");
+  })
+  // POST /api/shelves/:id/cover — an uploaded cover image (multipart, field "cover")
+  .post("/:id/cover", requireAdmin, async (c) => {
+    const id = pathId(c.req.param("id"));
+    if (id == null) return notFound("Shelf not found");
+    const form = await c.req.parseBody();
+    const file = form.cover;
+    if (!(file instanceof File)) return badRequest("A cover image is required");
+    const saved = await saveShelfCover(file);
+    if (!saved.ok) return badRequest(coverError(saved.reason));
+    if (!(await setShelfCoverFile(id, saved.file))) {
+      return notFound("Shelf not found");
+    }
+    const shelf = await getShelfDetail(id, true, originOf(c.req.url));
+    return shelf ? ok({ shelf }) : serverError("Shelf was not saved");
   })
   .post("/:id/entries", requireAdmin, jsonV(addEntryBody), async (c) => {
     const id = pathId(c.req.param("id"));
