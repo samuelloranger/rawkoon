@@ -1,18 +1,24 @@
 import sharp from "sharp";
+import { getContentType } from "@rawkoon/api/services/imageService";
 import {
-  isAllowedFile,
-  getContentType,
-} from "@rawkoon/api/services/imageService";
-import {
-  saveToStorage,
+  deleteFromStorage,
   readFromStorage,
+  saveToStorage,
 } from "@rawkoon/api/services/storageService";
 
 /** A shelf cover is a hero image: 5 MB is plenty and keeps a bad upload from filling the disk. */
 const MAX_BYTES = 5 * 1024 * 1024;
 
-/** The prefix every uploaded cover's file name carries, so the serving route can refuse anything else. */
-const PREFIX = "shelf-cover-";
+/** Exactly the names `saveShelfCover` generates, so the public route can refuse anything else. */
+const COVER_NAME = /^shelf-cover-[0-9a-f]{32}\.(png|jpg|gif|webp)$/;
+
+/** The extension for each image format a cover may be, taken from the bytes and not the file name. */
+const EXTENSIONS: Record<string, string> = {
+  png: "png",
+  jpeg: "jpg",
+  gif: "gif",
+  webp: "webp",
+};
 
 export type SaveCoverResult =
   | { ok: true; file: string }
@@ -27,16 +33,17 @@ export type SaveCoverResult =
  * never becomes a broken cover.
  */
 export async function saveShelfCover(file: File): Promise<SaveCoverResult> {
-  if (!isAllowedFile(file.name)) return { ok: false, reason: "invalid_type" };
   if (file.size > MAX_BYTES) return { ok: false, reason: "too_large" };
   const buffer = Buffer.from(await file.arrayBuffer());
+  let format: string | undefined;
   try {
-    await sharp(buffer).metadata();
+    format = (await sharp(buffer).metadata()).format;
   } catch {
     return { ok: false, reason: "not_an_image" };
   }
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const name = `${PREFIX}${crypto.randomUUID().replace(/-/g, "")}.${extension}`;
+  const extension = format ? EXTENSIONS[format] : undefined;
+  if (!extension) return { ok: false, reason: "invalid_type" };
+  const name = `shelf-cover-${crypto.randomUUID().replace(/-/g, "")}.${extension}`;
   const saved = await saveToStorage(buffer, name);
   return saved
     ? { ok: true, file: name }
@@ -47,7 +54,12 @@ export async function saveShelfCover(file: File): Promise<SaveCoverResult> {
 export async function readShelfCover(
   filename: string,
 ): Promise<{ body: Buffer; contentType: string } | null> {
-  if (!filename.startsWith(PREFIX) || !isAllowedFile(filename)) return null;
+  if (!COVER_NAME.test(filename)) return null;
   const body = await readFromStorage(filename);
   return body ? { body, contentType: getContentType(filename) } : null;
+}
+
+/** Removes a stored cover file; a name that isn't one of ours is left alone. */
+export async function deleteShelfCover(filename: string | null): Promise<void> {
+  if (filename && COVER_NAME.test(filename)) await deleteFromStorage(filename);
 }
