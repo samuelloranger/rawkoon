@@ -72,22 +72,22 @@ struct ShelfCoverView: View {
     @ViewBuilder private var art: some View {
         if let backdrop, let url = model.absoluteURL(backdrop) {
             image(url, width: 640, height: 360)
-        } else if posters.count >= 4 {
-            // Two rows that share the card's height, each poster cropped to its quarter
+        } else {
+            // Always 2×2 so a short shelf keeps the card's shape; empty cells show the inset colour
             VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    image(model.absoluteURL(posters[0]), width: 320, height: 180)
-                    image(model.absoluteURL(posters[1]), width: 320, height: 180)
-                }
-                HStack(spacing: 0) {
-                    image(model.absoluteURL(posters[2]), width: 320, height: 180)
-                    image(model.absoluteURL(posters[3]), width: 320, height: 180)
+                ForEach(0 ..< 2, id: \.self) { row in
+                    HStack(spacing: 0) {
+                        ForEach(0 ..< 2, id: \.self) { column in
+                            let index = row * 2 + column
+                            if index < posters.count {
+                                image(model.absoluteURL(posters[index]), width: 320, height: 180)
+                            } else {
+                                Theme.inset
+                            }
+                        }
+                    }
                 }
             }
-        } else if let first = posters.first {
-            image(model.absoluteURL(first), width: 640, height: 360)
-        } else {
-            Theme.inset
         }
     }
 
