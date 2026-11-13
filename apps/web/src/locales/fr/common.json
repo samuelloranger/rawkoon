@@ -3499,6 +3499,11 @@
     "coverUploadError": "Impossible de téléverser la couverture.",
     "coverSearchTmdb": "Ou chercher un fond sur TMDB",
     "coverCurrent": "Titre de la couverture",
-    "coverPickImage": "Utiliser ce fond"
+    "coverPickImage": "Utiliser ce fond",
+    "moveEarlier": "Déplacer « {{title}} » plus tôt",
+    "moveLater": "Déplacer « {{title}} » plus tard",
+    "groupStart": "Commencer un groupe à « {{title}} »",
+    "groupNew": "Nouveau groupe",
+    "groupRemove": "Retirer l'en-tête « {{label}} »"
   }
 }

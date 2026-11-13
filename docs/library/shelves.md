@@ -33,9 +33,12 @@ and outside that window only administrators see it.
   At most two shelves appear there, the first two that ask for it.
 - **Yearly window** hides the shelf outside two month-and-day bounds. The
   Christmas preset fills in November 1 to January 15, which wraps the new year.
-- **Cover** is a mosaic of the shelf's first four posters, or one title's
-  backdrop.
-- **Titles** can be dragged into order, grouped under a header, and removed.
+- **Cover** is a mosaic of the shelf's first four posters, one title's
+  backdrop, or an image you upload (PNG, JPEG, GIF or WebP, up to 5 MB).
+- **Titles** can be dragged into order (or moved with the arrow buttons),
+  grouped under a header, and removed. A header sits above its title and the
+  ones after it; renaming it renames the whole group, and it stays in place when
+  titles move around it.
   **Add titles** searches the library first and TMDB for what it lacks, so a
   shelf can hold a film before it is requested.
 

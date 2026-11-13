@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, GripVertical, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  GripVertical,
+  Plus,
+  Rows3,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import type {
   ShelfDetail,
@@ -31,6 +40,9 @@ import { Dialog } from "@/components/dialog";
 import { AddTitlesDialog } from "./AddTitlesDialog";
 import { ShelfCoverEditor } from "./ShelfCoverEditor";
 import { MonthDayField } from "./MonthDayField";
+import { CHRISTMAS_WINDOW } from "./monthDay";
+import { moveEntry, setGroupFrom, startsGroup } from "./shelfOrder";
+import { readShelfEntries, useShelfMutation } from "./useShelfMutation";
 import { ShelfCover } from "./ShelfCover";
 
 type Draft = {
@@ -67,7 +79,12 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
   const fetcher = useFetcher();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [seeded, setSeeded] = useState<{ id: number; draft: Draft } | null>(
+    null,
+  );
+  const draft = seeded?.id === shelfId ? seeded.draft : null;
+  const patchDraft = (patch: Partial<Draft>) =>
+    setSeeded((s) => s && { ...s, draft: { ...s.draft, ...patch } });
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -80,10 +97,12 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
 
   const detail = shelf.data?.shelf;
 
-  // The form follows the server's copy until the user edits it
+  // Seed once per shelf (and again after a save): refetches from other edits must not wipe unsaved fields
   useEffect(() => {
-    if (detail) setDraft(draftOf(detail));
-  }, [detail]);
+    if (detail && seeded?.id !== shelfId) {
+      setSeeded({ id: shelfId, draft: draftOf(detail) });
+    }
+  }, [detail, seeded?.id, shelfId]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -111,6 +130,10 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
       }),
     onSuccess: async () => {
       await invalidate();
+      const fresh = queryClient.getQueryData<{ shelf: ShelfDetail }>(
+        queryKeys.shelves.detail(shelfId),
+      );
+      if (fresh) setSeeded({ id: shelfId, draft: draftOf(fresh.shelf) });
       toast.success(t("shelves.saved"));
     },
     onError: () => toast.error(t("shelves.saveError")),
@@ -126,59 +149,71 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
     onError: () => toast.error(t("shelves.deleteError")),
   });
 
-  const moveEntries = useMutation({
-    mutationFn: (entries: ShelfEntryView[]) =>
-      fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
-        method: "PATCH",
-        body: {
-          entries: entries.map((entry, position) => ({
-            id: entry.id,
-            position,
-            group_label: entry.group_label,
-          })),
-        },
-      }),
-    onSuccess: invalidate,
-    onError: () => toast.error(t("shelves.orderError")),
+  const entriesBody = (entries: ShelfEntryView[]) => ({
+    entries: entries.map((entry, position) => ({
+      id: entry.id,
+      position,
+      group_label: entry.group_label,
+    })),
   });
 
-  const removeEntry = useMutation({
+  const saveEntries = (errorMessage: string) =>
+    // Both edits send the whole list, so one PATCH carries a reorder or a group rename
+    ({
+      shelfId,
+      errorMessage,
+      mutationFn: (entries: ShelfEntryView[]) =>
+        fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
+          method: "PATCH",
+          body: entriesBody(entries),
+        }),
+      apply: (shelf: ShelfDetail, entries: ShelfEntryView[]) => ({
+        ...shelf,
+        entries,
+      }),
+    });
+
+  const moveEntries = useShelfMutation(saveEntries(t("shelves.orderError")));
+  const regroup = useShelfMutation(saveEntries(t("shelves.saveError")));
+
+  const removeEntry = useShelfMutation({
+    shelfId,
+    errorMessage: t("shelves.removeEntryError"),
     mutationFn: (entryId: number) =>
       fetcher(SHELVES_ENDPOINTS.ENTRY(shelfId, entryId), {
         method: "DELETE",
       }),
-    onSuccess: invalidate,
-    onError: () => toast.error(t("shelves.removeEntryError")),
-  });
-
-  const setGroupLabel = useMutation({
-    mutationFn: ({ entry, label }: { entry: ShelfEntryView; label: string }) =>
-      fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
-        method: "PATCH",
-        body: {
-          entries: [
-            {
-              id: entry.id,
-              position: entry.position,
-              group_label: label.trim() || null,
-            },
-          ],
-        },
-      }),
-    onSuccess: invalidate,
-    onError: () => toast.error(t("shelves.saveError")),
+    apply: (shelf, entryId) => {
+      const entries = shelf.entries.filter((entry) => entry.id !== entryId);
+      return { ...shelf, entries, entry_count: entries.length };
+    },
   });
 
   const entries = detail?.entries ?? [];
 
-  /** Moves the dragged title before the one it was dropped on. */
-  const moveBefore = (dragged: number, before: number) => {
-    const from = entries.findIndex((entry) => entry.id === dragged);
-    const to = entries.findIndex((entry) => entry.id === before);
-    if (from < 0 || to < 0 || from === to) return;
-    const next = [...entries];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    moveEntries.mutate(next);
+  /** Moves a title to another index, from the cache's latest order. */
+  const moveTo = (fromId: number, toIndex: number) => {
+    const latest = readShelfEntries(queryClient, shelfId);
+    const from = latest.findIndex((entry) => entry.id === fromId);
+    if (from < 0 || from === toIndex) return;
+    moveEntries.mutate(moveEntry(latest, from, toIndex));
+  };
+
+  const dropOn = (targetId: number) => {
+    if (dragId != null && dragId !== targetId) {
+      const latest = readShelfEntries(queryClient, shelfId);
+      moveTo(
+        dragId,
+        latest.findIndex((entry) => entry.id === targetId),
+      );
+    }
+    setDragId(null);
+  };
+
+  const setGroup = (entryId: number, label: string) => {
+    const latest = readShelfEntries(queryClient, shelfId);
+    const index = latest.findIndex((entry) => entry.id === entryId);
+    if (index >= 0) regroup.mutate(setGroupFrom(latest, index, label));
   };
 
   if (shelf.isLoading || !detail || !draft) return <LoadingState />;
@@ -249,9 +284,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                   id="shelf-name"
                   value={draft.name}
                   maxLength={120}
-                  onChange={(event) =>
-                    setDraft({ ...draft, name: event.target.value })
-                  }
+                  onChange={(event) => patchDraft({ name: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -267,7 +300,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                   rows={3}
                   maxLength={2000}
                   onChange={(event) =>
-                    setDraft({ ...draft, description: event.target.value })
+                    patchDraft({ description: event.target.value })
                   }
                 />
               </div>
@@ -278,7 +311,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                 <Select
                   value={draft.orderMode}
                   onValueChange={(value) =>
-                    setDraft({ ...draft, orderMode: value as ShelfOrderMode })
+                    patchDraft({ orderMode: value as ShelfOrderMode })
                   }
                 >
                   <SelectTrigger className="h-9">
@@ -312,7 +345,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                 <Switch
                   checked={draft.homeRow}
                   onCheckedChange={(checked) =>
-                    setDraft({ ...draft, homeRow: checked })
+                    patchDraft({ homeRow: checked })
                   }
                 />
               </div>
@@ -323,20 +356,16 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                 <p className="text-xs text-neutral-500">
                   {t("shelves.windowHint")}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-3">
                   <MonthDayField
                     label={t("shelves.from")}
                     value={draft.visibleFrom}
-                    onChange={(value) =>
-                      setDraft({ ...draft, visibleFrom: value })
-                    }
+                    onChange={(value) => patchDraft({ visibleFrom: value })}
                   />
                   <MonthDayField
                     label={t("shelves.to")}
                     value={draft.visibleTo}
-                    onChange={(value) =>
-                      setDraft({ ...draft, visibleTo: value })
-                    }
+                    onChange={(value) => patchDraft({ visibleTo: value })}
                   />
                 </div>
                 <Button
@@ -344,10 +373,9 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    setDraft({
-                      ...draft,
-                      visibleFrom: "11-01",
-                      visibleTo: "01-15",
+                    patchDraft({
+                      visibleFrom: CHRISTMAS_WINDOW.from,
+                      visibleTo: CHRISTMAS_WINDOW.to,
                     })
                   }
                 >
@@ -364,11 +392,19 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                   detail.cover.style === "upload" ? detail.cover.url : null
                 }
                 coverUrl={draft.coverUrl}
-                onChange={(next) => setDraft({ ...draft, ...next })}
+                onChange={patchDraft}
                 onUploaded={async (shelf) => {
                   // The upload response is the freshest copy; the list refetch follows
                   queryClient.setQueryData(queryKeys.shelves.detail(shelfId), {
                     shelf,
+                  });
+                  // The upload saved the cover server-side; drop the draft's backdrop pick with it
+                  const saved = draftOf(shelf);
+                  patchDraft({
+                    coverStyle: saved.coverStyle,
+                    coverTmdbId: saved.coverTmdbId,
+                    coverType: saved.coverType,
+                    coverUrl: saved.coverUrl,
                   });
                   await invalidate();
                 }}
@@ -400,77 +436,109 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
           ) : (
             <ul className="divide-y divide-neutral-800 rounded-xl border border-neutral-800">
               {entries.map((entry, index) => (
-                <li
-                  key={entry.id}
-                  draggable={isAdmin}
-                  onDragStart={() => setDragId(entry.id)}
-                  onDragOver={(event) => {
-                    if (isAdmin) event.preventDefault();
-                  }}
-                  onDrop={() => {
-                    if (dragId != null && dragId !== entry.id) {
-                      moveBefore(dragId, entry.id);
-                    }
-                    setDragId(null);
-                  }}
-                  className="flex items-center gap-3 px-3 py-2"
-                >
-                  {isAdmin && (
-                    <span className="cursor-grab text-neutral-600">
-                      <GripVertical size={15} />
-                    </span>
+                <Fragment key={entry.id}>
+                  {startsGroup(entries, index) && (
+                    <GroupHeader
+                      label={entry.group_label ?? ""}
+                      editable={isAdmin}
+                      onRename={(label) => setGroup(entry.id, label)}
+                    />
                   )}
-                  <span className="w-6 shrink-0 text-right text-xs tabular-nums text-neutral-500">
-                    {index + 1}
-                  </span>
-                  <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
-                    {entry.poster_url ? (
-                      <img
-                        src={entry.poster_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-neutral-100">
-                      {entry.title}
-                      {entry.season != null ? ` · S${entry.season}` : ""}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {[entry.year, t(`shelves.type.${entry.type}`)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                      {entry.in_library
-                        ? ` · ${t("shelves.inLibrary")}`
-                        : ` · ${t("shelves.notInLibrary")}`}
-                    </p>
-                  </div>
-                  {isAdmin && (
-                    <>
-                      <Input
-                        defaultValue={entry.group_label ?? ""}
-                        placeholder={t("shelves.groupLabel")}
-                        className="h-8 w-32 shrink-0 text-xs"
-                        onBlur={(event) => {
-                          const label = event.target.value;
-                          if ((entry.group_label ?? "") !== label) {
-                            setGroupLabel.mutate({ entry, label });
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={t("shelves.removeEntry")}
-                        onClick={() => removeEntry.mutate(entry.id)}
+                  <li
+                    draggable={isAdmin}
+                    onDragStart={() => setDragId(entry.id)}
+                    onDragEnd={() => setDragId(null)}
+                    onDragOver={(event) => {
+                      if (isAdmin) event.preventDefault();
+                    }}
+                    onDrop={() => dropOn(entry.id)}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:flex-nowrap"
+                  >
+                    {isAdmin && (
+                      <span
+                        aria-hidden
+                        className="cursor-grab text-neutral-500"
                       >
-                        <X size={15} />
-                      </Button>
-                    </>
-                  )}
-                </li>
+                        <GripVertical size={15} />
+                      </span>
+                    )}
+                    <span className="w-6 shrink-0 text-right text-xs tabular-nums text-neutral-500">
+                      {index + 1}
+                    </span>
+                    <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
+                      {entry.poster_url ? (
+                        <img
+                          src={entry.poster_url}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1 basis-32">
+                      <p className="truncate text-sm text-neutral-100">
+                        {entry.title}
+                        {entry.season != null ? ` · S${entry.season}` : ""}
+                      </p>
+                      <p className="text-xs text-neutral-500">
+                        {[entry.year, t(`shelves.type.${entry.type}`)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        {entry.in_library
+                          ? ` · ${t("shelves.inLibrary")}`
+                          : ` · ${t("shelves.notInLibrary")}`}
+                      </p>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex w-full shrink-0 items-center justify-end sm:w-auto">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t("shelves.moveEarlier", {
+                            title: entry.title,
+                          })}
+                          disabled={index === 0}
+                          onClick={() => moveTo(entry.id, index - 1)}
+                        >
+                          <ArrowUp size={15} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t("shelves.moveLater", {
+                            title: entry.title,
+                          })}
+                          disabled={index === entries.length - 1}
+                          onClick={() => moveTo(entry.id, index + 1)}
+                        >
+                          <ArrowDown size={15} />
+                        </Button>
+                        {!startsGroup(entries, index) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label={t("shelves.groupStart", {
+                              title: entry.title,
+                            })}
+                            onClick={() =>
+                              setGroup(entry.id, t("shelves.groupNew"))
+                            }
+                          >
+                            <Rows3 size={15} />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t("shelves.removeEntry")}
+                          onClick={() => removeEntry.mutate(entry.id)}
+                        >
+                          <X size={15} />
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                </Fragment>
               ))}
             </ul>
           )}
@@ -513,5 +581,54 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         </div>
       </Dialog>
     </PageLayout>
+  );
+}
+
+/** A group's header row; the input follows the server's label, so a failed rename snaps back. */
+function GroupHeader({
+  label,
+  editable,
+  onRename,
+}: {
+  label: string;
+  editable: boolean;
+  onRename: (label: string) => void;
+}) {
+  const { t } = useTranslation("common");
+  const [text, setText] = useState(label);
+  useEffect(() => setText(label), [label]);
+
+  return (
+    <li className="flex items-center gap-2 bg-neutral-900/60 px-3 py-1.5">
+      {editable ? (
+        <>
+          <Input
+            value={text}
+            maxLength={80}
+            aria-label={t("shelves.groupLabel")}
+            className="h-8 min-w-0 flex-1 text-xs font-medium"
+            onChange={(event) => setText(event.target.value)}
+            onBlur={() => {
+              if (text.trim() !== label) onRename(text);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={t("shelves.groupRemove", { label })}
+            onClick={() => onRename("")}
+          >
+            <X size={15} />
+          </Button>
+        </>
+      ) : (
+        <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+          {label}
+        </span>
+      )}
+    </li>
   );
 }

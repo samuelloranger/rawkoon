@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { GripVertical, Layers, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  GripVertical,
+  Layers,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { ShelfSummary } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
@@ -16,6 +22,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { LibrarySwitch } from "@/pages/medias/_component/LibrarySwitch";
 import { NewShelfDialog } from "./NewShelfDialog";
+import { moveBefore } from "./shelfOrder";
 import { ShelfCover } from "./ShelfCover";
 
 /** Library → Shelves: every shelf as its cover, in the order the TV shows them. */
@@ -36,30 +43,46 @@ export function ShelvesPage() {
       ),
   });
 
+  const listKey = queryKeys.shelves.list(isAdmin);
+  type ListCache = { shelves: ShelfSummary[] };
+
   const reorder = useMutation({
     mutationFn: (ids: number[]) =>
       fetcher<{ ok: boolean }>(SHELVES_ENDPOINTS.ORDER, {
         method: "PUT",
         body: { ids },
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.shelves.all,
-      });
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<ListCache>(listKey);
+      queryClient.setQueryData<ListCache>(listKey, (old) =>
+        old
+          ? {
+              shelves: ids.flatMap((id) =>
+                old.shelves.filter((shelf) => shelf.id === id),
+              ),
+            }
+          : old,
+      );
+      return { previous };
     },
-    onError: () => toast.error(t("shelves.orderError")),
+    onError: (_error, _ids, context) => {
+      if (context?.previous)
+        queryClient.setQueryData(listKey, context.previous);
+      toast.error(t("shelves.orderError"));
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.shelves.all }),
   });
 
   const list = shelves.data?.shelves ?? [];
 
-  /** Moves the dragged shelf before the one it was dropped on, and saves the new order. */
-  const moveBefore = (dragged: number, before: number) => {
-    const ids = list.map((shelf) => shelf.id);
-    const from = ids.indexOf(dragged);
-    const to = ids.indexOf(before);
-    if (from < 0 || to < 0 || from === to) return;
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
-    reorder.mutate(ids);
+  /** Moves a shelf to another index, from the cache's latest order, and saves it. */
+  const moveTo = (shelfId: number, toIndex: number) => {
+    const latest = queryClient.getQueryData<ListCache>(listKey)?.shelves ?? [];
+    const from = latest.findIndex((shelf) => shelf.id === shelfId);
+    if (from < 0 || from === toIndex) return;
+    reorder.mutate(moveBefore(latest, from, toIndex).map((shelf) => shelf.id));
   };
 
   return (
@@ -90,21 +113,22 @@ export function ShelvesPage() {
         />
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {list.map((shelf) => (
+          {list.map((shelf, index) => (
             <li
               key={shelf.id}
               draggable={isAdmin}
               onDragStart={() => setDragId(shelf.id)}
+              onDragEnd={() => setDragId(null)}
               onDragOver={(event) => {
                 if (isAdmin) event.preventDefault();
               }}
               onDrop={() => {
                 if (dragId != null && dragId !== shelf.id) {
-                  moveBefore(dragId, shelf.id);
+                  moveTo(dragId, index);
                 }
                 setDragId(null);
               }}
-              className="group relative"
+              className="relative"
             >
               <Link
                 to="/library/shelves/$shelfId"
@@ -114,12 +138,31 @@ export function ShelvesPage() {
                 <ShelfCover shelf={shelf} />
               </Link>
               {isAdmin && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute -left-1 top-1/2 hidden -translate-y-1/2 cursor-grab rounded bg-neutral-900/80 p-1 text-neutral-400 group-hover:block"
-                >
-                  <GripVertical size={14} />
-                </span>
+                <div className="absolute left-1 top-1 flex items-center rounded bg-neutral-900/80 text-neutral-300">
+                  <span aria-hidden className="cursor-grab p-1">
+                    <GripVertical size={14} />
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-1.5"
+                    aria-label={t("shelves.moveEarlier", { title: shelf.name })}
+                    disabled={index === 0}
+                    onClick={() => moveTo(shelf.id, index - 1)}
+                  >
+                    <ArrowLeft size={14} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-1.5"
+                    aria-label={t("shelves.moveLater", { title: shelf.name })}
+                    disabled={index === list.length - 1}
+                    onClick={() => moveTo(shelf.id, index + 1)}
+                  >
+                    <ArrowRight size={14} />
+                  </Button>
+                </div>
               )}
             </li>
           ))}

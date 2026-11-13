@@ -3499,6 +3499,11 @@
     "coverUploadError": "Couldn't upload the cover.",
     "coverSearchTmdb": "Or search TMDB for a backdrop",
     "coverCurrent": "Current cover title",
-    "coverPickImage": "Use this backdrop"
+    "coverPickImage": "Use this backdrop",
+    "moveEarlier": "Move “{{title}}” earlier",
+    "moveLater": "Move “{{title}}” later",
+    "groupStart": "Start a group at “{{title}}”",
+    "groupNew": "New group",
+    "groupRemove": "Remove the “{{label}}” header"
   }
 }

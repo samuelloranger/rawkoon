@@ -10,6 +10,7 @@ import type {
 } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
 import { MEDIAS_ENDPOINTS, SHELVES_ENDPOINTS } from "@/lib/endpoints";
+import { queryKeys } from "@/lib/queryKeys";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -76,14 +77,14 @@ export function ShelfCoverEditor({
 
   const trimmed = query.trim();
   const search = useQuery({
-    queryKey: ["shelves", "cover-search", trimmed],
+    queryKey: queryKeys.shelfPicker.coverSearch(trimmed),
     queryFn: () =>
       fetcher<{ items: SearchItem[] }>(MEDIAS_ENDPOINTS.TMDB_SEARCH(trimmed)),
     enabled: style === "backdrop" && trimmed.length >= 2,
   });
 
   const candidates = useQuery({
-    queryKey: ["shelves", "cover-candidates", type, tmdbId],
+    queryKey: queryKeys.shelfPicker.coverCandidates(type, tmdbId),
     queryFn: () =>
       fetcher<{ backdrops: Candidate[] }>(
         SHELVES_ENDPOINTS.COVER_CANDIDATES(tmdbId as number, type ?? "movie"),
@@ -92,35 +93,33 @@ export function ShelfCoverEditor({
   });
 
   const upload = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: (file: File) => {
       const form = new FormData();
       form.set("cover", file);
-      const res = await fetch(SHELVES_ENDPOINTS.COVER(shelfId), {
+      return fetcher<{ shelf: ShelfDetail }>(SHELVES_ENDPOINTS.COVER(shelfId), {
         method: "POST",
         body: form,
-        credentials: "same-origin",
       });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(body?.error ?? "upload failed");
-      }
-      return (await res.json()) as { shelf: ShelfDetail };
     },
     onSuccess: async (body) => {
       await onUploaded(body.shelf);
       toast.success(t("shelves.coverUploaded"));
     },
-    onError: (error: Error) =>
-      toast.error(error.message || t("shelves.coverUploadError")),
+    onError: () => toast.error(t("shelves.coverUploadError")),
   });
 
-  const currentTitle =
-    picked?.title ??
-    entries.find((entry) => entry.tmdb_id === tmdbId && entry.type === type)
-      ?.title ??
-    null;
+  // Season entries share a title, so the season is part of the option's identity
+  const optionValue = (entry: ShelfEntryView) =>
+    `${entry.type}-${entry.tmdb_id}-${entry.season ?? ""}`;
+  const onShelf = entries.find(
+    (entry) => entry.tmdb_id === tmdbId && entry.type === type,
+  );
+  const currentTitle = picked?.title ?? onShelf?.title ?? null;
+  const selectedValue = onShelf
+    ? optionValue(onShelf)
+    : tmdbId != null
+      ? `${type}-${tmdbId}-`
+      : "none";
 
   return (
     <div className="space-y-3">
@@ -150,10 +149,14 @@ export function ShelfCoverEditor({
       {style === "backdrop" && (
         <div className="space-y-2">
           <Select
-            value={tmdbId != null ? `${type}-${tmdbId}` : "none"}
+            value={selectedValue}
             onValueChange={(value) => {
               if (value === "none") {
-                onChange({ coverTmdbId: null, coverType: null });
+                onChange({
+                  coverTmdbId: null,
+                  coverType: null,
+                  coverUrl: null,
+                });
                 setPicked(null);
                 return;
               }
@@ -161,6 +164,7 @@ export function ShelfCoverEditor({
               onChange({
                 coverTmdbId: Number(id),
                 coverType: kind === "show" ? "show" : "movie",
+                coverUrl: null,
               });
               setPicked(null);
             }}
@@ -170,12 +174,15 @@ export function ShelfCoverEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">{t("shelves.coverNone")}</SelectItem>
+              {tmdbId != null && !onShelf && (
+                <SelectItem value={selectedValue}>
+                  {currentTitle ?? t("shelves.coverCurrent")}
+                </SelectItem>
+              )}
               {entries.map((entry) => (
-                <SelectItem
-                  key={entry.id}
-                  value={`${entry.type}-${entry.tmdb_id}`}
-                >
+                <SelectItem key={entry.id} value={optionValue(entry)}>
                   {entry.title}
+                  {entry.season != null ? ` · S${entry.season}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -204,6 +211,7 @@ export function ShelfCoverEditor({
                       onChange({
                         coverTmdbId: item.tmdb_id,
                         coverType: item.media_type === "tv" ? "show" : "movie",
+                        coverUrl: null,
                       });
                     }}
                     className="focus-ring flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-neutral-200 hover:bg-neutral-800"

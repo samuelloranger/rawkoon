@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import {
   SHELVES_ENDPOINTS,
 } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
+import { useShelfMutation } from "./useShelfMutation";
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,23 +75,21 @@ export function AddTitlesDialog({
 }) {
   const { t, i18n } = useTranslation("common");
   const fetcher = useFetcher();
-  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const trimmed = query.trim();
 
+  const language = (i18n.resolvedLanguage ?? i18n.language).split("-")[0];
   const library = useQuery({
-    queryKey: ["shelves", "library-search", trimmed],
+    queryKey: queryKeys.shelfPicker.librarySearch(trimmed, language),
     queryFn: () =>
       fetcher<LibraryListResponse>(
-        `${LIBRARY_ENDPOINTS.LIST}?page=1&limit=8&search=${encodeURIComponent(trimmed)}&sort_by=title&sort_dir=asc&title_language=${encodeURIComponent(
-          (i18n.resolvedLanguage ?? i18n.language).split("-")[0],
-        )}`,
+        `${LIBRARY_ENDPOINTS.LIST}?page=1&limit=8&search=${encodeURIComponent(trimmed)}&sort_by=title&sort_dir=asc&title_language=${encodeURIComponent(language)}`,
       ),
     enabled: isOpen && trimmed.length >= 2,
   });
 
   const tmdb = useQuery({
-    queryKey: ["shelves", "tmdb-search", trimmed],
+    queryKey: queryKeys.shelfPicker.tmdbSearch(trimmed),
     queryFn: () =>
       fetcher<{ items: TmdbSearchItem[] }>(
         MEDIAS_ENDPOINTS.TMDB_SEARCH(trimmed, undefined, undefined),
@@ -112,7 +111,9 @@ export function AddTitlesDialog({
     if (!candidates.has(key)) candidates.set(key, candidate);
   }
 
-  const add = useMutation({
+  const add = useShelfMutation({
+    shelfId,
+    errorMessage: t("shelves.addError"),
     mutationFn: (candidate: Candidate) =>
       fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
         method: "POST",
@@ -121,14 +122,30 @@ export function AddTitlesDialog({
           type: candidate.type,
         },
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.shelves.detail(shelfId),
-      });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.shelves.all });
-      toast.success(t("shelves.added"));
-    },
-    onError: () => toast.error(t("shelves.addError")),
+    // A negative id marks the placeholder until the refetch brings the real entry
+    apply: (shelf, candidate) => ({
+      ...shelf,
+      entry_count: shelf.entry_count + 1,
+      entries: [
+        ...shelf.entries,
+        {
+          id: -Date.now(),
+          tmdb_id: candidate.tmdbId,
+          type: candidate.type,
+          season: null,
+          title: candidate.title,
+          year: candidate.year,
+          poster_url: candidate.posterUrl,
+          backdrop_url: null,
+          group_label: null,
+          position: shelf.entries.length,
+          in_library: candidate.inLibrary,
+          library_id: null,
+          source: "manual",
+          reason: null,
+        },
+      ],
+    }),
   });
 
   return (
@@ -194,11 +211,12 @@ export function AddTitlesDialog({
                 <Button
                   size="sm"
                   variant={candidate.inLibrary ? "outline" : "secondary"}
-                  disabled={
-                    add.isPending ||
-                    held.has(`${candidate.type}-${candidate.tmdbId}`)
+                  disabled={held.has(`${candidate.type}-${candidate.tmdbId}`)}
+                  onClick={() =>
+                    add.mutate(candidate, {
+                      onSuccess: () => toast.success(t("shelves.added")),
+                    })
                   }
-                  onClick={() => add.mutate(candidate)}
                   className={cn("shrink-0")}
                 >
                   <Plus size={14} />
