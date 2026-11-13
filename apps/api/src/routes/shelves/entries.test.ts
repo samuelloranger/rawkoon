@@ -180,6 +180,80 @@ describe("shelf entries", () => {
     expect(state.entries[0].id).toBe(excluded.id);
   });
 
+  it("inserts at an explicit position, pushing the titles after it down", async () => {
+    const shelf = seedShelf();
+    addEntry(shelf.id, { tmdbId: 1, title: "First", position: 0 });
+    addEntry(shelf.id, { tmdbId: 2, title: "Second", position: 1 });
+    addEntry(shelf.id, { tmdbId: 3, title: "Third", position: 2 });
+    state.media.push({
+      id: 30,
+      tmdbId: 4,
+      type: "movie",
+      title: "Inserted",
+      year: 2024,
+      posterUrl: null,
+      overrides: null,
+    });
+
+    const added = await sendJson("POST", `/${shelf.id}/entries`, {
+      tmdb_id: 4,
+      type: "movie",
+      position: 0,
+    });
+    expect(added.status).toBe(200);
+
+    const body = (await (await call(`/${shelf.id}`)).json()) as {
+      shelf: { entries: Array<{ title: string; position: number }> };
+    };
+    expect(body.shelf.entries.map((entry) => entry.title)).toEqual([
+      "Inserted",
+      "First",
+      "Second",
+      "Third",
+    ]);
+    expect(body.shelf.entries.map((entry) => entry.position)).toEqual([
+      0, 1, 2, 3,
+    ]);
+  });
+
+  it("calls a season in the library only when the library has that season", async () => {
+    const shelf = seedShelf();
+    state.media.push({
+      id: 20,
+      tmdbId: 42,
+      type: "show",
+      title: "A show",
+      year: 2021,
+      posterUrl: "https://image.tmdb.org/t/p/w342/show.jpg",
+      overrides: null,
+      episodes: [{ season: 1 }],
+    });
+    addEntry(shelf.id, { tmdbId: 42, type: "show", title: "Whole show" });
+    addEntry(shelf.id, {
+      tmdbId: 42,
+      type: "show",
+      season: 1,
+      title: "Season one",
+    });
+    addEntry(shelf.id, {
+      tmdbId: 42,
+      type: "show",
+      season: 2,
+      title: "Season two",
+    });
+
+    const body = (await (await call(`/${shelf.id}`)).json()) as {
+      shelf: { entries: Array<{ season: number | null; in_library: boolean }> };
+    };
+    expect(
+      body.shelf.entries.map((entry) => [entry.season, entry.in_library]),
+    ).toEqual([
+      [null, true],
+      [1, true],
+      [2, false],
+    ]);
+  });
+
   it("lists shelves and whether they hold a title, with the entry id", async () => {
     const holds = seedShelf({ name: "Holds" });
     seedShelf({ name: "Empty", position: 1 });

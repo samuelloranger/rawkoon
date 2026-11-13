@@ -36,6 +36,31 @@ describe("shelves routes", () => {
     expect(visible.shelves).toHaveLength(now ? 1 : 0);
   });
 
+  it("keeps a shelf outside its window for admins, by id too", async () => {
+    const hidden = seedShelf({
+      name: "Christmas",
+      visibleFrom: "11-01",
+      visibleTo: "01-15",
+    });
+    // A window that is never now: one day, far from any real date's month-day pair
+    const closed = seedShelf({
+      name: "Closed",
+      visibleFrom: "02-29",
+      visibleTo: "02-29",
+    });
+    const now = new Date();
+    const today = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+      now.getDate(),
+    ).padStart(2, "0")}`;
+    const outside = today === "02-29" ? hidden : closed;
+
+    session.user = { ...user };
+    expect((await call(`/${outside.id}`)).status).toBe(404);
+
+    session.user = { ...admin };
+    expect((await call(`/${outside.id}`)).status).toBe(200);
+  });
+
   it("rejects writes from a non-admin and accepts them from an admin", async () => {
     session.user = { ...user };
     expect((await sendJson("POST", "/", { name: "Mine" })).status).toBe(403);

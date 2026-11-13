@@ -109,11 +109,51 @@ export async function loadLibraryRefs(
   return refs;
 }
 
+/** The seasons of each show the library has downloaded, keyed as a ref: `show:tmdbId`. */
+export type SeasonAvailability = Map<string, Set<number>>;
+
+/**
+ * Which seasons of the shows on a shelf are downloaded. A season entry placed on
+ * its own is "in the library" only when that season is, not merely its show.
+ */
+export async function loadLibrarySeasons(
+  entries: Array<{ tmdbId: number; type: string }>,
+): Promise<SeasonAvailability> {
+  const tmdbIds = [
+    ...new Set(entries.filter((e) => e.type === "show").map((e) => e.tmdbId)),
+  ];
+  const seasons: SeasonAvailability = new Map();
+  if (!tmdbIds.length) return seasons;
+  const rows = await prisma.libraryMedia.findMany({
+    where: { tmdbId: { in: tmdbIds }, type: "show" },
+    select: {
+      tmdbId: true,
+      episodes: {
+        where: { status: "downloaded" },
+        select: { season: true },
+      },
+    },
+  });
+  for (const row of rows) {
+    seasons.set(
+      refKey("show", row.tmdbId),
+      new Set(row.episodes.map((episode) => episode.season)),
+    );
+  }
+  return seasons;
+}
+
 export function mapShelfEntry(
   entry: ShelfEntryRow,
   ref: LibraryRef | undefined,
+  seasons?: SeasonAvailability,
 ): ShelfEntryView {
   const art = ref ? libraryArtwork(ref) : null;
+  // A whole title needs only the show; a season needs that season downloaded
+  const seasonThere =
+    entry.season == null ||
+    seasons?.get(refKey(entry.type, entry.tmdbId))?.has(entry.season) === true;
+  const there = !!ref && seasonThere;
   return {
     id: entry.id,
     tmdb_id: entry.tmdbId,
@@ -125,8 +165,8 @@ export function mapShelfEntry(
     backdrop_url: art?.backdropUrl ?? null,
     group_label: entry.groupLabel,
     position: entry.position,
-    in_library: !!ref,
-    library_id: ref?.id ?? null,
+    in_library: there,
+    library_id: there ? (ref?.id ?? null) : null,
     source: entry.source === "rule" ? "rule" : "manual",
     reason: null,
   };
@@ -137,10 +177,11 @@ export function mapShelfEntries(
   refs: Map<string, LibraryRef>,
   mode: ShelfOrderMode,
   isAdmin: boolean,
+  seasons?: SeasonAvailability,
 ): ShelfEntryView[] {
   const visible = isAdmin ? rawEntries : rawEntries.filter((e) => !e.excluded);
   return sortEntries(mode, visible).map((entry) =>
-    mapShelfEntry(entry, refs.get(refKey(entry.type, entry.tmdbId))),
+    mapShelfEntry(entry, refs.get(refKey(entry.type, entry.tmdbId)), seasons),
   );
 }
 

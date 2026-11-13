@@ -43,6 +43,8 @@ export type MediaRec = {
   year: number | null;
   posterUrl: string | null;
   overrides: unknown;
+  /** Downloaded seasons of a show, as `loadLibrarySeasons` reads them. */
+  episodes?: Array<{ season: number }>;
 };
 
 type Where = Record<string, unknown>;
@@ -68,6 +70,12 @@ const matches = (rec: Record<string, unknown>, where: Where = {}): boolean =>
     const actual = rec[field];
     if (expected && typeof expected === "object" && "in" in expected) {
       return (expected as { in: unknown[] }).in.includes(actual);
+    }
+    if (expected && typeof expected === "object" && "gte" in expected) {
+      return (
+        typeof actual === "number" &&
+        actual >= (expected as { gte: number }).gte
+      );
     }
     return actual === expected;
   });
@@ -214,6 +222,26 @@ const shelfEntry = {
     Object.assign(rec, args.data);
     return rec;
   },
+  updateMany: async (args: { where: Where; data: Record<string, unknown> }) => {
+    const rows = state.entries.filter((rec) =>
+      matches(rec as never, args.where),
+    );
+    for (const rec of rows) {
+      for (const [field, value] of Object.entries(args.data)) {
+        const increment =
+          value && typeof value === "object" && "increment" in value
+            ? (value as { increment: number }).increment
+            : null;
+        if (increment != null) {
+          (rec as Record<string, unknown>)[field] =
+            Number((rec as Record<string, unknown>)[field]) + increment;
+        } else {
+          (rec as Record<string, unknown>)[field] = value;
+        }
+      }
+    }
+    return { count: rows.length };
+  },
   delete: async (args: { where: { id: number } }) => {
     state.entries = state.entries.filter((entry) => entry.id !== args.where.id);
     return { id: args.where.id };
@@ -222,11 +250,13 @@ const shelfEntry = {
 
 const libraryMedia = {
   findMany: async (args: { where: { tmdbId?: { in: number[] } } }) =>
-    state.media.filter((media) =>
-      args.where.tmdbId?.in
-        ? args.where.tmdbId.in.includes(media.tmdbId)
-        : true,
-    ),
+    state.media
+      .filter((media) =>
+        args.where.tmdbId?.in
+          ? args.where.tmdbId.in.includes(media.tmdbId)
+          : true,
+      )
+      .map((media) => ({ ...media, episodes: media.episodes ?? [] })),
   findUnique: async (args: { where: { id: number } }) =>
     state.media.find((media) => media.id === args.where.id) ?? null,
 };
@@ -235,7 +265,10 @@ export const fakePrisma = {
   shelf,
   shelfEntry,
   libraryMedia,
-  $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+  // The service uses the interactive form, for its advisory lock; older calls pass a list
+  $transaction: async (ops: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
+    typeof ops === "function" ? ops(fakePrisma) : Promise.all(ops),
+  $executeRaw: async () => 0,
 };
 
 export function seedShelf(overrides: Partial<ShelfRec> = {}): ShelfRec {

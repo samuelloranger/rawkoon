@@ -13,15 +13,17 @@ import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
 import type { ShelfMediaType } from "@rawkoon/shared/types";
 import {
   addShelfEntry,
+  removeShelfEntry,
+  reorderShelfEntries,
+  shelvesForTitle,
+} from "@rawkoon/api/services/shelves/shelfEntries";
+import {
   createShelf,
   deleteShelf,
   getShelfDetail,
   listShelves,
-  removeShelfEntry,
-  reorderShelfEntries,
   reorderShelves,
   seedSummaries,
-  shelvesForTitle,
   updateShelf,
 } from "@rawkoon/api/services/shelves/shelfService";
 import { seedLanguage } from "@rawkoon/api/services/shelves/seeds";
@@ -52,16 +54,23 @@ const shelfBody = {
   visible_to: mmddV.nullish(),
 };
 
+/** A cover title is a TMDB id and the kind it belongs to: the same number can be a movie or a show. */
+const coverTitleRefine = {
+  message: "A cover title needs its type",
+  test: (body: { cover_tmdb_id?: number | null; cover_type?: string | null }) =>
+    body.cover_tmdb_id == null || body.cover_type != null,
+};
+
 const createBody = z
   .object({ ...shelfBody, seed: z.string().min(1).max(40).optional() })
   .refine((body) => !!body.seed || !!body.name, {
     message: "A name or a seed is required",
   })
-  .refine((body) => body.cover_tmdb_id == null || body.cover_type != null, {
-    message: "A cover title needs its type",
-  });
+  .refine(coverTitleRefine.test, { message: coverTitleRefine.message });
 
-const updateBody = z.object(shelfBody);
+const updateBody = z
+  .object(shelfBody)
+  .refine(coverTitleRefine.test, { message: coverTitleRefine.message });
 
 const addEntryBody = z.object({
   tmdb_id: z.number().int().positive(),

@@ -13,6 +13,7 @@ import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import {
   libraryArtwork,
   loadLibraryRefs,
+  loadLibrarySeasons,
   mapShelfDetail,
   mapShelfEntries,
   mapShelfSummary,
@@ -26,39 +27,10 @@ import {
   fetchShelfTmdbKey,
 } from "./shelfTmdb";
 import { findSeed, listSeeds, type SeedLanguage } from "./seeds";
+import { entryRowSelect, key, shelfRowSelect } from "./shelfRows";
+import { isVisibleNow } from "./shelfVisibility";
 
 const BACKDROP_TTL = 24 * 60 * 60;
-
-const shelfRowSelect = {
-  id: true,
-  name: true,
-  description: true,
-  orderMode: true,
-  coverStyle: true,
-  coverTmdbId: true,
-  coverType: true,
-  homeRow: true,
-  visibleFrom: true,
-  visibleTo: true,
-  seedKey: true,
-  position: true,
-} as const;
-
-const entryRowSelect = {
-  id: true,
-  shelfId: true,
-  tmdbId: true,
-  type: true,
-  season: true,
-  position: true,
-  groupLabel: true,
-  source: true,
-  excluded: true,
-  title: true,
-  year: true,
-  posterPath: true,
-  addedAt: true,
-} as const;
 
 export type CreateShelfInput = {
   name?: string;
@@ -84,8 +56,6 @@ export type ShelfPatch = Partial<{
   visibleFrom: string | null;
   visibleTo: string | null;
 }>;
-
-const key = (type: string, tmdbId: number) => `${type}:${tmdbId}`;
 
 /** The chosen cover title's backdrop: a library override first, else TMDB (cached a day). */
 async function coverBackdropUrl(shelf: ShelfRow): Promise<string | null> {
@@ -119,6 +89,7 @@ async function summariesOf(
     select: entryRowSelect,
   })) as ShelfEntryRow[];
   const refs = await loadLibraryRefs(entries);
+  const seasons = await loadLibrarySeasons(entries);
   const byShelf = new Map<number, ShelfEntryRow[]>();
   for (const entry of entries) {
     const list = byShelf.get(entry.shelfId) ?? [];
@@ -132,6 +103,7 @@ async function summariesOf(
       refs,
       orderModeOf(shelf.orderMode),
       isAdmin,
+      seasons,
     );
     out.push(
       mapShelfSummary({
@@ -168,16 +140,21 @@ export async function getShelfDetail(
     select: shelfRowSelect,
   })) as ShelfRow | null;
   if (!shelf) return null;
+  // A shelf outside its window is for admins only, as in the list
+  if (!isAdmin && !isVisibleNow(shelf.visibleFrom, shelf.visibleTo))
+    return null;
   const entries = (await prisma.shelfEntry.findMany({
     where: { shelfId: id },
     select: entryRowSelect,
   })) as ShelfEntryRow[];
   const refs = await loadLibraryRefs(entries);
+  const seasons = await loadLibrarySeasons(entries);
   const views = mapShelfEntries(
     entries,
     refs,
     orderModeOf(shelf.orderMode),
     isAdmin,
+    seasons,
   );
   const summary = mapShelfSummary({
     shelf,
@@ -222,11 +199,12 @@ export async function createShelf(
   const seed = input.seed ? findSeed(input.seed) : null;
   if (input.seed && !seed) return { ok: false, reason: "seed_not_found" };
 
-  // Load a seed before writing anything, so a TMDB failure creates no shelf.
+  // Load a seed before writing anything, so a TMDB failure creates no shelf. A
+  // curated seed reads the repo, so it installs on an instance with no TMDB key.
   const seedEntries = seed
     ? await (async () => {
-        const apiKey = await fetchShelfTmdbKey();
-        if (!apiKey) return "tmdb_not_configured" as const;
+        const apiKey = (seed.needsTmdb ? await fetchShelfTmdbKey() : "") ?? "";
+        if (seed.needsTmdb && !apiKey) return "tmdb_not_configured" as const;
         const entries = await seed.load(apiKey);
         return entries.length ? entries : ("empty_seed" as const);
       })()
@@ -315,184 +293,4 @@ export async function reorderShelves(ids: number[]): Promise<boolean> {
     ),
   );
   return true;
-}
-
-export type AddEntryInput = {
-  tmdbId: number;
-  type: ShelfMediaType;
-  season?: number | null;
-  position?: number;
-  groupLabel?: string | null;
-};
-
-export type AddEntryResult =
-  | { ok: true; entry: ShelfEntryView }
-  | {
-      ok: false;
-      reason:
-        | "shelf_not_found"
-        | "title_not_found"
-        | "tmdb_not_configured"
-        | "invalid_season";
-    };
-
-export async function addShelfEntry(
-  shelfId: number,
-  input: AddEntryInput,
-): Promise<AddEntryResult> {
-  if (input.season != null && input.type !== "show") {
-    return { ok: false, reason: "invalid_season" };
-  }
-  const season = input.season ?? null;
-  const shelf = (await prisma.shelf.findUnique({
-    where: { id: shelfId },
-    select: shelfRowSelect,
-  })) as ShelfRow | null;
-  if (!shelf) return { ok: false, reason: "shelf_not_found" };
-
-  // An existing entry is returned as-is, so the add is idempotent; a title a
-  // rule excluded comes back when added by hand.
-  const existing = (await prisma.shelfEntry.findFirst({
-    where: { shelfId, tmdbId: input.tmdbId, type: input.type, season },
-    select: entryRowSelect,
-  })) as ShelfEntryRow | null;
-  if (existing) {
-    if (existing.excluded) {
-      await prisma.shelfEntry.update({
-        where: { id: existing.id },
-        data: { excluded: false, source: "manual" },
-      });
-      existing.excluded = false;
-    }
-    const refs = await loadLibraryRefs([existing]);
-    return {
-      ok: true,
-      entry: mapShelfEntries(
-        [existing],
-        refs,
-        orderModeOf(shelf.orderMode),
-        true,
-      )[0] as ShelfEntryView,
-    };
-  }
-
-  const refs = await loadLibraryRefs([input]);
-  const ref = refs.get(key(input.type, input.tmdbId));
-  let title: string;
-  let year: number | null;
-  let posterPath: string | null = null;
-  if (ref) {
-    const art = libraryArtwork(ref);
-    title = art.title ?? "";
-    year = art.year;
-  } else {
-    const apiKey = await fetchShelfTmdbKey();
-    if (!apiKey) return { ok: false, reason: "tmdb_not_configured" };
-    const fetched = await fetchShelfTitle(apiKey, input.tmdbId, input.type);
-    if (!fetched) return { ok: false, reason: "title_not_found" };
-    title = fetched.title;
-    year = fetched.year;
-    posterPath = fetched.posterPath;
-  }
-  if (!title) return { ok: false, reason: "title_not_found" };
-
-  const last = await prisma.shelfEntry.findFirst({
-    where: { shelfId },
-    orderBy: { position: "desc" },
-    select: { position: true },
-  });
-  const created = (await prisma.shelfEntry.create({
-    data: {
-      shelfId,
-      tmdbId: input.tmdbId,
-      type: input.type,
-      season,
-      position: input.position ?? (last?.position ?? -1) + 1,
-      groupLabel: input.groupLabel ?? null,
-      source: "manual",
-      title,
-      year,
-      posterPath,
-    },
-    select: entryRowSelect,
-  })) as ShelfEntryRow;
-  const createdRefs = await loadLibraryRefs([created]);
-  return {
-    ok: true,
-    entry: mapShelfEntries(
-      [created],
-      createdRefs,
-      orderModeOf(shelf.orderMode),
-      true,
-    )[0] as ShelfEntryView,
-  };
-}
-
-export async function reorderShelfEntries(
-  shelfId: number,
-  moves: Array<{ id: number; position: number; groupLabel: string | null }>,
-): Promise<boolean> {
-  if (!moves.length) return true;
-  const owned = await prisma.shelfEntry.findMany({
-    where: { shelfId, id: { in: moves.map((m) => m.id) } },
-    select: { id: true },
-  });
-  if (owned.length !== new Set(moves.map((m) => m.id)).size) return false;
-  await prisma.$transaction(
-    moves.map((move) =>
-      prisma.shelfEntry.update({
-        where: { id: move.id },
-        data: { position: move.position, groupLabel: move.groupLabel },
-      }),
-    ),
-  );
-  return true;
-}
-
-/** Remove an entry; a rule-sourced one is excluded instead so rules never re-add it. */
-export async function removeShelfEntry(
-  shelfId: number,
-  entryId: number,
-): Promise<"deleted" | "excluded" | "not_found"> {
-  const entry = await prisma.shelfEntry.findFirst({
-    where: { id: entryId, shelfId },
-    select: { id: true, source: true },
-  });
-  if (!entry) return "not_found";
-  if (entry.source === "rule") {
-    await prisma.shelfEntry.update({
-      where: { id: entry.id },
-      data: { excluded: true },
-    });
-    return "excluded";
-  }
-  await prisma.shelfEntry.delete({ where: { id: entry.id } });
-  return "deleted";
-}
-
-/** Shelves for the "Add to shelf" menus, with whether each holds the whole title. */
-export async function shelvesForTitle(
-  tmdbId: number,
-  type: ShelfMediaType,
-): Promise<ShelfMembership[]> {
-  const shelves = await prisma.shelf.findMany({
-    orderBy: [{ position: "asc" }, { id: "asc" }],
-    select: { id: true, name: true, orderMode: true },
-  });
-  const entries = await prisma.shelfEntry.findMany({
-    where: { tmdbId, type, season: null },
-    select: { id: true, shelfId: true, excluded: true },
-  });
-  const byShelf = new Map(entries.map((entry) => [entry.shelfId, entry]));
-  return shelves.map((shelf) => {
-    const entry = byShelf.get(shelf.id);
-    const holds = !!entry && !entry.excluded;
-    return {
-      id: shelf.id,
-      name: shelf.name,
-      holds,
-      entry_id: holds ? (entry?.id ?? null) : null,
-      order_mode: shelf.orderMode as ShelfOrderMode,
-    };
-  });
 }

@@ -19,20 +19,23 @@ const argValue = (name: string): string | null => {
 };
 
 async function main() {
-  if (!(await getLibraryTmdbApiKey())) {
-    console.error("TMDB is not configured; cannot build the starter shelves.");
-    process.exitCode = 1;
-    return;
-  }
-
   const requested = argValue("keys")
     ?.split(",")
     .map((key) => key.trim())
     .filter(Boolean);
   const language = seedLanguage(argValue("lang"));
+  // A curated seed reads the repo, so it installs without a TMDB key; the rest need one
+  const hasTmdb = !!(await getLibraryTmdbApiKey());
   const seeds = listSeeds().filter(
-    (seed) => !requested || requested.includes(seed.key),
+    (seed) =>
+      (!requested || requested.includes(seed.key)) &&
+      (hasTmdb || !seed.needsTmdb),
   );
+  if (!hasTmdb) {
+    console.error(
+      "TMDB is not configured; installing only the seeds that need no lookup.",
+    );
+  }
   const existing = await prisma.shelf.findMany({
     where: { seedKey: { not: null } },
     select: { seedKey: true },

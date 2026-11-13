@@ -27,6 +27,8 @@ export interface ShelfSeed {
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
+  /** Whether the seed asks TMDB, so an instance without a key can still install the ones that don't. */
+  needsTmdb: boolean;
   /** Fetch (or read) the titles the seed fills the new shelf with. */
   load: (apiKey: string) => Promise<SeedEntry[]>;
 }
@@ -99,6 +101,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: true,
     visibleFrom: "11-01",
     visibleTo: "01-15",
+    needsTmdb: true,
     load: discover(
       "movie",
       {
@@ -120,6 +123,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,
+    needsTmdb: true,
     load: discover(
       "movie",
       {
@@ -141,6 +145,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,
+    needsTmdb: true,
     load: discover(
       "movie",
       {
@@ -162,6 +167,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,
+    needsTmdb: true,
     load: discover(
       "movie",
       {
@@ -183,6 +189,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,
+    needsTmdb: true,
     load: loadBond,
   },
   {
@@ -199,6 +206,7 @@ const SEEDS: ShelfSeed[] = [
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,
+    needsTmdb: false,
     load: async () => loadMcu(),
   },
 ];

@@ -20,6 +20,15 @@ describe("shelf visibility", () => {
     expect(normalizeMmdd(null)).toBeNull();
   });
 
+  it("refuses a day no month has, so a saved window always matches some date", () => {
+    expect(normalizeMmdd("02-29")).toBe("02-29");
+    expect(normalizeMmdd("02-30")).toBeNull();
+    expect(normalizeMmdd("02-31")).toBeNull();
+    expect(normalizeMmdd("04-31")).toBeNull();
+    expect(normalizeMmdd("06-31")).toBeNull();
+    expect(normalizeMmdd("12-31")).toBe("12-31");
+  });
+
   it("formats today as MM-DD", () => {
     expect(todayMmdd(at(2026, 3, 7))).toBe("03-07");
   });

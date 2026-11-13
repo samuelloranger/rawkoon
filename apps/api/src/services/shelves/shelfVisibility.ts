@@ -2,15 +2,22 @@ import type { ShelfOrderMode } from "@rawkoon/shared/types";
 
 const MM_DD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
+/** The days each month reaches in a leap year, so a `02-29` window works and `02-31` is refused. */
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 /** A `MM-DD` day, or null for "no bound". */
 export function normalizeMmdd(value: unknown): string | null {
   if (value == null || value === "") return null;
-  if (typeof value !== "string" || !MM_DD.test(value)) return null;
+  if (typeof value !== "string" || !isValidMmdd(value)) return null;
   return value;
 }
 
+/** Whether `MM-DD` names a day some year has; `02-31` would otherwise never match a date. */
 export function isValidMmdd(value: string): boolean {
-  return MM_DD.test(value);
+  if (!MM_DD.test(value)) return false;
+  const month = Number(value.slice(0, 2));
+  const day = Number(value.slice(3, 5));
+  return day <= (DAYS_IN_MONTH[month - 1] ?? 0);
 }
 
 /** Today as `MM-DD` in the server's time zone, which is the shared reference for every client. */
