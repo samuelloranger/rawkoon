@@ -16,7 +16,10 @@ export const session: { user: Record<string, unknown> | null } = {
 const cacheStore = new Map<string, unknown>();
 
 /** The TMDB key the mocked integration answers with; a test that needs one sets it. */
-export const tmdb: { key: string | null } = { key: null };
+export const tmdb: { key: string | null; discoverFails: boolean } = {
+  key: null,
+  discoverFails: false,
+};
 
 mock.module("@rawkoon/api/db", () => ({ prisma: fakePrisma }));
 mock.module("@rawkoon/api/middleware/auth", () => ({
@@ -45,7 +48,10 @@ mock.module("@rawkoon/api/services/shelves/shelfTmdb", () => ({
       language: "en",
     },
   ],
-  discoverShelfTitles: async () => [],
+  discoverShelfTitles: async () => {
+    if (tmdb.discoverFails) throw new Error("TMDB discover page 1 failed");
+    return [];
+  },
 }));
 
 const { shelfRoutes } = await import("../../src/routes/shelves");
@@ -60,6 +66,7 @@ export function resetHarness() {
   resetState();
   cacheStore.clear();
   tmdb.key = null;
+  tmdb.discoverFails = false;
   session.user = { ...admin };
 }
 

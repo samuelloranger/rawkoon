@@ -35,6 +35,7 @@ export default defineConfig({
           { text: "Quality profiles", link: "/library/quality-profiles" },
           { text: "AI release picks", link: "/library/ai-release-picks" },
           { text: "Media metadata", link: "/library/metadata" },
+          { text: "Shelves", link: "/library/shelves" },
           { text: "Books and audiobooks", link: "/library/books" },
           { text: "Downloads and files", link: "/library/downloads-and-files" },
           { text: "Requests", link: "/library/requests" },

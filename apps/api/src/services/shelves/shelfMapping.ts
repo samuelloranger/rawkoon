@@ -126,10 +126,14 @@ export type SeasonAvailability = Map<string, Set<number>>;
  * its own is "in the library" only when that season is, not merely its show.
  */
 export async function loadLibrarySeasons(
-  entries: Array<{ tmdbId: number; type: string }>,
+  entries: Array<{ tmdbId: number; type: string; season: number | null }>,
 ): Promise<SeasonAvailability> {
   const tmdbIds = [
-    ...new Set(entries.filter((e) => e.type === "show").map((e) => e.tmdbId)),
+    ...new Set(
+      entries
+        .filter((e) => e.type === "show" && e.season != null)
+        .map((e) => e.tmdbId),
+    ),
   ];
   const seasons: SeasonAvailability = new Map();
   if (!tmdbIds.length) return seasons;
@@ -140,6 +144,7 @@ export async function loadLibrarySeasons(
       episodes: {
         where: { status: "downloaded" },
         select: { season: true },
+        distinct: ["season"],
       },
     },
   });

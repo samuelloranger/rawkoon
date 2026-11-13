@@ -29,6 +29,7 @@ import {
   fetchShelfTitle,
   fetchShelfTmdbKey,
 } from "./shelfTmdb";
+import { deleteShelfCover } from "./shelfCoverService";
 import { findSeed, listSeeds, type SeedLanguage } from "./seeds";
 import { entryRowSelect, key, shelfRowSelect } from "./shelfRows";
 import { isVisibleNow } from "./shelfVisibility";
@@ -68,7 +69,10 @@ export type ShelfPatch = Partial<{
 
 /** The chosen cover title's backdrop: a library override first, else TMDB (cached a day). */
 async function coverBackdropUrl(shelf: ShelfRow): Promise<string | null> {
-  if (shelf.coverStyle !== "backdrop" || !shelf.coverTmdbId) return null;
+  // A picked image wins, so skip the lookups it would never use
+  if (shelf.coverStyle !== "backdrop" || !shelf.coverTmdbId || shelf.coverUrl) {
+    return null;
+  }
   const type: ShelfMediaType = shelf.coverType === "show" ? "show" : "movie";
   const refs = await loadLibraryRefs([{ tmdbId: shelf.coverTmdbId, type }]);
   const ref = refs.get(key(type, shelf.coverTmdbId));
@@ -77,13 +81,14 @@ async function coverBackdropUrl(shelf: ShelfRow): Promise<string | null> {
     if (art.backdropUrl) return art.backdropUrl;
   }
   const cacheKey = `shelves:backdrop:${type}:${shelf.coverTmdbId}`;
-  const cached = await getJsonCache<{ url: string | null }>(cacheKey);
-  if (cached) return cached.url;
+  const cached = await getJsonCache<{ url: string }>(cacheKey);
+  if (cached?.url) return cached.url;
   const apiKey = await fetchShelfTmdbKey();
   const url = apiKey
     ? await fetchShelfBackdropUrl(apiKey, shelf.coverTmdbId, type)
     : null;
-  await setJsonCache(cacheKey, { url }, BACKDROP_TTL);
+  // A miss may be a failed fetch or a missing key: don't pin it for a day
+  if (url) await setJsonCache(cacheKey, { url }, BACKDROP_TTL);
   return url;
 }
 
@@ -94,10 +99,12 @@ async function summariesOf(
   now = new Date(),
 ): Promise<ShelfSummary[]> {
   if (!shelves.length) return [];
-  const entries = (await prisma.shelfEntry.findMany({
+  const found = (await prisma.shelfEntry.findMany({
     where: { shelfId: { in: shelves.map((s) => s.id) } },
     select: entryRowSelect,
   })) as ShelfEntryRow[];
+  // Excluded entries only show to admins, so don't resolve them for anyone else
+  const entries = isAdmin ? found : found.filter((e) => !e.excluded);
   const refs = await loadLibraryRefs(entries);
   const seasons = await loadLibrarySeasons(entries);
   const byShelf = new Map<number, ShelfEntryRow[]>();
@@ -138,10 +145,16 @@ export async function listShelves(
     orderBy: [{ position: "asc" }, { id: "asc" }],
     select: shelfRowSelect,
   })) as ShelfRow[];
-  const summaries = await summariesOf(shelves, isAdmin, origin);
-  return includeOutsideWindow
-    ? summaries
-    : summaries.filter((shelf) => shelf.visible_now);
+  // Skip shelves outside their window before mapping, not after
+  const now = new Date();
+  return summariesOf(
+    includeOutsideWindow
+      ? shelves
+      : shelves.filter((s) => isVisibleNow(s.visibleFrom, s.visibleTo, now)),
+    isAdmin,
+    origin,
+    now,
+  );
 }
 
 export async function getShelfDetail(
@@ -208,7 +221,11 @@ export type CreateShelfResult =
   | { ok: true; id: number }
   | {
       ok: false;
-      reason: "seed_not_found" | "tmdb_not_configured" | "empty_seed";
+      reason:
+        | "seed_not_found"
+        | "tmdb_not_configured"
+        | "empty_seed"
+        | "seed_failed";
     };
 
 /** Create a shelf, either empty or filled once from a seed. */
@@ -225,63 +242,83 @@ export async function createShelf(
     ? await (async () => {
         const apiKey = (seed.needsTmdb ? await fetchShelfTmdbKey() : "") ?? "";
         if (seed.needsTmdb && !apiKey) return "tmdb_not_configured" as const;
-        const entries = await seed.load(apiKey);
-        return entries.length || seed.rules || seed.allowEmpty
-          ? entries
-          : ("empty_seed" as const);
+        try {
+          const entries = await seed.load(apiKey);
+          return entries.length || seed.rules || seed.allowEmpty
+            ? entries
+            : ("empty_seed" as const);
+        } catch {
+          return "seed_failed" as const;
+        }
       })()
     : [];
   if (seedEntries === "tmdb_not_configured") {
     return { ok: false, reason: "tmdb_not_configured" };
   }
   if (seedEntries === "empty_seed") return { ok: false, reason: "empty_seed" };
+  if (seedEntries === "seed_failed")
+    return { ok: false, reason: "seed_failed" };
 
   const name = input.name?.trim() || seed?.name[language] || "";
   const position = await nextShelfPosition();
-  const created = await prisma.shelf.create({
-    data: {
-      name,
-      description:
-        input.description !== undefined
-          ? input.description
-          : (seed?.description[language] ?? null),
-      orderMode: input.orderMode ?? seed?.orderMode ?? "manual",
-      coverStyle: input.coverStyle ?? "mosaic",
-      coverTmdbId: input.coverTmdbId ?? null,
-      coverType: input.coverType ?? null,
-      coverUrl: input.coverUrl ?? null,
-      homeRow: input.homeRow ?? seed?.homeRow ?? false,
-      visibleFrom: input.visibleFrom ?? seed?.visibleFrom ?? null,
-      visibleTo: input.visibleTo ?? seed?.visibleTo ?? null,
-      seedKey: seed?.key ?? null,
-      rules:
-        (seed?.rules as Prisma.InputJsonObject | undefined) ?? Prisma.JsonNull,
-      autoJoin: false,
-      position,
-    },
-    select: { id: true },
-  });
-
-  if (Array.isArray(seedEntries)) {
-    await prisma.shelfEntry.createMany({
-      data: seedEntries.map((entry, index) => ({
-        shelfId: created.id,
-        tmdbId: entry.tmdbId,
-        type: entry.type,
-        season: entry.season,
-        position: index,
-        groupLabel: entry.groupLabel,
-        source: "manual",
-        title: entry.title,
-        year: entry.year,
-        posterPath: entry.posterPath,
-      })),
-      skipDuplicates: true,
+  // The shelf and its entries land together, so a failure never leaves a half-filled shelf
+  const created = await prisma.$transaction(async (tx) => {
+    const created = await tx.shelf.create({
+      data: {
+        name,
+        description:
+          input.description !== undefined
+            ? input.description
+            : (seed?.description[language] ?? null),
+        orderMode: input.orderMode ?? seed?.orderMode ?? "manual",
+        coverStyle: input.coverStyle ?? "mosaic",
+        coverTmdbId: input.coverTmdbId ?? null,
+        coverType: input.coverType ?? null,
+        coverUrl: input.coverUrl ?? null,
+        homeRow: input.homeRow ?? seed?.homeRow ?? false,
+        visibleFrom: input.visibleFrom ?? seed?.visibleFrom ?? null,
+        visibleTo: input.visibleTo ?? seed?.visibleTo ?? null,
+        seedKey: seed?.key ?? null,
+        rules:
+          (seed?.rules as Prisma.InputJsonObject | undefined) ??
+          Prisma.JsonNull,
+        autoJoin: false,
+        position,
+      },
+      select: { id: true },
     });
-  }
+
+    if (Array.isArray(seedEntries)) {
+      await tx.shelfEntry.createMany({
+        data: seedEntries.map((entry, index) => ({
+          shelfId: created.id,
+          tmdbId: entry.tmdbId,
+          type: entry.type,
+          season: entry.season,
+          position: index,
+          groupLabel: entry.groupLabel,
+          source: "manual",
+          title: entry.title,
+          year: entry.year,
+          posterPath: entry.posterPath,
+        })),
+        skipDuplicates: true,
+      });
+    }
+    return created;
+  });
   // A rules seed fills once from whatever facts exist now; an empty library of facts gives an empty shelf
   if (seed?.rules) await addRuleMatches(created.id, seed.rules);
   return { ok: true, id: created.id };
+}
+
+/** Whether the shelf has an uploaded cover file, which the "upload" style needs. */
+export async function shelfHasCoverFile(id: number): Promise<boolean> {
+  const row = await prisma.shelf.findUnique({
+    where: { id },
+    select: { coverFile: true },
+  });
+  return !!row?.coverFile;
 }
 
 export type UpdateShelfResult = "ok" | "not_found" | "auto_join_needs_rules";
@@ -296,7 +333,7 @@ export async function updateShelf(
   if (patch.orderMode !== undefined) data.orderMode = patch.orderMode;
   if (patch.coverStyle !== undefined) {
     data.coverStyle = patch.coverStyle;
-    // Leaving the upload cover drops its file reference; the file itself is cleaned up with the shelf
+    // Leaving the upload cover drops its file reference and, after the update, the file
     if (patch.coverStyle !== "upload") data.coverFile = null;
     // A picked backdrop belongs to the backdrop style only
     if (patch.coverStyle !== "backdrop") data.coverUrl = null;
@@ -328,7 +365,17 @@ export async function updateShelf(
       data.autoJoin = autoJoin && ruled;
   }
   if (!Object.keys(data).length) return "ok";
+  const previous =
+    "coverFile" in data
+      ? (
+          await prisma.shelf.findUnique({
+            where: { id },
+            select: { coverFile: true },
+          })
+        )?.coverFile
+      : null;
   const result = await prisma.shelf.updateMany({ where: { id }, data });
+  await deleteShelfCover(previous ?? null);
   return result.count > 0 ? "ok" : "not_found";
 }
 
@@ -337,6 +384,12 @@ export async function setShelfCoverFile(
   id: number,
   file: string,
 ): Promise<boolean> {
+  const previous = (
+    await prisma.shelf.findUnique({
+      where: { id },
+      select: { coverFile: true },
+    })
+  )?.coverFile;
   const result = await prisma.shelf.updateMany({
     where: { id },
     data: {
@@ -347,11 +400,17 @@ export async function setShelfCoverFile(
       coverUrl: null,
     },
   });
+  if (previous && previous !== file) await deleteShelfCover(previous);
   return result.count > 0;
 }
 
 export async function deleteShelf(id: number): Promise<boolean> {
+  const row = await prisma.shelf.findUnique({
+    where: { id },
+    select: { coverFile: true },
+  });
   const result = await prisma.shelf.deleteMany({ where: { id } });
+  await deleteShelfCover(row?.coverFile ?? null);
   return result.count > 0;
 }
 

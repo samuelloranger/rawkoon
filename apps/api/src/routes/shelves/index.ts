@@ -1,8 +1,9 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import {
-  badRequest,
   badGateway,
+  badRequest,
   forbidden,
   notFound,
   ok,
@@ -26,6 +27,7 @@ import {
   reorderShelves,
   seedSummaries,
   setShelfCoverFile,
+  shelfHasCoverFile,
   updateShelf,
 } from "@rawkoon/api/services/shelves/shelfService";
 import {
@@ -82,7 +84,7 @@ const coverFields = {
   cover_tmdb_id: z.number().int().positive().nullish(),
   cover_type: mediaTypeV.nullish(),
   /** A picked backdrop image (TMDB) instead of the cover title's first. */
-  cover_url: z.string().url().nullish(),
+  cover_url: z.url().startsWith("https://image.tmdb.org/t/p/").nullish(),
 };
 
 const shelfBody = {
@@ -109,7 +111,11 @@ const createBody = z
   .refine((body) => !!body.seed || !!body.name, {
     message: "A name or a seed is required",
   })
-  .refine(coverTitleRefine.test, { message: coverTitleRefine.message });
+  .refine(coverTitleRefine.test, { message: coverTitleRefine.message })
+  // An upload cover only exists once a file is uploaded to a shelf
+  .refine((body) => body.cover_style !== "upload", {
+    message: "Upload a cover image to use the upload style",
+  });
 
 const updateBody = z
   .object(shelfBody)
@@ -153,8 +159,16 @@ const pathId = (raw: string): number | null => {
 
 const isFlag = (value: string | undefined) => value === "1" || value === "true";
 
-/** The scheme and host the caller used: an uploaded cover is served back from there. */
-const originOf = (url: string) => new URL(url).origin;
+/** The scheme and host the caller reached, behind a TLS proxy too: an uploaded cover is served back from there. */
+const originOf = (c: Context) => {
+  const url = new URL(c.req.url);
+  const first = (name: string) =>
+    c.req.header(name)?.split(",")[0]?.trim() || null;
+  const proto = first("x-forwarded-proto");
+  const scheme =
+    proto === "http" || proto === "https" ? proto : url.protocol.slice(0, -1);
+  return `${scheme}://${first("x-forwarded-host") ?? url.host}`;
+};
 
 const coverError = (reason: string) =>
   reason === "too_large"
@@ -176,7 +190,7 @@ export const shelfRoutes = new Hono<Env>()
     // Editors read this right after a write; a browser cache would show them the old cover
     c.header("Cache-Control", "private, no-store");
     return ok({
-      shelves: await listShelves(user.is_admin, all, originOf(c.req.url)),
+      shelves: await listShelves(user.is_admin, all, originOf(c)),
     });
   })
   // GET /api/shelves/seeds — the shipped recipes for the "New shelf" dialog
@@ -232,11 +246,7 @@ export const shelfRoutes = new Hono<Env>()
   .get("/:id", async (c) => {
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");
-    const shelf = await getShelfDetail(
-      id,
-      c.get("user").is_admin,
-      originOf(c.req.url),
-    );
+    const shelf = await getShelfDetail(id, c.get("user").is_admin, originOf(c));
     if (!shelf) return notFound("Shelf not found");
     c.header("Cache-Control", "private, no-store");
     return ok({ shelf });
@@ -266,9 +276,12 @@ export const shelfRoutes = new Hono<Env>()
       if (created.reason === "tmdb_not_configured") {
         return badRequest("TMDB is not configured");
       }
+      if (created.reason === "seed_failed") {
+        return badGateway("TMDB did not answer; try the seed again");
+      }
       return badRequest("The seed returned no titles");
     }
-    const shelf = await getShelfDetail(created.id, true, originOf(c.req.url));
+    const shelf = await getShelfDetail(created.id, true, originOf(c));
     if (!shelf) return serverError("Shelf was not created");
     return ok({ shelf }, 201);
   })
@@ -276,6 +289,9 @@ export const shelfRoutes = new Hono<Env>()
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");
     const body = c.req.valid("json");
+    if (body.cover_style === "upload" && !(await shelfHasCoverFile(id))) {
+      return badRequest("Upload a cover image to use the upload style");
+    }
     const result = await updateShelf(id, {
       name: body.name,
       description: body.description,
@@ -294,7 +310,7 @@ export const shelfRoutes = new Hono<Env>()
       return badRequest("Auto-join needs rules");
     }
     if (result === "not_found") return notFound("Shelf not found");
-    const shelf = await getShelfDetail(id, true, originOf(c.req.url));
+    const shelf = await getShelfDetail(id, true, originOf(c));
     if (!shelf) return notFound("Shelf not found");
     return ok({ shelf });
   })
@@ -306,20 +322,30 @@ export const shelfRoutes = new Hono<Env>()
       : notFound("Shelf not found");
   })
   // POST /api/shelves/:id/cover — an uploaded cover image (multipart, field "cover")
-  .post("/:id/cover", requireAdmin, async (c) => {
-    const id = pathId(c.req.param("id"));
-    if (id == null) return notFound("Shelf not found");
-    const form = await c.req.parseBody();
-    const file = form.cover;
-    if (!(file instanceof File)) return badRequest("A cover image is required");
-    const saved = await saveShelfCover(file);
-    if (!saved.ok) return badRequest(coverError(saved.reason));
-    if (!(await setShelfCoverFile(id, saved.file))) {
-      return notFound("Shelf not found");
-    }
-    const shelf = await getShelfDetail(id, true, originOf(c.req.url));
-    return shelf ? ok({ shelf }) : serverError("Shelf was not saved");
-  })
+  .post(
+    "/:id/cover",
+    requireAdmin,
+    // Headroom over the 5 MB image for the multipart framing; stops a huge body before it is buffered
+    bodyLimit({
+      maxSize: 6 * 1024 * 1024,
+      onError: () => badRequest(coverError("too_large")),
+    }),
+    async (c) => {
+      const id = pathId(c.req.param("id"));
+      if (id == null) return notFound("Shelf not found");
+      const form = await c.req.parseBody();
+      const file = form.cover;
+      if (!(file instanceof File))
+        return badRequest("A cover image is required");
+      const saved = await saveShelfCover(file);
+      if (!saved.ok) return badRequest(coverError(saved.reason));
+      if (!(await setShelfCoverFile(id, saved.file))) {
+        return notFound("Shelf not found");
+      }
+      const shelf = await getShelfDetail(id, true, originOf(c));
+      return shelf ? ok({ shelf }) : serverError("Shelf was not saved");
+    },
+  )
   // POST /api/shelves/:id/preview — what rules would select, without saving them
   .post("/:id/preview", requireAdmin, jsonV(previewBody), async (c) => {
     const id = pathId(c.req.param("id"));
@@ -337,7 +363,7 @@ export const shelfRoutes = new Hono<Env>()
         ? notFound("Shelf not found")
         : badRequest("The shelf has no rules");
     }
-    const shelf = await getShelfDetail(id, true, originOf(c.req.url));
+    const shelf = await getShelfDetail(id, true, originOf(c));
     return shelf ? ok({ shelf }) : notFound("Shelf not found");
   })
   .post("/:id/entries", requireAdmin, jsonV(addEntryBody), async (c) => {

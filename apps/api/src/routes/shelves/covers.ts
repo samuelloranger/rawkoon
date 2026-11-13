@@ -12,6 +12,7 @@ export const shelfCoverRoutes = new Hono<Env>().get("/:filename", async (c) => {
     headers: {
       "Content-Type": cover.contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 });
