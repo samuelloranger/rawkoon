@@ -36,7 +36,7 @@ export function pickJellyfinCandidate(
   return sameName && sameYear ? lone : null;
 }
 
-interface Title {
+export interface Title {
   tmdbId: number;
   type: string;
   title: string;
@@ -44,7 +44,7 @@ interface Title {
   year: number | null;
 }
 
-type Request = (path: string, init?: RequestInit) => Promise<Response>;
+export type Request = (path: string, init?: RequestInit) => Promise<Response>;
 
 async function searchItems(
   request: Request,
@@ -125,28 +125,42 @@ async function backdropCount(request: Request, item: string): Promise<number> {
   return body.BackdropImageTags?.length ?? 0;
 }
 
-/** Sets the title's poster or backdrop in Jellyfin too; never throws, as Jellyfin is optional. */
-export async function pushArtworkToJellyfin(
+/** Runs `change` on the title's Jellyfin item; never throws, as Jellyfin is optional. */
+export async function withJellyfinItem(
   media: Title,
-  kind: ArtworkKind,
-  url: string,
+  label: string,
+  change: (request: Request, item: string) => Promise<void>,
 ): Promise<ArtworkSyncResult> {
   const config = await getJellyfinConfig();
   if (!config?.website_url || !config.api_key) return "off";
   const base = config.website_url.replace(/\/+$/, "");
-  const headers = jellyfinAuthHeader(config.api_key);
+  const auth = jellyfinAuthHeader(config.api_key);
   const request: Request = (path, init = {}) =>
     fetch(`${base}${path}`, {
       ...init,
-      headers,
+      headers: { ...auth, ...(init.headers as Record<string, string>) },
       signal: AbortSignal.timeout(JELLYFIN_TIMEOUT_MS),
     });
 
   try {
     const itemId = await findItemId(request, media);
     if (!itemId) return "not_found";
+    await change(request, encodeURIComponent(itemId));
+    return "synced";
+  } catch (error) {
+    console.warn(`[jellyfin] Could not push ${label}:`, error);
+    return "failed";
+  }
+}
+
+/** Sets the title's poster or backdrop in Jellyfin too. */
+export function pushArtworkToJellyfin(
+  media: Title,
+  kind: ArtworkKind,
+  url: string,
+): Promise<ArtworkSyncResult> {
+  return withJellyfinItem(media, "artwork", async (request, item) => {
     const type = kind === "poster" ? "Primary" : "Backdrop";
-    const item = encodeURIComponent(itemId);
     const backdropsBefore =
       kind === "backdrop" ? await backdropCount(request, item) : 0;
     const download = await request(
@@ -169,9 +183,5 @@ export async function pushArtworkToJellyfin(
         }
       }
     }
-    return "synced";
-  } catch (error) {
-    console.warn("[jellyfinArtwork] Could not push artwork:", error);
-    return "failed";
-  }
+  });
 }
