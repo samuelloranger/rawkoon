@@ -267,6 +267,12 @@ struct ShelfEditorView: View {
     private func merge(_ fresh: ShelfDetail) {
         let live = fresh.entries.filter { $0.excluded != true }
         removed = fresh.entries.filter { $0.excluded == true }
+        // The server orders non-manual shelves itself, so take its entries as-is.
+        guard detail.orderMode == .manual else {
+            entries = live
+            baseline = live
+            return
+        }
         var byId = Dictionary(uniqueKeysWithValues: live.map { ($0.id, $0) })
         var merged: [ShelfEntry] = []
         for local in entries {
@@ -276,7 +282,7 @@ struct ShelfEditorView: View {
         }
         merged += live.filter { byId[$0.id] != nil }
         entries = merged
-        baseline = live
+        baseline = merged
     }
 
     private func putBack(_ entry: ShelfEntry) async {

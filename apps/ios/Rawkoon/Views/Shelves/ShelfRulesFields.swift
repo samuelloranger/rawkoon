@@ -61,7 +61,7 @@ struct GenrePickerRow: View {
             HStack {
                 Text(title)
                 Spacer()
-                Text(verbatim: selection.isEmpty ? String(localized: "Any") : String(selection.count))
+                Text(verbatim: selection.isEmpty ? String(localized: "No filter") : String(selection.count))
                     .foregroundStyle(Theme.muted)
             }
         }

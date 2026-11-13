@@ -18,6 +18,8 @@ struct ShelfRulesSections: View {
     @State private var confirmSeed = false
     @State private var networkText = ""
     @State private var certificationText = ""
+    /// Bumped after every server write so the preview re-reads its pin states even when the rules are unchanged.
+    @State private var reloadToken = 0
 
     init(detail: ShelfDetail, onChanged: @escaping (ShelfDetail) -> Void) {
         shelfId = detail.id
@@ -47,7 +49,7 @@ struct ShelfRulesSections: View {
             lookupSection
             otherSection
             actionsSection
-            ShelfRulesPreviewSection(shelfId: shelfId, rules: rules) {
+            ShelfRulesPreviewSection(shelfId: shelfId, rules: rules, reloadToken: reloadToken) {
                 await refetch()
             }
         }
@@ -142,7 +144,7 @@ struct ShelfRulesSections: View {
     private func numberRow(_ title: LocalizedStringKey, text: Binding<String>, decimal: Bool = false) -> some View {
         HStack {
             Text(title)
-            TextField("Any", text: text)
+            TextField("No filter", text: text)
                 .keyboardType(decimal ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.trailing)
         }
@@ -195,6 +197,7 @@ struct ShelfRulesSections: View {
         if let fresh = try? await client.shelf(id: shelfId, includeExcluded: true) {
             onChanged(fresh)
         }
+        reloadToken += 1
     }
 
     private func run(_ failure: String, _ work: (APIClient) async throws -> Void) async {
@@ -249,6 +252,7 @@ private struct ShelfRulesPreviewSection: View {
 
     let shelfId: Int
     let rules: ShelfRules?
+    let reloadToken: Int
     let onPinned: () async -> Void
 
     @State private var preview: ShelfPreview?
@@ -257,6 +261,11 @@ private struct ShelfRulesPreviewSection: View {
     @State private var showAll = false
 
     private static let collapsedCount = 20
+
+    private struct PreviewKey: Equatable {
+        let rules: ShelfRules?
+        let token: Int
+    }
 
     var body: some View {
         Section {
@@ -277,7 +286,7 @@ private struct ShelfRulesPreviewSection: View {
                 }
             }
         }
-        .task(id: rules) { await load() }
+        .task(id: PreviewKey(rules: rules, token: reloadToken)) { await load() }
     }
 
     @ViewBuilder
@@ -305,6 +314,7 @@ private struct ShelfRulesPreviewSection: View {
     }
 
     private func load() async {
+        failed = false
         guard let rules, let client = model.api() else {
             preview = nil
             return
@@ -319,7 +329,9 @@ private struct ShelfRulesPreviewSection: View {
         } catch is CancellationError {
             return
         } catch {
-            failed = true
+            if !Task.isCancelled {
+                failed = true
+            }
         }
     }
 
@@ -328,7 +340,6 @@ private struct ShelfRulesPreviewSection: View {
         do {
             try await client.addShelfEntry(shelfId: shelfId, tmdbId: item.tmdbId, type: item.type)
             await onPinned()
-            await load()
             model.toast(String(localized: "Title added."), style: .success)
         } catch {
             model.toast(String(localized: "Couldn't add the title."), style: .error)

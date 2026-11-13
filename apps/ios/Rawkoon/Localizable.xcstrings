@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "No filter": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun filtre"
+          }
+        }
+      }
+    },
     "Uploaded image": {
       "localizations": {
         "fr": {
