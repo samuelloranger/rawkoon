@@ -845,6 +845,8 @@ model AppSettings {
   /// Gates the books nav, the added indexer categories, and the books
   /// settings section. A movies-only install sees no change after upgrading.
   booksEnabled               Boolean  @default(false) @map("books_enabled")
+  /// The sort RawkoonTV shows each library page in, shared by every TV and profile: page key → "YEAR" or "YEAR:reverse".
+  tvLibrarySorts             Json     @default("{}") @map("tv_library_sorts")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
