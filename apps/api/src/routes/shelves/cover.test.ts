@@ -119,6 +119,28 @@ describe("shelf covers", () => {
     expect(body.shelf.cover_tmdb_id).toBeNull();
   });
 
+  it("uses a picked backdrop image and drops it with another style", async () => {
+    const shelf = seedShelf();
+    const picked = "https://image.tmdb.org/t/p/w1280/picked.jpg";
+    const res = await sendJson("PATCH", `/${shelf.id}`, {
+      cover_style: "backdrop",
+      cover_url: picked,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      shelf: { cover: { style: string; backdrop_url: string | null } };
+    };
+    expect(body.shelf.cover.backdrop_url).toBe(picked);
+
+    await sendJson("PATCH", `/${shelf.id}`, { cover_style: "mosaic" });
+    const list = (await (await call("/?all=1")).json()) as {
+      shelves: Array<{
+        cover: { style: string; backdrop_url?: string | null };
+      }>;
+    };
+    expect(list.shelves[0]?.cover.style).toBe("mosaic");
+  });
+
   it("lists TMDB backdrops for the cover picker, admins only", async () => {
     session.user = { ...user };
     expect(
