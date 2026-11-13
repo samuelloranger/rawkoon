@@ -168,6 +168,24 @@ describe("pushArtworkToJellyfin", () => {
     );
   });
 
+  it("finds an item Jellyfin names differently by its TMDB id around the year", async () => {
+    serve({
+      search: (name, year) =>
+        name === "" && year === "2023,2024,2025"
+          ? [
+              { Id: "other", ProviderIds: { Tmdb: "7" } },
+              { Id: "item-5", ProviderIds: { Tmdb: "42" } },
+            ]
+          : [],
+    });
+    expect(
+      await pushArtworkToJellyfin(movie, "poster", "https://img.test/p.jpg"),
+    ).toBe("synced");
+    expect(calls.find((c) => c.method === "POST")?.url.pathname).toBe(
+      "/Items/item-5/RemoteImages/Download",
+    );
+  });
+
   it("reports a title Jellyfin doesn't have, and never throws", async () => {
     serve({ search: () => [{ Id: "other", ProviderIds: { Tmdb: "7" } }] });
     expect(

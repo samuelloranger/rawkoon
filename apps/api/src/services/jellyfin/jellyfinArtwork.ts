@@ -46,6 +46,34 @@ interface Title {
 
 type Request = (path: string, init?: RequestInit) => Promise<Response>;
 
+async function searchItems(
+  request: Request,
+  params: URLSearchParams,
+): Promise<JellyfinCandidate[]> {
+  const res = await request(`/Items?${params}`);
+  if (!res.ok) throw new Error(`Jellyfin search returned ${res.status}`);
+  const body = (await res.json()) as {
+    Items?: {
+      Id?: string;
+      Name?: string;
+      ProductionYear?: number;
+      ProviderIds?: Record<string, string>;
+    }[];
+  };
+  return (body.Items ?? []).flatMap((item) =>
+    item.Id
+      ? [
+          {
+            id: item.Id,
+            tmdbId: item.ProviderIds?.Tmdb ?? null,
+            name: item.Name ?? "",
+            year: item.ProductionYear ?? null,
+          },
+        ]
+      : [],
+  );
+}
+
 /** Jellyfin can't filter on a provider id's value, so search by name and check the TMDB id. */
 async function findItemId(
   request: Request,
@@ -66,29 +94,7 @@ async function findItemId(
         Limit: String(SEARCH_LIMIT),
       });
       if (year != null) params.set("Years", String(year));
-      const res = await request(`/Items?${params}`);
-      if (!res.ok) throw new Error(`Jellyfin search returned ${res.status}`);
-      const body = (await res.json()) as {
-        Items?: {
-          Id?: string;
-          Name?: string;
-          ProductionYear?: number;
-          ProviderIds?: Record<string, string>;
-        }[];
-      };
-      const candidates = (body.Items ?? []).flatMap((item) =>
-        item.Id
-          ? [
-              {
-                id: item.Id,
-                tmdbId: item.ProviderIds?.Tmdb ?? null,
-                name: item.Name ?? "",
-                year: item.ProductionYear ?? null,
-              },
-            ]
-          : [],
-      );
-      const picked = pickJellyfinCandidate(candidates, {
+      const picked = pickJellyfinCandidate(await searchItems(request, params), {
         tmdbId: media.tmdbId,
         names,
         year: media.year,
@@ -96,7 +102,20 @@ async function findItemId(
       if (picked) return picked.id;
     }
   }
-  return null;
+  // Jellyfin may name the item differently (another language or edition), so
+  // scan the titles released around that year and trust only the TMDB id
+  if (media.year == null) return null;
+  const nearby = await searchItems(
+    request,
+    new URLSearchParams({
+      IncludeItemTypes: type,
+      Recursive: "true",
+      Fields: "ProviderIds",
+      HasTmdbId: "true",
+      Years: [media.year - 1, media.year, media.year + 1].join(","),
+    }),
+  );
+  return nearby.find((c) => c.tmdbId === String(media.tmdbId))?.id ?? null;
 }
 
 async function backdropCount(request: Request, item: string): Promise<number> {
