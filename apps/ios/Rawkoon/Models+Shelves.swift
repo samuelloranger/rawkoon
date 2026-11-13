@@ -24,9 +24,11 @@ nonisolated struct ShelfSummary: Decodable, Identifiable, Hashable, Sendable {
 nonisolated enum ShelfCover: Decodable, Hashable, Sendable {
     case mosaic(posters: [String])
     case backdrop(url: String?)
+    /// An image an administrator uploaded on the web; absent until one is.
+    case upload(url: String?)
 
     private enum CodingKeys: String, CodingKey {
-        case style, posters, backdropUrl
+        case style, posters, backdropUrl, url
     }
 
     /// "mosaic" or "backdrop", as the editor's picker names them.
@@ -34,14 +36,18 @@ nonisolated enum ShelfCover: Decodable, Hashable, Sendable {
         switch self {
         case .mosaic: "mosaic"
         case .backdrop: "backdrop"
+        case .upload: "upload"
         }
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        if try container.decode(String.self, forKey: .style) == "backdrop" {
+        switch try container.decode(String.self, forKey: .style) {
+        case "backdrop":
             self = try .backdrop(url: container.decodeIfPresent(String.self, forKey: .backdropUrl))
-        } else {
+        case "upload":
+            self = try .upload(url: container.decodeIfPresent(String.self, forKey: .url))
+        default:
             self = try .mosaic(posters: container.decodeIfPresent([String].self, forKey: .posters) ?? [])
         }
     }

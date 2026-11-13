@@ -159,6 +159,9 @@ struct ShelfEditorView: View {
             Picker("Cover", selection: $coverStyle) {
                 Text("Poster mosaic").tag("mosaic")
                 Text("A title's backdrop").tag("backdrop")
+                if detail.cover.style == "upload" {
+                    Text("Uploaded image").tag("upload")
+                }
             }
             if coverStyle == "backdrop" {
                 Picker("Title", selection: $coverEntryId) {

@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Uploaded image": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image téléversée"
+          }
+        }
+      }
+    },
     "Shelves": {
       "localizations": {
         "fr": {

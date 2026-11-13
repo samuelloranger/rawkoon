@@ -15,11 +15,13 @@ struct ShelfCoverView: View {
         return []
     }
 
+    /// A single image cover: a title's backdrop, or the image uploaded on the web.
     private var backdrop: String? {
-        if case let .backdrop(url) = shelf.cover {
-            return url
+        switch shelf.cover {
+        case let .backdrop(url): url
+        case let .upload(url): url
+        default: nil
         }
-        return nil
     }
 
     var body: some View {
