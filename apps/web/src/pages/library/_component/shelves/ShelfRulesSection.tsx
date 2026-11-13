@@ -76,6 +76,10 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
       ].map((g) => [g.id, g]),
     ).values(),
   ].sort((a, b) => a.name.localeCompare(b.name));
+  // Saved ids stay visible (and removable) while the genre list is unavailable
+  for (const id of [...draft.genresAny, ...draft.genresNone]) {
+    if (!genres.some((g) => g.id === id)) genres.push({ id, name: `#${id}` });
+  }
 
   const rules = rulesFromDraft(draft);
   const dirty = !rulesEqual(rules, shelf.rules);
