@@ -21,6 +21,8 @@ struct ShelfEditorView: View {
     @State private var entries: [ShelfEntry]
     @State private var saving = false
     @State private var addTitlesOpen = false
+    /// Adds and removes hit the server at once; this marks that the page behind needs a refetch.
+    @State private var wroteTitles = false
     @State private var error: String?
 
     init(detail: ShelfDetail, onSaved: @escaping (ShelfDetail) -> Void) {
@@ -43,10 +45,13 @@ struct ShelfEditorView: View {
         entries.first { $0.id == coverEntryId }
     }
 
-    private var dirty: Bool {
-        let savedCoverId = detail.entries.first {
+    private var savedCoverEntryId: Int? {
+        detail.entries.first {
             $0.tmdbId == detail.coverTmdbId && $0.type == (detail.coverType ?? "movie")
         }?.id
+    }
+
+    private var dirty: Bool {
         let changed = [
             name != detail.name,
             description != (detail.description ?? ""),
@@ -55,7 +60,7 @@ struct ShelfEditorView: View {
             from != MonthDay(detail.visibleFrom),
             until != MonthDay(detail.visibleTo),
             coverStyle != detail.cover.style,
-            coverEntryId != savedCoverId,
+            coverEntryId != savedCoverEntryId,
             entries.map(\.id) != detail.entries.map(\.id),
             entries.map(\.groupLabel) != detail.entries.map(\.groupLabel),
         ]
@@ -94,11 +99,13 @@ struct ShelfEditorView: View {
                     .requiresConnection(model.isOffline)
                 }
             }
+            .onDisappear { reportTitleWrites() }
             .sheet(isPresented: $addTitlesOpen) {
                 AddTitlesSheet(shelfId: detail.id, onShelf: entries) { added in
                     if !entries.contains(where: { $0.id == added.id }) {
                         entries.append(added)
                     }
+                    wroteTitles = true
                 }
                 .environment(model)
             }
@@ -178,8 +185,10 @@ struct ShelfEditorView: View {
         Section {
             ForEach($entries) { $entry in
                 ShelfEditorRow(entry: $entry) {
-                    entries.removeAll { $0.id == entry.id }
-                    Task { await remove(entry) }
+                    if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+                        entries.remove(at: index)
+                        Task { await remove(entry, at: index) }
+                    }
                 }
             }
             .onMove { source, destination in
@@ -187,10 +196,10 @@ struct ShelfEditorView: View {
                 entries = moved
             }
             .onDelete { offsets in
-                let removed = offsets.map { entries[$0] }
+                let removed = offsets.sorted().map { (index: $0, entry: entries[$0]) }
                 entries.remove(atOffsets: offsets)
-                Task { for entry in removed {
-                    await remove(entry)
+                Task { for item in removed {
+                    await remove(item.entry, at: item.index)
                 } }
             }
             Button {
@@ -224,7 +233,9 @@ struct ShelfEditorView: View {
                 visibleTo: until?.raw,
                 coverStyle: coverStyle,
                 coverTmdbId: coverStyle == "backdrop" ? coverEntry?.tmdbId : nil,
-                coverType: coverStyle == "backdrop" ? coverEntry?.type : nil
+                coverType: coverStyle == "backdrop" ? coverEntry?.type : nil,
+                // A new title's backdrop must not lose to a specific image picked on the web
+                clearCoverUrl: coverStyle == "backdrop" && coverEntryId != savedCoverEntryId
             )
             var updated = try await client.updateShelf(id: detail.id, body: body)
             let orderChanged = entries.map(\.id) != detail.entries.map(\.id) ||
@@ -234,6 +245,7 @@ struct ShelfEditorView: View {
                 updated = try await client.shelf(id: detail.id)
             }
             onSaved(updated)
+            wroteTitles = false
             model.toast(String(localized: "Shelf saved."), style: .success)
             dismiss()
         } catch let apiError as APIError {
@@ -243,14 +255,27 @@ struct ShelfEditorView: View {
         }
     }
 
-    private func remove(_ entry: ShelfEntry) async {
+    /// Hands the page behind the server's titles after Cancel or a swipe-down, since removes and adds already happened.
+    private func reportTitleWrites() {
+        guard wroteTitles, let client = model.api() else { return }
+        wroteTitles = false
+        let id = detail.id
+        let report = onSaved
+        Task {
+            if let fresh = try? await client.shelf(id: id) {
+                report(fresh)
+            }
+        }
+    }
+
+    private func remove(_ entry: ShelfEntry, at index: Int) async {
         guard let client = model.api() else { return }
         do {
             try await client.removeShelfEntry(shelfId: detail.id, entryId: entry.id)
+            wroteTitles = true
         } catch {
             // Put the row back where it was, since the server still has it
-            entries.append(entry)
-            entries.sort { $0.position < $1.position }
+            entries.insert(entry, at: min(index, entries.count))
             model.toast(String(localized: "Couldn't remove the title."), style: .error)
         }
     }
