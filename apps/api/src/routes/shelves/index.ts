@@ -69,12 +69,20 @@ const rulesV = z
     year_max: z.number().int().min(1800).max(2200).optional(),
     votes_min: z.number().int().min(0).optional(),
     rating_min: z.number().min(0).max(10).optional(),
+    // TMDB ratings are upper case ("PG-13"); "pg-13" must match them too
     certifications: z
-      .array(z.string().trim().min(1).max(12))
+      .array(z.string().trim().min(1).max(12).toUpperCase())
       .max(20)
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (rules) =>
+      rules.year_min == null ||
+      rules.year_max == null ||
+      rules.year_min <= rules.year_max,
+    { message: "year_min must not be after year_max" },
+  );
 
 const previewBody = z.object({ rules: rulesV });
 const lookupQuery = z.object({ q: z.string().trim().max(80).default("") });
@@ -95,6 +103,10 @@ const shelfBody = {
   home_row: z.boolean().optional(),
   visible_from: mmddV.nullish(),
   visible_to: mmddV.nullish(),
+};
+
+/** Rules are set on an existing shelf, where the editor previews them first. */
+const ruleFields = {
   rules: rulesV.nullable().optional(),
   auto_join: z.boolean().optional(),
 };
@@ -108,6 +120,8 @@ const coverTitleRefine = {
 
 const createBody = z
   .object({ ...shelfBody, seed: z.string().min(1).max(40).optional() })
+  // Strict, so rules sent on create are refused rather than silently dropped
+  .strict()
   .refine((body) => !!body.seed || !!body.name, {
     message: "A name or a seed is required",
   })
@@ -118,7 +132,7 @@ const createBody = z
   });
 
 const updateBody = z
-  .object(shelfBody)
+  .object({ ...shelfBody, ...ruleFields })
   .refine(coverTitleRefine.test, { message: coverTitleRefine.message });
 
 const addEntryBody = z.object({

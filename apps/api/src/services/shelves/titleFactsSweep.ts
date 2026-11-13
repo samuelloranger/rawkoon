@@ -61,7 +61,8 @@ async function processTargets(
   country: string,
   apiKey: string,
   opts: Required<Pick<SweepOptions, "concurrency" | "delayMs">>,
-  store: (target: Target, facts: TitleFacts) => Promise<void>,
+  /** `null`: TMDB no longer has the title. */
+  store: (target: Target, facts: TitleFacts | null) => Promise<void>,
   result: SweepResult,
   count: "filled" | "refreshed",
 ) {
@@ -85,7 +86,7 @@ async function processTargets(
         } catch (error) {
           const status = statusOf(error);
           if (status === 404) {
-            await store(target, EMPTY_FACTS);
+            await store(target, null);
             result[count]++;
           } else {
             if (status === 429) result.rateLimited = true;
@@ -122,6 +123,8 @@ export async function runTitleFactsSweep(
   const country = await getGlobalTmdbRegion();
   const opts = { concurrency, delayMs };
 
+  // shortcut: a title that fails every night (not 404/429) stays at the head of this
+  // queue; if hundreds ever do, add an attempted-at column to rotate past them
   const fresh = await prisma.libraryMedia.findMany({
     where: { factsFetchedAt: null },
     orderBy: { id: "asc" },
@@ -136,7 +139,7 @@ export async function runTitleFactsSweep(
     async (target, facts) => {
       await prisma.libraryMedia.update({
         where: { id: target.id },
-        data: { ...facts, factsFetchedAt: new Date() },
+        data: { ...(facts ?? EMPTY_FACTS), factsFetchedAt: new Date() },
       });
     },
     result,
@@ -157,13 +160,16 @@ export async function runTitleFactsSweep(
       opts,
       async (target, facts) => {
         // Genres and keywords rarely change; votes do. Only they are refreshed.
+        // A title TMDB dropped keeps the numbers it had
         await prisma.libraryMedia.update({
           where: { id: target.id },
-          data: {
-            voteCount: facts.voteCount,
-            voteAverage: facts.voteAverage,
-            factsFetchedAt: new Date(),
-          },
+          data: facts
+            ? {
+                voteCount: facts.voteCount,
+                voteAverage: facts.voteAverage,
+                factsFetchedAt: new Date(),
+              }
+            : { factsFetchedAt: new Date() },
         });
       },
       result,

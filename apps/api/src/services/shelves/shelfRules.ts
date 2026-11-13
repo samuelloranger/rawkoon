@@ -36,7 +36,9 @@ function includeConditions(rules: ShelfRules): Prisma.Sql[] {
     c.push(Prisma.sql`vote_average >= ${rules.rating_min}`);
   }
   if (rules.certifications?.length) {
-    c.push(Prisma.sql`certification = ANY(${rules.certifications})`);
+    c.push(
+      Prisma.sql`upper(certification) = ANY(${rules.certifications.map((r) => r.toUpperCase())})`,
+    );
   }
   return c;
 }

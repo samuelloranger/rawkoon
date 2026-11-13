@@ -115,6 +115,7 @@ describe("rules on a shelf", () => {
       { genre: [27] },
       { genres_any: ["27"] },
       { rating_min: 11 },
+      { year_min: 2000, year_max: 1990 },
     ]) {
       expect((await sendJson("PATCH", `/${shelf.id}`, { rules })).status).toBe(
         400,
@@ -251,6 +252,25 @@ describe("seed from rules", () => {
 
     await call(`/${shelf.id}/seed-from-rules`, { method: "POST" });
     expect(state.entries).toHaveLength(3);
+  });
+
+  it("skips a show the shelf already holds as a season", async () => {
+    const shelf = seedShelf({ rules: HORROR });
+    addEntry(shelf.id, {
+      tmdbId: 5,
+      type: "show",
+      season: 2,
+      source: "manual",
+      title: "Show 5",
+    });
+    answer([row(5, { type: "show" })]);
+    await call(`/${shelf.id}/seed-from-rules`, { method: "POST" });
+    expect(state.entries).toHaveLength(1);
+  });
+
+  it("refuses rules on create, where they would be dropped", async () => {
+    const res = await sendJson("POST", "/", { name: "X", rules: HORROR });
+    expect(res.status).toBe(400);
   });
 
   it("refuses a shelf with no rules", async () => {

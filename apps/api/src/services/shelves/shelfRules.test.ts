@@ -40,7 +40,7 @@ describe("rules to SQL", () => {
         [{ rating_min: 7.5 }, "vote_average >= $1", [7.5]],
         [
           { certifications: ["G", "PG"] },
-          "certification = ANY($1)",
+          "upper(certification) = ANY($1)",
           [["G", "PG"]],
         ],
       ];
@@ -71,6 +71,6 @@ describe("rules to SQL", () => {
   it("does not splice user input into the SQL text", () => {
     const out = where({ certifications: ["G'; DROP TABLE x;--"] });
     expect(out.sql).not.toContain("DROP");
-    expect(out.values).toEqual([["G'; DROP TABLE x;--"]]);
+    expect(out.values).toEqual([["G'; DROP TABLE X;--"]]);
   });
 });

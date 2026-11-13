@@ -308,7 +308,15 @@ export async function createShelf(
     return created;
   });
   // A rules seed fills once from whatever facts exist now; an empty library of facts gives an empty shelf
-  if (seed?.rules) await addRuleMatches(created.id, seed.rules);
+  if (seed?.rules) {
+    // The shelf keeps its rules either way; "Seed from rules" can fill it later
+    await addRuleMatches(created.id, seed.rules).catch((error) =>
+      console.warn(
+        `[shelves] seeding shelf ${created.id} from rules failed:`,
+        error,
+      ),
+    );
+  }
   return { ok: true, id: created.id };
 }
 

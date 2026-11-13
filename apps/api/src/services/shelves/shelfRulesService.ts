@@ -82,8 +82,8 @@ export async function previewRules(
 
 /**
  * Add the titles the rules select as `rule` entries. A title the shelf already
- * has in any form (manual, rule, or excluded) is skipped, so an admin's removal
- * and hand-placed entries are never touched.
+ * has in any form (manual, rule, excluded, or one of its seasons) is skipped, so
+ * an admin's removal and hand-placed entries are never touched.
  */
 export async function addRuleMatches(
   shelfId: number,
@@ -91,33 +91,44 @@ export async function addRuleMatches(
 ): Promise<number> {
   const matches = await findRuleTitles(rules, "matches");
   if (!matches.length) return 0;
-  const existing = await prisma.shelfEntry.findMany({
-    where: { shelfId, season: null },
-    select: { tmdbId: true, type: true },
+  return prisma.$transaction(async (tx) => {
+    // Same lock keys as a manual add (season 0 = whole title), taken in a fixed
+    // order: a concurrent add or seed of one title waits here instead of duplicating it
+    const keys = matches
+      .map((m) => `shelf-entry:${shelfId}:${m.type}:${m.tmdb_id}:0`)
+      .sort();
+    for (const lock of keys) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lock}))`;
+    }
+    const existing = await tx.shelfEntry.findMany({
+      where: { shelfId },
+      select: { tmdbId: true, type: true },
+    });
+    const known = new Set(existing.map((e) => titleKey(e.type, e.tmdbId)));
+    const fresh = matches.filter(
+      (m) => !known.has(titleKey(m.type, m.tmdb_id)),
+    );
+    if (!fresh.length) return 0;
+    const last = await tx.shelfEntry.findFirst({
+      where: { shelfId },
+      orderBy: { position: "desc" },
+      select: { position: true },
+    });
+    const start = (last?.position ?? -1) + 1;
+    const created = await tx.shelfEntry.createMany({
+      data: fresh.map((row, index) => ({
+        shelfId,
+        tmdbId: row.tmdb_id,
+        type: row.type,
+        season: null,
+        position: start + index,
+        source: "rule",
+        title: row.title,
+        year: row.year,
+      })),
+    });
+    return created.count;
   });
-  const known = new Set(existing.map((e) => titleKey(e.type, e.tmdbId)));
-  const fresh = matches.filter((m) => !known.has(titleKey(m.type, m.tmdb_id)));
-  if (!fresh.length) return 0;
-  const last = await prisma.shelfEntry.findFirst({
-    where: { shelfId },
-    orderBy: { position: "desc" },
-    select: { position: true },
-  });
-  const start = (last?.position ?? -1) + 1;
-  const created = await prisma.shelfEntry.createMany({
-    data: fresh.map((row, index) => ({
-      shelfId,
-      tmdbId: row.tmdb_id,
-      type: row.type,
-      season: null,
-      position: start + index,
-      source: "rule",
-      title: row.title,
-      year: row.year,
-    })),
-    skipDuplicates: true,
-  });
-  return created.count;
 }
 
 /** The admin's one-off "Seed from rules": the current matches join the shelf once. */

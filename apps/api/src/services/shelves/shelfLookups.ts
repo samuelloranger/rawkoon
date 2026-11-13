@@ -4,6 +4,8 @@ import { tmdbApiFetch } from "@rawkoon/api/utils/medias/libraryHelpers";
 import type { NameKind, NameOf } from "./shelfReasons";
 import { fetchShelfTmdbKey } from "./shelfTmdb";
 
+const LOOKUP_CONCURRENCY = 5;
+
 const SEARCH_TTL = 60 * 60;
 const GENRE_TTL = 24 * 60 * 60;
 
@@ -105,10 +107,13 @@ export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
     }
   }
   if (apiKey) {
-    await Promise.all(
-      wanted
-        .filter(([kind, id]) => kind !== "genre" && !names.has(`${kind}:${id}`))
-        .map(async ([kind, id]) => {
+    const missing = wanted.filter(
+      ([kind, id]) => kind !== "genre" && !names.has(`${kind}:${id}`),
+    );
+    // A few at a time: a preview can name ~200 ids, which would trip TMDB's rate limit at once
+    for (let i = 0; i < missing.length; i += LOOKUP_CONCURRENCY) {
+      await Promise.all(
+        missing.slice(i, i + LOOKUP_CONCURRENCY).map(async ([kind, id]) => {
           try {
             const raw = await tmdbApiFetch<{ name?: unknown }>(
               `${ENDPOINT[kind as Exclude<NameKind, "genre">]}/${id}`,
@@ -120,7 +125,8 @@ export async function loadRuleNames(rules: ShelfRules): Promise<NameOf> {
             // Falls back to the id below
           }
         }),
-    );
+      );
+    }
   }
   return (kind, id) =>
     (kind === "genre" ? genres.get(id) : names.get(`${kind}:${id}`)) ??
