@@ -19,6 +19,7 @@ export interface ShelfRow {
   coverTmdbId: number | null;
   coverType: string | null;
   coverFile: string | null;
+  coverUrl: string | null;
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
@@ -202,7 +203,8 @@ export function mapShelfCover(
     };
   }
   if (shelf.coverStyle === "backdrop") {
-    return { style: "backdrop", backdrop_url: backdropUrl };
+    // A picked image wins over the cover title's first backdrop
+    return { style: "backdrop", backdrop_url: shelf.coverUrl ?? backdropUrl };
   }
   const posters = entries
     .map((e) => e.poster_url)

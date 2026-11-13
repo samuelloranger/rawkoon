@@ -48,6 +48,8 @@ const coverFields = {
   cover_style: coverStyleV.optional(),
   cover_tmdb_id: z.number().int().positive().nullish(),
   cover_type: mediaTypeV.nullish(),
+  /** A picked backdrop image (TMDB) instead of the cover title's first. */
+  cover_url: z.string().url().nullish(),
 };
 
 const shelfBody = {
@@ -199,6 +201,7 @@ export const shelfRoutes = new Hono<Env>()
         coverStyle: body.cover_style,
         coverTmdbId: body.cover_tmdb_id,
         coverType: body.cover_type,
+        coverUrl: body.cover_url,
         homeRow: body.home_row,
         visibleFrom: body.visible_from,
         visibleTo: body.visible_to,
@@ -228,6 +231,7 @@ export const shelfRoutes = new Hono<Env>()
       coverStyle: body.cover_style,
       coverTmdbId: body.cover_tmdb_id,
       coverType: body.cover_type,
+      coverUrl: body.cover_url,
       homeRow: body.home_row,
       visibleFrom: body.visible_from,
       visibleTo: body.visible_to,

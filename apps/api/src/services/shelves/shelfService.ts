@@ -40,6 +40,7 @@ export type CreateShelfInput = {
   coverStyle?: ShelfCoverStyle;
   coverTmdbId?: number | null;
   coverType?: ShelfMediaType | null;
+  coverUrl?: string | null;
   homeRow?: boolean;
   visibleFrom?: string | null;
   visibleTo?: string | null;
@@ -52,6 +53,7 @@ export type ShelfPatch = Partial<{
   coverStyle: ShelfCoverStyle;
   coverTmdbId: number | null;
   coverType: ShelfMediaType | null;
+  coverUrl: string | null;
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
@@ -232,6 +234,7 @@ export async function createShelf(
       coverStyle: input.coverStyle ?? "mosaic",
       coverTmdbId: input.coverTmdbId ?? null,
       coverType: input.coverType ?? null,
+      coverUrl: input.coverUrl ?? null,
       homeRow: input.homeRow ?? seed?.homeRow ?? false,
       visibleFrom: input.visibleFrom ?? seed?.visibleFrom ?? null,
       visibleTo: input.visibleTo ?? seed?.visibleTo ?? null,
@@ -273,8 +276,11 @@ export async function updateShelf(
     data.coverStyle = patch.coverStyle;
     // Leaving the upload cover drops its file reference; the file itself is cleaned up with the shelf
     if (patch.coverStyle !== "upload") data.coverFile = null;
+    // A picked backdrop belongs to the backdrop style only
+    if (patch.coverStyle !== "backdrop") data.coverUrl = null;
   }
   if (patch.coverTmdbId !== undefined) data.coverTmdbId = patch.coverTmdbId;
+  if (patch.coverUrl !== undefined) data.coverUrl = patch.coverUrl;
   if (patch.coverType !== undefined) data.coverType = patch.coverType;
   if (patch.homeRow !== undefined) data.homeRow = patch.homeRow;
   if (patch.visibleFrom !== undefined) data.visibleFrom = patch.visibleFrom;
@@ -296,6 +302,7 @@ export async function setShelfCoverFile(
       coverFile: file,
       coverTmdbId: null,
       coverType: null,
+      coverUrl: null,
     },
   });
   return result.count > 0;

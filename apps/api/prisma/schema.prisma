@@ -1497,6 +1497,8 @@ model Shelf {
   coverType    String?      @map("cover_type")
   /// The uploaded cover's file name under the image storage; served at /api/shelves/covers/<file>.
   coverFile    String?      @map("cover_file")
+  /// A picked backdrop image URL (a TMDB one), used instead of the cover title's first.
+  coverUrl     String?      @map("cover_url")
   /// Where the TV shows it: "collections" only, or also as a Home row.
   homeRow      Boolean      @default(false) @map("home_row")
   /// Optional yearly window, "MM-DD", inclusive; both null = always. May wrap the year end.
