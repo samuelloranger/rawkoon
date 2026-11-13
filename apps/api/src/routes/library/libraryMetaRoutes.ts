@@ -28,6 +28,8 @@ import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeT
 
 import { recheckRequestAvailable } from "@rawkoon/api/services/mediaRequestNotifications";
 import { mapLibraryMedia } from "./libraryHelpers";
+import { pushArtworkToJellyfin } from "@rawkoon/api/services/jellyfin/jellyfinArtwork";
+import type { ArtworkKind, ArtworkSyncResult } from "@rawkoon/shared/types";
 import {
   getLibraryTmdbApiKey,
   tmdbApiFetch,
@@ -53,6 +55,11 @@ const monitoredBody = z.object({ monitored: z.boolean() });
  * search-title | seasons/:season/monitored | episodes/:episodeId/monitored |
  * overrides | episodes/:episodeId/status
  */
+const ARTWORK_FIELDS = [
+  ["poster_url", "poster"],
+  ["backdrop_url", "backdrop"],
+] as const;
+
 export const libraryMetaRoutes = new Hono<Env>()
   .patch("/:id/status", requireAdmin, jsonV(statusBody), async (c) => {
     try {
@@ -310,7 +317,20 @@ export const libraryMetaRoutes = new Hono<Env>()
         }
 
         const item = await updateLibraryOverrides(id, merged);
-        return ok({ item: mapLibraryMedia(item) });
+        // Jellyfin clients (the TV app) read artwork from Jellyfin, so a picked image goes there too
+        const pushes = ARTWORK_FIELDS.flatMap(([field, kind]) => {
+          const url = body[field];
+          return typeof url === "string" && /^https?:\/\//i.test(url)
+            ? [
+                pushArtworkToJellyfin(item, kind, url).then(
+                  (result) => [kind, result] as const,
+                ),
+              ]
+            : [];
+        });
+        const artwork_sync: Partial<Record<ArtworkKind, ArtworkSyncResult>> =
+          Object.fromEntries(await Promise.all(pushes));
+        return ok({ item: mapLibraryMedia(item), artwork_sync });
       } catch {
         return serverError("Failed to update overrides");
       }

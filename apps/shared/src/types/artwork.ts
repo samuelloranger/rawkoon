@@ -18,3 +18,6 @@ export interface ArtworkCandidate {
 export interface ArtworkCandidatesResponse {
   candidates: ArtworkCandidate[];
 }
+
+/** Whether a picked poster or backdrop also reached Jellyfin; "off" when Jellyfin isn't set up. */
+export type ArtworkSyncResult = "synced" | "not_found" | "failed" | "off";
