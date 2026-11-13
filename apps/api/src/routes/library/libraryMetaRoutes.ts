@@ -29,6 +29,11 @@ import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeT
 import { recheckRequestAvailable } from "@rawkoon/api/services/mediaRequestNotifications";
 import { mapLibraryMedia } from "./libraryHelpers";
 import { pushArtworkToJellyfin } from "@rawkoon/api/services/jellyfin/jellyfinArtwork";
+import {
+  hasTextChanges,
+  pushMetadataToJellyfin,
+  type TitleTextChanges,
+} from "@rawkoon/api/services/jellyfin/jellyfinMetadata";
 import type { ArtworkKind, ArtworkSyncResult } from "@rawkoon/shared/types";
 import {
   getLibraryTmdbApiKey,
@@ -309,7 +314,8 @@ export const libraryMetaRoutes = new Hono<Env>()
         const current = (existing.overrides ?? {}) as Record<string, unknown>;
         const merged: Record<string, unknown> = { ...current };
         for (const [key, val] of Object.entries(body)) {
-          if (val === null) {
+          // An empty text override is a cleared one, here and in Jellyfin
+          if (val === null || (typeof val === "string" && val.trim() === "")) {
             delete merged[key];
           } else {
             merged[key] = val;
@@ -328,9 +334,18 @@ export const libraryMetaRoutes = new Hono<Env>()
               ]
             : [];
         });
+        // Jellyfin clients show Jellyfin's names too, so title, sort title and overview follow
+        const text: TitleTextChanges = {};
+        for (const field of ["title", "sort_title", "overview"] as const) {
+          if (field in body) text[field] = body[field] ?? null;
+        }
+        const [artworkResults, metadata_sync] = await Promise.all([
+          Promise.all(pushes),
+          hasTextChanges(text) ? pushMetadataToJellyfin(item, text) : null,
+        ]);
         const artwork_sync: Partial<Record<ArtworkKind, ArtworkSyncResult>> =
-          Object.fromEntries(await Promise.all(pushes));
-        return ok({ item: mapLibraryMedia(item), artwork_sync });
+          Object.fromEntries(artworkResults);
+        return ok({ item: mapLibraryMedia(item), artwork_sync, metadata_sync });
       } catch {
         return serverError("Failed to update overrides");
       }
