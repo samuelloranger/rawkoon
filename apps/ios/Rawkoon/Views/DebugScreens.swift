@@ -101,6 +101,8 @@
                 DebugGrowth(admin: false, showBooks: false)
             case "releaseNotes":
                 NavigationStack { ReleaseNotesView(release: DebugReleaseNotes.release, repo: "owner/app") }
+            case "shelves", "shelfDetail", "shelfEditor":
+                DebugShelvesScreens(screen: screen)
             default:
                 EmptyView()
             }
@@ -113,7 +115,7 @@
                 "aiGrabs", "aiHistory", "aiCallDetail", "aiBanner", "aiBannerBudget",
                 "autoSearchIdle", "autoSearchBusy", "upgradeDialog", "motionKit",
                 "growthAdmin", "growthMember", "growthNoBooks", "liveSearchToasts",
-                "releaseNotes",
+                "releaseNotes", "shelves", "shelfDetail", "shelfEditor",
             ].contains(screen)
         }
     }
@@ -131,6 +133,66 @@
                     selected: $sources,
                     options: QualityProfileSources.options.map { ($0.value, Text($0.label)) }
                 )
+            }
+        }
+    }
+
+    /// The shelves screens, split out so the feature switch stays under the complexity limit.
+    struct DebugShelvesScreens: View {
+        let screen: String
+
+        var body: some View {
+            switch screen {
+            case "shelfDetail":
+                DebugFirstShelf { shelf in
+                    ShelfDetailView(shelfId: shelf.id)
+                }
+            case "shelfEditor":
+                DebugFirstShelf { shelf in
+                    DebugShelfEditorLoader(shelfId: shelf.id)
+                }
+            default:
+                NavigationStack { ShelvesView() }
+            }
+        }
+    }
+
+    /// Loads the first shelf and hands it to [content], so a screenshot needs no ids.
+    struct DebugFirstShelf<Content: View>: View {
+        @Environment(AppModel.self) private var model
+        @ViewBuilder var content: (ShelfSummary) -> Content
+
+        @State private var shelf: ShelfSummary?
+
+        var body: some View {
+            Group {
+                if let shelf {
+                    content(shelf)
+                } else {
+                    ProgressView()
+                        .task {
+                            shelf = try? await model.api()?.shelves(includeAll: true).first
+                        }
+                }
+            }
+        }
+    }
+
+    /// Loads a shelf's detail and shows its editor, for a screenshot of the form.
+    struct DebugShelfEditorLoader: View {
+        @Environment(AppModel.self) private var model
+        let shelfId: Int
+
+        @State private var detail: ShelfDetail?
+
+        var body: some View {
+            Group {
+                if let detail {
+                    ShelfEditorView(detail: detail) { _ in }
+                } else {
+                    ProgressView()
+                        .task { detail = try? await model.api()?.shelf(id: shelfId) }
+                }
             }
         }
     }

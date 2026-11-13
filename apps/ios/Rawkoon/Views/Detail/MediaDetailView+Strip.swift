@@ -212,6 +212,12 @@ extension MediaDetailView {
             }
             .requiresConnection(model.isOffline)
             Button {
+                showingAddToShelf = true
+            } label: {
+                Label("Add to shelf…", systemImage: "square.stack")
+            }
+            .requiresConnection(model.isOffline)
+            Button {
                 openReleaseSearch()
             } label: {
                 Label("Search releases", systemImage: "magnifyingglass")
