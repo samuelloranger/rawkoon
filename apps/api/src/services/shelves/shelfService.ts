@@ -40,6 +40,7 @@ export type CreateShelfInput = {
   coverStyle?: ShelfCoverStyle;
   coverTmdbId?: number | null;
   coverType?: ShelfMediaType | null;
+  coverUrl?: string | null;
   homeRow?: boolean;
   visibleFrom?: string | null;
   visibleTo?: string | null;
@@ -52,6 +53,7 @@ export type ShelfPatch = Partial<{
   coverStyle: ShelfCoverStyle;
   coverTmdbId: number | null;
   coverType: ShelfMediaType | null;
+  coverUrl: string | null;
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
@@ -81,6 +83,7 @@ async function coverBackdropUrl(shelf: ShelfRow): Promise<string | null> {
 async function summariesOf(
   shelves: ShelfRow[],
   isAdmin: boolean,
+  origin: string,
   now = new Date(),
 ): Promise<ShelfSummary[]> {
   if (!shelves.length) return [];
@@ -110,6 +113,7 @@ async function summariesOf(
         shelf,
         entries: views,
         backdropUrl: await coverBackdropUrl(shelf),
+        origin,
         now,
       }),
     );
@@ -120,12 +124,13 @@ async function summariesOf(
 export async function listShelves(
   isAdmin: boolean,
   includeOutsideWindow: boolean,
+  origin: string,
 ): Promise<ShelfSummary[]> {
   const shelves = (await prisma.shelf.findMany({
     orderBy: [{ position: "asc" }, { id: "asc" }],
     select: shelfRowSelect,
   })) as ShelfRow[];
-  const summaries = await summariesOf(shelves, isAdmin);
+  const summaries = await summariesOf(shelves, isAdmin, origin);
   return includeOutsideWindow
     ? summaries
     : summaries.filter((shelf) => shelf.visible_now);
@@ -134,6 +139,7 @@ export async function listShelves(
 export async function getShelfDetail(
   id: number,
   isAdmin: boolean,
+  origin: string,
 ): Promise<ShelfDetail | null> {
   const shelf = (await prisma.shelf.findUnique({
     where: { id },
@@ -160,6 +166,7 @@ export async function getShelfDetail(
     shelf,
     entries: views,
     backdropUrl: await coverBackdropUrl(shelf),
+    origin,
   });
   return mapShelfDetail(summary, views);
 }
@@ -227,6 +234,7 @@ export async function createShelf(
       coverStyle: input.coverStyle ?? "mosaic",
       coverTmdbId: input.coverTmdbId ?? null,
       coverType: input.coverType ?? null,
+      coverUrl: input.coverUrl ?? null,
       homeRow: input.homeRow ?? seed?.homeRow ?? false,
       visibleFrom: input.visibleFrom ?? seed?.visibleFrom ?? null,
       visibleTo: input.visibleTo ?? seed?.visibleTo ?? null,
@@ -264,14 +272,39 @@ export async function updateShelf(
   if (patch.name !== undefined) data.name = patch.name;
   if (patch.description !== undefined) data.description = patch.description;
   if (patch.orderMode !== undefined) data.orderMode = patch.orderMode;
-  if (patch.coverStyle !== undefined) data.coverStyle = patch.coverStyle;
+  if (patch.coverStyle !== undefined) {
+    data.coverStyle = patch.coverStyle;
+    // Leaving the upload cover drops its file reference; the file itself is cleaned up with the shelf
+    if (patch.coverStyle !== "upload") data.coverFile = null;
+    // A picked backdrop belongs to the backdrop style only
+    if (patch.coverStyle !== "backdrop") data.coverUrl = null;
+  }
   if (patch.coverTmdbId !== undefined) data.coverTmdbId = patch.coverTmdbId;
+  if (patch.coverUrl !== undefined) data.coverUrl = patch.coverUrl;
   if (patch.coverType !== undefined) data.coverType = patch.coverType;
   if (patch.homeRow !== undefined) data.homeRow = patch.homeRow;
   if (patch.visibleFrom !== undefined) data.visibleFrom = patch.visibleFrom;
   if (patch.visibleTo !== undefined) data.visibleTo = patch.visibleTo;
   if (!Object.keys(data).length) return true;
   const result = await prisma.shelf.updateMany({ where: { id }, data });
+  return result.count > 0;
+}
+
+/** Makes an uploaded file a shelf's cover. */
+export async function setShelfCoverFile(
+  id: number,
+  file: string,
+): Promise<boolean> {
+  const result = await prisma.shelf.updateMany({
+    where: { id },
+    data: {
+      coverStyle: "upload",
+      coverFile: file,
+      coverTmdbId: null,
+      coverType: null,
+      coverUrl: null,
+    },
+  });
   return result.count > 0;
 }
 

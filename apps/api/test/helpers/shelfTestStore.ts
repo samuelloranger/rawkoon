@@ -12,6 +12,8 @@ export type ShelfRec = {
   coverStyle: string;
   coverTmdbId: number | null;
   coverType: string | null;
+  coverFile: string | null;
+  coverUrl: string | null;
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
@@ -119,6 +121,8 @@ const shelf = {
       coverStyle: String(args.data.coverStyle ?? "mosaic"),
       coverTmdbId: (args.data.coverTmdbId as number | null) ?? null,
       coverType: (args.data.coverType as string | null) ?? null,
+      coverFile: (args.data.coverFile as string | null) ?? null,
+      coverUrl: (args.data.coverUrl as string | null) ?? null,
       homeRow: !!args.data.homeRow,
       visibleFrom: (args.data.visibleFrom as string | null) ?? null,
       visibleTo: (args.data.visibleTo as string | null) ?? null,
@@ -280,6 +284,8 @@ export function seedShelf(overrides: Partial<ShelfRec> = {}): ShelfRec {
     coverStyle: "mosaic",
     coverTmdbId: null,
     coverType: null,
+    coverFile: null,
+    coverUrl: null,
     homeRow: false,
     visibleFrom: null,
     visibleTo: null,

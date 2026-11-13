@@ -18,6 +18,8 @@ export interface ShelfRow {
   coverStyle: string;
   coverTmdbId: number | null;
   coverType: string | null;
+  coverFile: string | null;
+  coverUrl: string | null;
   homeRow: boolean;
   visibleFrom: string | null;
   visibleTo: string | null;
@@ -189,9 +191,20 @@ export function mapShelfCover(
   shelf: ShelfRow,
   entries: ShelfEntryView[],
   backdropUrl: string | null,
+  origin: string,
 ): ShelfCover {
+  if (shelf.coverStyle === "upload") {
+    // Absolute for the client that asked: a phone and a TV reach the server by different hosts
+    return {
+      style: "upload",
+      url: shelf.coverFile
+        ? `${origin}/api/shelves/covers/${shelf.coverFile}`
+        : null,
+    };
+  }
   if (shelf.coverStyle === "backdrop") {
-    return { style: "backdrop", backdrop_url: backdropUrl };
+    // A picked image wins over the cover title's first backdrop
+    return { style: "backdrop", backdrop_url: shelf.coverUrl ?? backdropUrl };
   }
   const posters = entries
     .map((e) => e.poster_url)
@@ -204,14 +217,16 @@ export function mapShelfSummary(input: {
   shelf: ShelfRow;
   entries: ShelfEntryView[];
   backdropUrl: string | null;
+  /** The scheme and host the client reached, for an uploaded cover's URL. */
+  origin: string;
   now?: Date;
 }): ShelfSummary {
-  const { shelf, entries, backdropUrl, now } = input;
+  const { shelf, entries, backdropUrl, origin, now } = input;
   return {
     id: shelf.id,
     name: shelf.name,
     description: shelf.description,
-    cover: mapShelfCover(shelf, entries, backdropUrl),
+    cover: mapShelfCover(shelf, entries, backdropUrl, origin),
     entry_count: entries.length,
     in_library_count: entries.filter((e) => e.in_library).length,
     home_row: shelf.homeRow,

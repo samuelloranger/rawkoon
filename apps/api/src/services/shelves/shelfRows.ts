@@ -7,6 +7,8 @@ export const shelfRowSelect = {
   coverStyle: true,
   coverTmdbId: true,
   coverType: true,
+  coverFile: true,
+  coverUrl: true,
   homeRow: true,
   visibleFrom: true,
   visibleTo: true,
