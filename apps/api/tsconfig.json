@@ -20,5 +20,5 @@
       "@rawkoon/api/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "test/mocks/**/*"]
+  "include": ["src/**/*", "test/mocks/**/*", "test/helpers/**/*"]
 }

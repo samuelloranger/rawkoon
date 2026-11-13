@@ -1484,3 +1484,61 @@ model AiCall {
   @@index([feature, createdAt], map: "ix_ai_calls_feature_created_at")
   @@map("ai_calls")
 }
+
+/// A named, ordered list of titles with a cover and description; browsed on the
+/// TV inside Collections and optionally as a Home row.
+model Shelf {
+  id           Int          @id @default(autoincrement())
+  name         String
+  description  String?
+  /// "manual": entries are positioned by hand. "release" | "rating" | "added": the server sorts.
+  orderMode    String       @default("manual") @map("order_mode")
+  /// "mosaic" (first 4 posters), "backdrop" (coverTmdbId + coverType's backdrop) or "upload".
+  coverStyle   String       @default("mosaic") @map("cover_style")
+  coverTmdbId  Int?         @map("cover_tmdb_id")
+  coverType    String?      @map("cover_type")
+  /// The uploaded cover's file name under the image storage; served at /api/shelves/covers/<file>.
+  coverFile    String?      @map("cover_file")
+  /// A picked backdrop image URL (a TMDB one), used instead of the cover title's first.
+  coverUrl     String?      @map("cover_url")
+  /// Where the TV shows it: "collections" only, or also as a Home row.
+  homeRow      Boolean      @default(false) @map("home_row")
+  /// Optional yearly window, "MM-DD", inclusive; both null = always. May wrap the year end.
+  visibleFrom  String?      @map("visible_from")
+  visibleTo    String?      @map("visible_to")
+  /// The seed it was created from, if any; informational.
+  seedKey      String?      @map("seed_key")
+  /// Rules JSON (see the shelves spec) and whether matching titles join by themselves.
+  rules        Json?
+  autoJoin     Boolean      @default(false) @map("auto_join")
+  position     Int          @default(0)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  entries      ShelfEntry[]
+
+  @@map("shelves")
+}
+
+model ShelfEntry {
+  id         Int      @id @default(autoincrement())
+  shelfId    Int      @map("shelf_id")
+  shelf      Shelf    @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  tmdbId     Int      @map("tmdb_id")
+  type       String // "movie" | "show", same values as LibraryMedia.type
+  season     Int? // a show's season placed on its own; null = the whole title
+  position   Int // order within the shelf (manual and story order)
+  /// Optional group header shown above this entry and the ones after it.
+  groupLabel String?  @map("group_label")
+  /// "manual" (added by hand) or "rule" (joined by rules). Excluded titles stay so rules never re-add them.
+  source     String   @default("manual")
+  excluded   Boolean  @default(false)
+  /// Title, year and poster at the time it was added, for entries the library doesn't have.
+  title      String
+  year       Int?
+  posterPath String?  @map("poster_path")
+  addedAt    DateTime @default(now()) @map("added_at")
+
+  @@unique([shelfId, tmdbId, type, season])
+  @@index([shelfId, position])
+  @@map("shelf_entries")
+}
