@@ -477,7 +477,7 @@ export async function shelvesForTitle(
 ): Promise<ShelfMembership[]> {
   const shelves = await prisma.shelf.findMany({
     orderBy: [{ position: "asc" }, { id: "asc" }],
-    select: { id: true, name: true },
+    select: { id: true, name: true, orderMode: true },
   });
   const entries = await prisma.shelfEntry.findMany({
     where: { tmdbId, type, season: null },
@@ -492,6 +492,7 @@ export async function shelvesForTitle(
       name: shelf.name,
       holds,
       entry_id: holds ? (entry?.id ?? null) : null,
+      order_mode: shelf.orderMode as ShelfOrderMode,
     };
   });
 }

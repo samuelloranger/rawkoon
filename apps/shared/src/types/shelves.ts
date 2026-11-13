@@ -68,4 +68,6 @@ export interface ShelfMembership {
   holds: boolean;
   /** The whole-title entry's id when `holds`; null otherwise. */
   entry_id: number | null;
+  /** Only manual shelves take titles by hand; the clients list those. */
+  order_mode: ShelfOrderMode;
 }

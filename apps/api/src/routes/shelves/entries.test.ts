@@ -188,13 +188,23 @@ describe("shelf entries", () => {
     const body = (await (
       await call("/for-title?tmdb_id=7&type=movie")
     ).json()) as {
-      shelves: Array<{ name: string; holds: boolean; entry_id: number | null }>;
+      shelves: Array<{
+        name: string;
+        holds: boolean;
+        entry_id: number | null;
+        order_mode: string;
+      }>;
     };
     expect(body.shelves.map((shelf) => [shelf.name, shelf.holds])).toEqual([
       ["Holds", true],
       ["Empty", false],
     ]);
     expect(body.shelves[0].entry_id).toBe(state.entries[0].id);
+    // Clients list the shelves that take titles by hand
+    expect(body.shelves.map((shelf) => shelf.order_mode)).toEqual([
+      "manual",
+      "manual",
+    ]);
   });
 
   it("resolves a library title with its poster and overrides, and a missing one dimmed", async () => {
