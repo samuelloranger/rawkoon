@@ -8,6 +8,7 @@ enum MediaDetailSheet: Identifiable {
     case reencode(ReencodeTarget)
     case release
     case menuRelease(ReleaseSearchPresentation)
+    case addToShelf(LibraryMedia)
 
     var id: String {
         switch self {
@@ -16,6 +17,7 @@ enum MediaDetailSheet: Identifiable {
         case let .reencode(target): "reencode-\(target.id)"
         case .release: "release"
         case let .menuRelease(target): "menu-\(target.id)"
+        case let .addToShelf(item): "add-to-shelf-\(item.id)"
         }
     }
 }
@@ -119,6 +121,7 @@ struct MediaDetailView: View {
     @State var applyingManagementChange = false
     @State var showingOverridesEditor = false
     @State var showingArtworkPicker = false
+    @State var showingAddToShelf = false
     @State var detailTab: DetailTab = .info
 
     /// The detail page's own sections, shown in an in-content segmented control
@@ -290,6 +293,9 @@ struct MediaDetailView: View {
         if showingArtworkPicker, let item = managementItem {
             return .artwork(item)
         }
+        if showingAddToShelf, let item = managementItem {
+            return .addToShelf(item)
+        }
         if let reencodeTarget {
             return .reencode(reencodeTarget)
         }
@@ -310,6 +316,7 @@ struct MediaDetailView: View {
                 switch current {
                 case .overrides: showingOverridesEditor = false
                 case .artwork: showingArtworkPicker = false
+                case .addToShelf: showingAddToShelf = false
                 case .reencode: reencodeTarget = nil
                 case .release:
                     showingReleaseSearch = false
@@ -362,6 +369,11 @@ struct MediaDetailView: View {
                 isUpgrade: releaseSearchUpgrade,
                 onGrabbed: { Task { await refreshManagementData() } }
             )
+            .environment(model)
+        case let .addToShelf(item):
+            AddToShelfSheet(item: item) {
+                managementNotice = String(localized: "Shelf updated.")
+            }
             .environment(model)
         case let .menuRelease(target):
             ReleaseSearchView(

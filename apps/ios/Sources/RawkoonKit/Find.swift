@@ -7,7 +7,7 @@ public enum FindMode: String, CaseIterable, Sendable {
 
 /// The pages the Find tab's shelves row opens.
 public enum FindShelf: String, CaseIterable, Hashable, Sendable {
-    case watchlist, collections, bestsellers
+    case watchlist, collections, shelves, bestsellers
 
     /// Bestsellers are books, so they follow the books feature flag.
     public static func visible(booksEnabled: Bool) -> [FindShelf] {

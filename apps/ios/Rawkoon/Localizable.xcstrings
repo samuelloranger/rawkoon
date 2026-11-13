@@ -1,6 +1,646 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Uploaded image": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image téléversée"
+          }
+        }
+      }
+    },
+    "Shelves": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagères"
+          }
+        }
+      }
+    },
+    "Hidden now": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquée"
+          }
+        }
+      }
+    },
+    "On Home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur l'accueil"
+          }
+        }
+      }
+    },
+    "New shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelle étagère"
+          }
+        }
+      }
+    },
+    "Delete shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer l'étagère"
+          }
+        }
+      }
+    },
+    "Delete “%@”?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer « %@ » ?"
+          }
+        }
+      }
+    },
+    "Its titles are removed from the shelf; they stay in the library.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses titres sont retirés de l'étagère et restent dans la bibliothèque."
+          }
+        }
+      }
+    },
+    "Couldn't load shelves": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les étagères"
+          }
+        }
+      }
+    },
+    "No shelves yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune étagère"
+          }
+        }
+      }
+    },
+    "Create one here, or start from a recipe and edit it afterwards.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crée-en une ici, ou pars d'une recette et modifie-la ensuite."
+          }
+        }
+      }
+    },
+    "An administrator hasn't added any shelves yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un administrateur n'a pas encore ajouté d'étagère."
+          }
+        }
+      }
+    },
+    "Shelf deleted.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagère supprimée."
+          }
+        }
+      }
+    },
+    "Couldn't delete the shelf.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer l'étagère."
+          }
+        }
+      }
+    },
+    "Shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagère"
+          }
+        }
+      }
+    },
+    "Edit shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifier l'étagère"
+          }
+        }
+      }
+    },
+    "Nothing here yet": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien pour l'instant"
+          }
+        }
+      }
+    },
+    "Add titles from the editor.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoute des titres depuis l'éditeur."
+          }
+        }
+      }
+    },
+    "This shelf has no titles.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étagère n'a aucun titre."
+          }
+        }
+      }
+    },
+    "Couldn't load this shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger cette étagère"
+          }
+        }
+      }
+    },
+    "in library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dans la bibliothèque"
+          }
+        }
+      }
+    },
+    "not in library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "absent de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Not in library": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Absent de la bibliothèque"
+          }
+        }
+      }
+    },
+    "Couldn't save the shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'enregistrer l'étagère"
+          }
+        }
+      }
+    },
+    "Description": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Description"
+          }
+        }
+      }
+    },
+    "Order": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordre"
+          }
+        }
+      }
+    },
+    "Manual": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuel"
+          }
+        }
+      }
+    },
+    "Release year": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Année de sortie"
+          }
+        }
+      }
+    },
+    "Show as a row on the TV's Home": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher comme rangée sur l'accueil de la TV"
+          }
+        }
+      }
+    },
+    "At most two shelves appear there.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deux étagères au plus y apparaissent."
+          }
+        }
+      }
+    },
+    "From": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du"
+          }
+        }
+      }
+    },
+    "To": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au"
+          }
+        }
+      }
+    },
+    "Christmas (Nov 1 – Jan 15)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noël (1 nov. – 15 janv.)"
+          }
+        }
+      }
+    },
+    "Yearly window": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Période annuelle"
+          }
+        }
+      }
+    },
+    "Leave both empty to show the shelf all year.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laisse les deux vides pour l'afficher toute l'année."
+          }
+        }
+      }
+    },
+    "Cover": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couverture"
+          }
+        }
+      }
+    },
+    "Poster mosaic": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mosaïque d'affiches"
+          }
+        }
+      }
+    },
+    "A title's backdrop": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fond d'un titre"
+          }
+        }
+      }
+    },
+    "No title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun titre"
+          }
+        }
+      }
+    },
+    "Add titles": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter des titres"
+          }
+        }
+      }
+    },
+    "Drag to reorder; a group name starts a header above that title.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glisse pour réordonner ; un nom de groupe ouvre un en-tête au-dessus de ce titre."
+          }
+        }
+      }
+    },
+    "Group": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groupe"
+          }
+        }
+      }
+    },
+    "Any day": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les jours"
+          }
+        }
+      }
+    },
+    "Shelf saved.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagère enregistrée."
+          }
+        }
+      }
+    },
+    "Couldn't remove the title.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer le titre."
+          }
+        }
+      }
+    },
+    "Start empty and add titles once it exists.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commence vide et ajoute des titres ensuite."
+          }
+        }
+      }
+    },
+    "Or start from a recipe": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ou partir d'une recette"
+          }
+        }
+      }
+    },
+    "Couldn't create the shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer l'étagère"
+          }
+        }
+      }
+    },
+    "Shelf created.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagère créée."
+          }
+        }
+      }
+    },
+    "Type at least two letters.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tape au moins deux lettres."
+          }
+        }
+      }
+    },
+    "Nothing found.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien trouvé."
+          }
+        }
+      }
+    },
+    "Search movies and shows": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher films et séries"
+          }
+        }
+      }
+    },
+    "Couldn't add the title": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter le titre"
+          }
+        }
+      }
+    },
+    "On this shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur cette étagère"
+          }
+        }
+      }
+    },
+    "Title added.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre ajouté."
+          }
+        }
+      }
+    },
+    "Add to shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à une étagère"
+          }
+        }
+      }
+    },
+    "Loading shelves…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chargement des étagères…"
+          }
+        }
+      }
+    },
+    "No shelves take titles by hand yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune étagère n'accepte encore les titres à la main."
+          }
+        }
+      }
+    },
+    "A new shelf starts with this title on it.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une nouvelle étagère commence avec ce titre."
+          }
+        }
+      }
+    },
+    "Couldn't change the shelf": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de modifier l'étagère"
+          }
+        }
+      }
+    },
+    "Removed from %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retiré de %@."
+          }
+        }
+      }
+    },
+    "Added to %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouté à %@."
+          }
+        }
+      }
+    },
+    "Shelf updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étagère mise à jour."
+          }
+        }
+      }
+    },
+    "Add to shelf…": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à une étagère…"
+          }
+        }
+      }
+    },
     "Cast devices can only play from a server address that starts with https.": {
       "localizations": {
         "fr": {
@@ -16759,6 +17399,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Libère %@. Les extraits sont recoupés si vous réactivez la fonction. Vos fichiers de bibliothèque ne sont pas touchés."
+          }
+        }
+      }
+    },
+    "Couldn't load the recipes.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les recettes."
+          }
+        }
+      }
+    },
+    "Couldn't search. Check your connection and try again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recherche impossible. Vérifiez votre connexion et réessayez."
           }
         }
       }

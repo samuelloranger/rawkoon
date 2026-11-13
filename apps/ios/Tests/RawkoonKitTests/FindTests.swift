@@ -2,12 +2,12 @@
 import XCTest
 
 final class FindTests: XCTestCase {
-    func testShelvesListWatchlistCollectionsThenBestsellers() {
-        XCTAssertEqual(FindShelf.visible(booksEnabled: true), [.watchlist, .collections, .bestsellers])
+    func testShelvesListWatchlistCollectionsShelvesThenBestsellers() {
+        XCTAssertEqual(FindShelf.visible(booksEnabled: true), [.watchlist, .collections, .shelves, .bestsellers])
     }
 
     func testBestsellersShelfHidesWithBooksDisabled() {
-        XCTAssertEqual(FindShelf.visible(booksEnabled: false), [.watchlist, .collections])
+        XCTAssertEqual(FindShelf.visible(booksEnabled: false), [.watchlist, .collections, .shelves])
     }
 
     func testResultGroupsPutLibraryFirst() {
