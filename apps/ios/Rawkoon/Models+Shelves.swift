@@ -167,6 +167,30 @@ nonisolated struct UpdateShelfBody: Encodable, Sendable {
     var coverStyle: String
     var coverTmdbId: Int?
     var coverType: String?
+    /// Sends `cover_url: null`, dropping a backdrop picked on the web.
+    var clearCoverUrl = false
+
+    private enum CodingKeys: String, CodingKey {
+        case name, description, orderMode, homeRow, visibleFrom, visibleTo
+        case coverStyle, coverTmdbId, coverType, coverUrl
+    }
+
+    /// The server reads an omitted field as "unchanged", so a cleared one must go out as an explicit null.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(description, forKey: .description)
+        try c.encode(orderMode, forKey: .orderMode)
+        try c.encode(homeRow, forKey: .homeRow)
+        try c.encode(visibleFrom, forKey: .visibleFrom)
+        try c.encode(visibleTo, forKey: .visibleTo)
+        try c.encode(coverStyle, forKey: .coverStyle)
+        try c.encode(coverTmdbId, forKey: .coverTmdbId)
+        try c.encode(coverType, forKey: .coverType)
+        if clearCoverUrl {
+            try c.encodeNil(forKey: .coverUrl)
+        }
+    }
 }
 
 nonisolated struct AddShelfEntryBody: Encodable, Sendable {

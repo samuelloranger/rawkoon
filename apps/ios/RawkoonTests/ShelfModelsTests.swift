@@ -53,4 +53,28 @@ struct ShelfModelsTests {
         #expect(shelf.visibleFrom == "11-01")
         #expect(shelf.orderMode == .added)
     }
+
+    @Test func clearedFieldsGoOutAsExplicitNulls() throws {
+        let body = UpdateShelfBody(
+            name: "Bond", description: nil, orderMode: .manual, homeRow: false,
+            visibleFrom: nil, visibleTo: nil, coverStyle: "backdrop",
+            coverTmdbId: nil, coverType: nil, clearCoverUrl: true
+        )
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let json = try String(decoding: encoder.encode(body), as: UTF8.self)
+        #expect(json.contains("\"visible_from\":null"))
+        #expect(json.contains("\"description\":null"))
+        #expect(json.contains("\"cover_tmdb_id\":null"))
+        #expect(json.contains("\"cover_url\":null"))
+    }
+
+    @Test func coverURLIsLeftAloneUnlessCleared() throws {
+        let body = UpdateShelfBody(
+            name: "Bond", description: nil, orderMode: .manual, homeRow: false,
+            visibleFrom: nil, visibleTo: nil, coverStyle: "mosaic", coverTmdbId: nil, coverType: nil
+        )
+        let json = try String(decoding: JSONEncoder().encode(body), as: UTF8.self)
+        #expect(!json.contains("coverUrl"))
+    }
 }

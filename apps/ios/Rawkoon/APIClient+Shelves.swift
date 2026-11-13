@@ -33,10 +33,6 @@ extension APIClient {
         try await deleteExpectOK("/api/shelves/\(id)")
     }
 
-    func reorderShelves(ids: [Int]) async throws {
-        try await putExpectOK("/api/shelves/order", body: ReorderShelvesBody(ids: ids))
-    }
-
     func shelfSeeds() async throws -> [ShelfSeed] {
         let language = (Locale.preferredLanguages.first ?? "en").prefix(2)
         let response: ShelfSeedsResponse = try await get("/api/shelves/seeds?lang=\(language)")
@@ -61,14 +57,6 @@ extension APIClient {
         try await patchExpectOK("/api/shelves/\(shelfId)/entries", body: body)
     }
 
-    /// Sets one entry's group header without touching the others' order.
-    func setShelfEntryGroup(shelfId: Int, entry: ShelfEntry, label: String?) async throws {
-        let body = MoveShelfEntryBody(entries: [
-            MoveShelfEntry(id: entry.id, position: entry.position, groupLabel: label),
-        ])
-        try await patchExpectOK("/api/shelves/\(shelfId)/entries", body: body)
-    }
-
     func removeShelfEntry(shelfId: Int, entryId: Int) async throws {
         try await deleteExpectOK("/api/shelves/\(shelfId)/entries/\(entryId)")
     }
@@ -80,10 +68,6 @@ extension APIClient {
         )
         return response.shelves
     }
-}
-
-private nonisolated struct ReorderShelvesBody: Encodable, Sendable {
-    let ids: [Int]
 }
 
 private nonisolated struct ShelfEntryResponse: Decodable, Sendable {
