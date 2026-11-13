@@ -44,6 +44,7 @@ import { CHRISTMAS_WINDOW } from "./monthDay";
 import { moveEntry, setGroupFrom, startsGroup } from "./shelfOrder";
 import { readShelfEntries, useShelfMutation } from "./useShelfMutation";
 import { ShelfCover } from "./ShelfCover";
+import { ShelfRulesSection } from "./ShelfRulesSection";
 
 type Draft = {
   name: string;
@@ -424,6 +425,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         </div>
 
         <div className="min-w-0">
+          {isAdmin && <ShelfRulesSection key={shelfId} shelf={detail} />}
           <h2 className="mb-2 text-sm font-medium text-neutral-300">
             {t("shelves.entries")}
           </h2>
@@ -488,6 +490,17 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                           ? ` · ${t("shelves.inLibrary")}`
                           : ` · ${t("shelves.notInLibrary")}`}
                       </p>
+                      {isAdmin && entry.source === "rule" && (
+                        <p
+                          className="mt-0.5 text-xs text-neutral-500"
+                          title={entry.reason?.join(", ")}
+                        >
+                          <span className="mr-1.5 rounded-full bg-neutral-800 px-2 py-0.5 text-neutral-300">
+                            {t("shelves.rules.badge")}
+                          </span>
+                          {entry.reason?.join(" · ")}
+                        </p>
+                      )}
                     </div>
                     {isAdmin && (
                       <div className="flex w-full shrink-0 items-center justify-end sm:w-auto">

@@ -42,6 +42,23 @@ and outside that window only administrators see it.
   **Add titles** searches the library first and TMDB for what it lacks, so a
   shelf can hold a film before it is requested.
 
+## Rules
+
+A shelf can also fill itself from rules over the library's title facts: types,
+genres to include or exclude, keywords, companies, networks, a TMDB collection,
+year range, minimum votes and rating, and certifications. Unset fields don't
+filter. Keywords and companies are picked from a TMDB search; saved rules store
+only ids, so a reloaded chip shows `#id` until it is picked again.
+
+- **Preview** lists what the current (unsaved) rules select, with the reason each
+  title matches. Titles a *exclude* rule removed are listed apart, and **Pin in**
+  adds one by hand.
+- **Seed from rules** adds the saved rules' current matches once. Titles you
+  removed from the shelf stay out.
+- **Auto-join** adds matching titles by itself as the library grows. It needs
+  saved rules, and clearing the rules turns it off.
+- Titles a rule added carry a **Rule** badge and the reason.
+
 ## On the TV
 
 The TV draws each shelf as a cover card and opens it into its titles. A title
