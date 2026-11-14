@@ -65,16 +65,16 @@ struct RootTabsView: View {
             default: mainTabs
             }
         }
-    #endif
 
-    /// The shelves screens, split out so `debugRoot`'s switch stays readable.
-    @ViewBuilder private func debugShelfRoot(_ screen: String) -> some View {
-        switch screen {
-        case "shelfDetail": DebugFirstShelf { ShelfDetailView(shelfId: $0.id) }
-        case "shelfEditor": DebugFirstShelf { DebugShelfEditorLoader(shelfId: $0.id) }
-        default: NavigationStack { ShelvesView() }
+        /// The shelves screens, split out so `debugRoot`'s switch stays readable.
+        @ViewBuilder private func debugShelfRoot(_ screen: String) -> some View {
+            switch screen {
+            case "shelfDetail": DebugFirstShelf { ShelfDetailView(shelfId: $0.id) }
+            case "shelfEditor": DebugFirstShelf { DebugShelfEditorLoader(shelfId: $0.id) }
+            default: NavigationStack { ShelvesView() }
+            }
         }
-    }
+    #endif
 
     @ViewBuilder
     private func tabRoot(_ tab: RootTab) -> some View {
