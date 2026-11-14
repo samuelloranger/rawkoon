@@ -1,19 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
-import type { LibraryListResponse, LibraryMedia } from "@rawkoon/shared/types";
+import type { LibraryMedia } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
-import {
-  LIBRARY_ENDPOINTS,
-  MEDIAS_ENDPOINTS,
-  SHELVES_ENDPOINTS,
-} from "@/lib/endpoints";
+import { MEDIAS_ENDPOINTS, SHELVES_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
-import { useShelfMutation } from "./useShelfMutation";
+import { useInfiniteLibrary } from "@/features/medias/hooks/useInfiniteLibrary";
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -37,29 +34,39 @@ type Candidate = {
   inLibrary: boolean;
 };
 
-const fromLibrary = (item: LibraryMedia): Candidate => ({
-  key: `library-${item.id}`,
-  tmdbId: item.tmdb_id,
-  type: item.type === "show" ? "show" : "movie",
-  title: item.title,
-  year: item.year,
-  posterUrl: item.poster_url,
-  inLibrary: true,
-});
+type TypeFilter = "" | "movie" | "show";
 
-const fromTmdb = (item: TmdbSearchItem): Candidate => ({
-  key: `tmdb-${item.media_type}-${item.tmdb_id}`,
-  tmdbId: item.tmdb_id,
-  type: item.media_type === "tv" ? "show" : "movie",
-  title: item.title,
-  year: item.release_year,
-  posterUrl: item.poster_url,
-  inLibrary: item.already_exists,
-});
+const keyOf = (type: string, tmdbId: number) => `${type}-${tmdbId}`;
+
+const fromLibrary = (item: LibraryMedia): Candidate => {
+  const type = item.type === "show" ? "show" : "movie";
+  return {
+    key: keyOf(type, item.tmdb_id),
+    tmdbId: item.tmdb_id,
+    type,
+    title: item.title,
+    year: item.year,
+    posterUrl: item.poster_url,
+    inLibrary: true,
+  };
+};
+
+const fromTmdb = (item: TmdbSearchItem): Candidate => {
+  const type = item.media_type === "tv" ? "show" : "movie";
+  return {
+    key: keyOf(type, item.tmdb_id),
+    tmdbId: item.tmdb_id,
+    type,
+    title: item.title,
+    year: item.release_year,
+    posterUrl: item.poster_url,
+    inLibrary: item.already_exists,
+  };
+};
 
 /**
- * Add titles to a shelf: search the library first, and TMDB for what the
- * library lacks, so a shelf can hold a title before it is requested.
+ * Add titles to a shelf: the whole library to scroll and tick, narrowed by a
+ * search that also looks on TMDB for what the library lacks, then one OK.
  */
 export function AddTitlesDialog({
   shelfId,
@@ -68,26 +75,30 @@ export function AddTitlesDialog({
   onClose,
 }: {
   shelfId: number;
-  /** The titles the shelf already holds, so the dialog doesn't offer them twice. */
+  /** The titles the shelf already holds, shown ticked and locked. */
   onShelf: Array<{ tmdb_id: number; type: "movie" | "show" }>;
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
   const fetcher = useFetcher();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
+  const [type, setType] = useState<TypeFilter>("");
+  const [selected, setSelected] = useState(() => new Map<string, Candidate>());
   const trimmed = query.trim();
 
-  const language = (i18n.resolvedLanguage ?? i18n.language).split("-")[0];
-  const library = useQuery({
-    queryKey: queryKeys.shelfPicker.librarySearch(trimmed, language),
-    queryFn: () =>
-      fetcher<LibraryListResponse>(
-        `${LIBRARY_ENDPOINTS.LIST}?page=1&limit=8&search=${encodeURIComponent(trimmed)}&sort_by=title&sort_dir=asc&title_language=${encodeURIComponent(language)}`,
-      ),
-    enabled: isOpen && trimmed.length >= 2,
-  });
+  const library = useInfiniteLibrary(
+    {
+      type: type || undefined,
+      q: trimmed || undefined,
+      sortBy: "title",
+      sortDir: "asc",
+    },
+    { enabled: isOpen },
+  );
 
+  // TMDB only for a real search, and only for what the library doesn't have
   const tmdb = useQuery({
     queryKey: queryKeys.shelfPicker.tmdbSearch(trimmed),
     queryFn: () =>
@@ -98,65 +109,128 @@ export function AddTitlesDialog({
   });
 
   const held = new Set(
-    onShelf.map((entry) => `${entry.type}-${entry.tmdb_id}`),
+    onShelf.map((entry) => keyOf(entry.type, entry.tmdb_id)),
   );
-  const candidates = new Map<string, Candidate>();
-  for (const item of library.data?.items ?? []) {
-    const candidate = fromLibrary(item);
-    candidates.set(`${candidate.type}-${candidate.tmdbId}`, candidate);
-  }
-  for (const item of tmdb.data?.items ?? []) {
-    const candidate = fromTmdb(item);
-    const key = `${candidate.type}-${candidate.tmdbId}`;
-    if (!candidates.has(key)) candidates.set(key, candidate);
-  }
+  const owned = (library.data?.pages ?? [])
+    .flatMap((page) => page.items)
+    .map(fromLibrary);
+  const ownedKeys = new Set(owned.map((candidate) => candidate.key));
+  const elsewhere = (trimmed.length >= 2 ? (tmdb.data?.items ?? []) : [])
+    .map(fromTmdb)
+    .filter(
+      (candidate) =>
+        !candidate.inLibrary &&
+        !ownedKeys.has(candidate.key) &&
+        (!type || candidate.type === type),
+    );
 
-  const add = useShelfMutation({
-    shelfId,
-    errorMessage: t("shelves.addError"),
-    mutationFn: (candidate: Candidate) =>
-      fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
-        method: "POST",
-        body: {
-          tmdb_id: candidate.tmdbId,
-          type: candidate.type,
-        },
-      }),
-    // A negative id marks the placeholder until the refetch brings the real entry
-    apply: (shelf, candidate) => ({
-      ...shelf,
-      entry_count: shelf.entry_count + 1,
-      entries: [
-        ...shelf.entries,
-        {
-          id: -Date.now(),
-          tmdb_id: candidate.tmdbId,
-          type: candidate.type,
-          season: null,
-          title: candidate.title,
-          year: candidate.year,
-          poster_url: candidate.posterUrl,
-          backdrop_url: null,
-          group_label: null,
-          position: shelf.entries.length,
-          in_library: candidate.inLibrary,
-          library_id: null,
-          source: "manual",
-          reason: null,
-          excluded: false,
-        },
-      ],
-    }),
+  const toggle = (candidate: Candidate) =>
+    setSelected((current) => {
+      const next = new Map(current);
+      if (next.has(candidate.key)) next.delete(candidate.key);
+      else next.set(candidate.key, candidate);
+      return next;
+    });
+
+  const close = () => {
+    setSelected(new Map());
+    setQuery("");
+    onClose();
+  };
+
+  // One POST per title, in the order they were ticked; the shelf is read again once at the end
+  const addAll = useMutation({
+    mutationFn: async (candidates: Candidate[]) => {
+      let failed = 0;
+      for (const candidate of candidates) {
+        try {
+          await fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
+            method: "POST",
+            body: { tmdb_id: candidate.tmdbId, type: candidate.type },
+          });
+        } catch {
+          failed++;
+        }
+      }
+      return { added: candidates.length - failed, failed };
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.shelves.all }),
+    onSuccess: ({ added, failed }) => {
+      if (added) toast.success(t("shelves.addedCount", { count: added }));
+      if (failed) toast.error(t("shelves.addFailedCount", { count: failed }));
+      if (!failed) close();
+    },
   });
+
+  const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const el = event.currentTarget;
+    if (
+      el.scrollHeight - el.scrollTop - el.clientHeight < 400 &&
+      library.hasNextPage &&
+      !library.isFetchingNextPage
+    ) {
+      void library.fetchNextPage();
+    }
+  };
+
+  const row = (candidate: Candidate) => {
+    const onIt = held.has(candidate.key);
+    return (
+      <li key={candidate.key}>
+        <label
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-2 py-1.5",
+            onIt ? "opacity-60" : "cursor-pointer hover:bg-neutral-800/60",
+          )}
+        >
+          <Checkbox
+            checked={onIt || selected.has(candidate.key)}
+            disabled={onIt}
+            onChange={() => toggle(candidate)}
+            aria-label={candidate.title}
+          />
+          <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
+            {candidate.posterUrl ? (
+              <img
+                src={candidate.posterUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm text-neutral-100">
+              {candidate.title}
+            </p>
+            <p className="text-xs text-neutral-500">
+              {[candidate.year, t(`shelves.type.${candidate.type}`)]
+                .filter(Boolean)
+                .join(" · ")}
+              {onIt ? ` · ${t("shelves.alreadyOnShelf")}` : ""}
+            </p>
+          </div>
+        </label>
+      </li>
+    );
+  };
+
+  const count = selected.size;
+  const filters: Array<[TypeFilter, string]> = [
+    ["", t("shelves.pickerAll")],
+    ["movie", t("shelves.pickerMovies")],
+    ["show", t("shelves.pickerShows")],
+  ];
 
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={close}
       title={t("shelves.addTitles")}
       bodyScroll
     >
-      <div className="space-y-4 px-1 pb-2 text-left">
+      <div className="flex min-h-0 flex-col gap-3 px-1 pb-1 text-left">
         <div className="relative">
           <Search
             size={15}
@@ -170,65 +244,72 @@ export function AddTitlesDialog({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
+        <div role="group" className="flex gap-1.5">
+          {filters.map(([value, label]) => (
+            <button
+              key={value || "all"}
+              type="button"
+              aria-pressed={type === value}
+              onClick={() => setType(value)}
+              className={cn(
+                "focus-ring min-h-8 rounded-full border px-3 text-xs",
+                type === value
+                  ? "border-primary-400 bg-primary-500/20 text-neutral-100"
+                  : "border-neutral-700 text-neutral-400 hover:text-neutral-200",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {trimmed.length < 2 ? (
-          <p className="py-6 text-center text-sm text-neutral-500">
-            {t("shelves.searchHint")}
-          </p>
-        ) : candidates.size === 0 ? (
-          <p className="py-6 text-center text-sm text-neutral-500">
-            {library.isLoading || tmdb.isLoading
-              ? t("shelves.searching")
-              : t("shelves.noResults")}
-          </p>
-        ) : (
-          <ul className="max-h-[50vh] space-y-1 overflow-y-auto pr-1">
-            {[...candidates.values()].map((candidate) => (
-              <li
-                key={candidate.key}
-                className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-neutral-800/60"
-              >
-                <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
-                  {candidate.posterUrl ? (
-                    <img
-                      src={candidate.posterUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-neutral-100">
-                    {candidate.title}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {[candidate.year, t(`shelves.type.${candidate.type}`)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    {candidate.inLibrary ? ` · ${t("shelves.inLibrary")}` : ""}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={candidate.inLibrary ? "outline" : "secondary"}
-                  disabled={held.has(`${candidate.type}-${candidate.tmdbId}`)}
-                  onClick={() =>
-                    add.mutate(candidate, {
-                      onSuccess: () => toast.success(t("shelves.added")),
-                    })
-                  }
-                  className={cn("shrink-0")}
-                >
-                  <Plus size={14} />
-                  {held.has(`${candidate.type}-${candidate.tmdbId}`)
-                    ? t("shelves.alreadyOnShelf")
-                    : t("shelves.add")}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div
+          className="max-h-[55vh] min-h-48 overflow-y-auto pr-1"
+          onScroll={onScroll}
+        >
+          {owned.length === 0 && elsewhere.length === 0 ? (
+            <p className="py-6 text-center text-sm text-neutral-500">
+              {library.isLoading || tmdb.isFetching
+                ? t("shelves.searching")
+                : t("shelves.noResults")}
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-0.5">{owned.map(row)}</ul>
+              {library.isFetchingNextPage && (
+                <p className="py-3 text-center text-xs text-neutral-500">
+                  {t("shelves.searching")}
+                </p>
+              )}
+              {elsewhere.length > 0 && (
+                <>
+                  <h3 className="mt-4 px-2 pb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
+                    {t("shelves.notInLibrarySection")}
+                  </h3>
+                  <ul className="space-y-0.5">{elsewhere.map(row)}</ul>
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-800 pt-3">
+          <span className="text-xs text-neutral-500">
+            {t("shelves.selectedCount", { count })}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={close}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              size="sm"
+              disabled={count === 0 || addAll.isPending}
+              onClick={() => addAll.mutate([...selected.values()])}
+            >
+              {t("shelves.addSelected", { count })}
+            </Button>
+          </div>
+        </div>
       </div>
     </Dialog>
   );
