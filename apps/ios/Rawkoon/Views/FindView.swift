@@ -2,8 +2,8 @@ import RawkoonKit
 import SwiftUI
 
 /// The Find tab: one search field over the library, TMDB titles and books, and a
-/// Browse | Swipe switch over today's Explore grid and Discover deck. A query of two or more characters replaces the switch with
-/// the three result groups.
+/// Browse | Swipe switch over today's Explore grid and Discover deck. A query of
+/// two or more characters replaces the switch with the three result groups.
 struct FindView: View {
     @Environment(AppModel.self) private var model
 

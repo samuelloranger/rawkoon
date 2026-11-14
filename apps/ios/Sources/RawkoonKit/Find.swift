@@ -5,14 +5,10 @@ public enum FindMode: String, CaseIterable, Sendable {
     case browse, swipe
 }
 
-/// The pages the Find tab's shelves row opens.
+/// The catalogue pages the Library's chips open: the watchlist, collections and
+/// shelves under the media stats, bestsellers on the Books page.
 public enum FindShelf: String, CaseIterable, Hashable, Sendable {
     case watchlist, collections, shelves, bestsellers
-
-    /// Bestsellers are books, so they follow the books feature flag.
-    public static func visible(booksEnabled: Bool) -> [FindShelf] {
-        allCases.filter { $0 != .bestsellers || booksEnabled }
-    }
 }
 
 /// The groups a Find search answers in, library first.
