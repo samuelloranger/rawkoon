@@ -14,6 +14,8 @@ struct LibraryBooksView: View {
     var body: some View {
         VStack(spacing: 0) {
             booksToolbar
+            ShelfChipsRow(shelves: [.bestsellers])
+                .padding(.bottom, 8)
             booksGrid
         }
         .onChange(of: model.bookChangeToken) { _, _ in

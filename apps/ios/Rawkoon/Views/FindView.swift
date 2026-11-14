@@ -1,9 +1,8 @@
 import RawkoonKit
 import SwiftUI
 
-/// The Find tab: one search field over the library, TMDB titles and books, a
-/// row of shelves, and a Browse | Swipe switch over today's Explore grid and
-/// Discover deck. A query of two or more characters replaces the switch with
+/// The Find tab: one search field over the library, TMDB titles and books, and a
+/// Browse | Swipe switch over today's Explore grid and Discover deck. A query of two or more characters replaces the switch with
 /// the three result groups.
 struct FindView: View {
     @Environment(AppModel.self) private var model
@@ -79,7 +78,6 @@ struct FindView: View {
 
     private var catalogue: some View {
         VStack(spacing: 0) {
-            shelvesRow
             modePicker
             ZStack {
                 if browseMounted {
@@ -95,28 +93,6 @@ struct FindView: View {
                         .accessibilityHidden(model.findMode != .swipe)
                 }
             }
-        }
-    }
-
-    private var shelvesRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(FindShelf.visible(booksEnabled: model.booksEnabled), id: \.self) { shelf in
-                    Button {
-                        openShelf = shelf
-                    } label: {
-                        Label(shelf.title, systemImage: shelf.symbol)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Theme.textStrong)
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 44)
-                            .background(Theme.raised, in: Capsule())
-                            .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 1))
-                    }
-                    .buttonStyle(.rawkoonPressable)
-                }
-            }
-            .padding(.horizontal, 16)
         }
     }
 
