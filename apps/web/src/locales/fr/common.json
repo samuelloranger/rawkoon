@@ -3562,6 +3562,7 @@
     "addedCount_one": "{{count}} titre ajouté",
     "addedCount_other": "{{count}} titres ajoutés",
     "addFailedCount_one": "{{count}} titre n'a pas pu être ajouté",
-    "addFailedCount_other": "{{count}} titres n'ont pas pu être ajoutés"
+    "addFailedCount_other": "{{count}} titres n'ont pas pu être ajoutés",
+    "add": "Ajouter"
   }
 }
