@@ -56,6 +56,7 @@ type Orderable = {
   title: string;
   year: number | null;
   addedAt: Date | string;
+  voteAverage?: number | null;
 };
 
 const byRelease = (a: Orderable, b: Orderable) => {
@@ -67,8 +68,8 @@ const byRelease = (a: Orderable, b: Orderable) => {
 };
 
 /**
- * Display order for a shelf's entries. `rating` falls back to release until
- * title facts exist; `added` is newest first.
+ * Display order for a shelf's entries. `rating` is the TMDB vote average, best
+ * first, with unrated entries after in release order; `added` is newest first.
  */
 export function sortEntries<T extends Orderable>(
   mode: ShelfOrderMode,
@@ -77,8 +78,15 @@ export function sortEntries<T extends Orderable>(
   const copy = [...entries];
   switch (mode) {
     case "release":
-    case "rating":
       return copy.sort(byRelease);
+    case "rating":
+      return copy.sort((a, b) => {
+        const ar = a.voteAverage ?? null;
+        const br = b.voteAverage ?? null;
+        if (ar != null && br != null && ar !== br) return br - ar;
+        if ((ar == null) !== (br == null)) return ar == null ? 1 : -1;
+        return byRelease(a, b);
+      });
     case "added":
       return copy.sort((a, b) => {
         const at = new Date(a.addedAt).getTime();

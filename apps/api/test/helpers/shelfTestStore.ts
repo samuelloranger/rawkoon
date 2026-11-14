@@ -18,6 +18,8 @@ export type ShelfRec = {
   visibleFrom: string | null;
   visibleTo: string | null;
   seedKey: string | null;
+  rules: unknown;
+  autoJoin: boolean;
   position: number;
 };
 
@@ -45,6 +47,11 @@ export type MediaRec = {
   year: number | null;
   posterUrl: string | null;
   overrides: unknown;
+  voteAverage?: number | null;
+  /** Title facts, as `attachRuleReasons` reads them. */
+  genreIds?: number[];
+  keywordIds?: number[];
+  certification?: string | null;
   /** Downloaded seasons of a show, as `loadLibrarySeasons` reads them. */
   episodes?: Array<{ season: number }>;
 };
@@ -57,7 +64,14 @@ export const state = {
   media: [] as MediaRec[],
   shelfId: 1,
   entryId: 1,
+  /** What the next `$queryRaw` answers, and the SQL it last received. */
+  queryRows: [] as unknown[] | ((sql: string) => unknown[]),
+  allSql: [] as Array<{ sql: string; values: unknown[] }>,
 };
+
+/** A JSON column holds plain objects; Prisma's JsonNull sentinel reads back as null. */
+const jsonOf = (value: unknown) =>
+  value && Object.getPrototypeOf(value) === Object.prototype ? value : null;
 
 export function resetState() {
   state.shelves = [];
@@ -65,6 +79,8 @@ export function resetState() {
   state.media = [];
   state.shelfId = 1;
   state.entryId = 1;
+  state.queryRows = [];
+  state.allSql = [];
 }
 
 const matches = (rec: Record<string, unknown>, where: Where = {}): boolean =>
@@ -127,6 +143,8 @@ const shelf = {
       visibleFrom: (args.data.visibleFrom as string | null) ?? null,
       visibleTo: (args.data.visibleTo as string | null) ?? null,
       seedKey: (args.data.seedKey as string | null) ?? null,
+      rules: jsonOf(args.data.rules),
+      autoJoin: !!args.data.autoJoin,
       position: Number(args.data.position ?? 0),
     };
     state.shelves.push(rec);
@@ -145,7 +163,10 @@ const shelf = {
     const rows = state.shelves.filter((rec) =>
       matches(rec as never, args.where),
     );
-    for (const rec of rows) Object.assign(rec, args.data);
+    for (const rec of rows) {
+      Object.assign(rec, args.data);
+      if ("rules" in args.data) rec.rules = jsonOf(args.data.rules);
+    }
     return { count: rows.length };
   },
   deleteMany: async (args: { where: Where }) => {
@@ -273,6 +294,12 @@ export const fakePrisma = {
   $transaction: async (ops: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
     typeof ops === "function" ? ops(fakePrisma) : Promise.all(ops),
   $executeRaw: async () => 0,
+  $queryRaw: async (query: { text: string; values: unknown[] }) => {
+    state.allSql.push({ sql: query.text, values: query.values });
+    return typeof state.queryRows === "function"
+      ? state.queryRows(query.text)
+      : state.queryRows;
+  },
 };
 
 export function seedShelf(overrides: Partial<ShelfRec> = {}): ShelfRec {
@@ -290,6 +317,8 @@ export function seedShelf(overrides: Partial<ShelfRec> = {}): ShelfRec {
     visibleFrom: null,
     visibleTo: null,
     seedKey: null,
+    rules: null,
+    autoJoin: false,
     position: 0,
     ...overrides,
   };

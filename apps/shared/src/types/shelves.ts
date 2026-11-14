@@ -31,6 +31,9 @@ export interface ShelfSummary {
   cover_tmdb_id: number | null;
   cover_type: ShelfMediaType | null;
   seed_key: string | null;
+  /** Admins only: the rules and whether matching titles join by themselves; null/false for everyone else. */
+  rules: ShelfRules | null;
+  auto_join: boolean;
 }
 
 export interface ShelfEntryView {
@@ -47,12 +50,16 @@ export interface ShelfEntryView {
   in_library: boolean;
   library_id: number | null;
   source: "manual" | "rule";
-  /** Rule parts that matched; set from the rules phase onward. */
+  /** Why a rule-sourced entry matches, for admins (possibly empty once the rules changed); null otherwise. */
   reason: string[] | null;
+  /** Removed by an admin after rules added it; only sent to the editor (`?excluded=1`), so rules never re-add it. */
+  excluded: boolean;
 }
 
 export interface ShelfDetail extends ShelfSummary {
   entries: ShelfEntryView[];
+  /** Admins only: TMDB names for the ids the rules mention, keyed `keyword:<id>`, `company:<id>`, `network:<id>`, `collection:<id>`, `genre:<id>`. */
+  rule_names?: Record<string, string>;
 }
 
 /** One seed card in the "New shelf" dialog. */
@@ -75,4 +82,48 @@ export interface ShelfMembership {
   entry_id: number | null;
   /** Only manual shelves take titles by hand; the clients list those. */
   order_mode: ShelfOrderMode;
+}
+
+/** What a shelf's rules select from the library's title facts. Unset fields don't constrain. */
+export interface ShelfRules {
+  types?: ("movie" | "show")[];
+  genres_any?: number[];
+  genres_none?: number[];
+  keywords_any?: number[];
+  keywords_none?: number[];
+  companies_any?: number[];
+  networks_any?: number[];
+  tmdb_collection?: number;
+  year_min?: number;
+  year_max?: number;
+  votes_min?: number;
+  rating_min?: number;
+  certifications?: string[]; // e.g. ["G", "PG"]
+}
+
+/** One title in a rules preview. */
+export interface ShelfPreviewTitle {
+  tmdb_id: number;
+  type: ShelfMediaType;
+  title: string;
+  year: number | null;
+  poster_url: string | null;
+  /** Already on the shelf (and not excluded). */
+  in_shelf: boolean;
+  /** Matches: the rule parts that selected it. Excluded: the `*_none` parts that removed it. */
+  reason: string[];
+}
+
+export interface ShelfPreview {
+  matches: ShelfPreviewTitle[];
+  /** Titles a `*_none` rule removed, so an admin can pin them in by hand. */
+  excluded: ShelfPreviewTitle[];
+  /** True when either list was cut at the server's cap. */
+  truncated: boolean;
+}
+
+/** A TMDB keyword or company, for the rules editor's search. */
+export interface ShelfLookupItem {
+  id: number;
+  name: string;
 }

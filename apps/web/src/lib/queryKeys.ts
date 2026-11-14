@@ -34,6 +34,11 @@ export const queryKeys = {
     librarySearch: (q: string, language: string) =>
       ["shelf-picker", "library-search", q, language] as const,
     tmdbSearch: (q: string) => ["shelf-picker", "tmdb-search", q] as const,
+    lookup: (kind: string, q: string) =>
+      ["shelf-picker", "lookup", kind, q] as const,
+    previewAll: ["shelf-picker", "preview"] as const,
+    preview: (shelfId: number, rules: string) =>
+      ["shelf-picker", "preview", shelfId, rules] as const,
   },
 
   books: {

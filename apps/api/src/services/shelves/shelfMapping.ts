@@ -4,6 +4,7 @@ import type {
   ShelfEntryView,
   ShelfMediaType,
   ShelfOrderMode,
+  ShelfRules,
   ShelfSummary,
 } from "@rawkoon/shared/types";
 import { prisma } from "@rawkoon/api/db";
@@ -24,6 +25,8 @@ export interface ShelfRow {
   visibleFrom: string | null;
   visibleTo: string | null;
   seedKey: string | null;
+  rules: unknown;
+  autoJoin: boolean;
   position: number;
 }
 
@@ -49,6 +52,8 @@ export interface LibraryRef {
   year: number | null;
   posterUrl: string | null;
   overrides: unknown;
+  /** TMDB vote average once the title's facts are fetched; orders `rating` shelves. */
+  voteAverage?: number | null;
 }
 
 const overridesOf = (ref: LibraryRef): Record<string, unknown> => {
@@ -97,6 +102,7 @@ export async function loadLibraryRefs(
       year: true,
       posterUrl: true,
       overrides: true,
+      voteAverage: true,
     },
   });
   for (const row of rows) {
@@ -106,6 +112,7 @@ export async function loadLibraryRefs(
       year: row.year,
       posterUrl: row.posterUrl,
       overrides: row.overrides,
+      voteAverage: row.voteAverage,
     });
   }
   return refs;
@@ -176,6 +183,7 @@ export function mapShelfEntry(
     library_id: there ? (ref?.id ?? null) : null,
     source: entry.source === "rule" ? "rule" : "manual",
     reason: null,
+    excluded: entry.excluded,
   };
 }
 
@@ -183,11 +191,22 @@ export function mapShelfEntries(
   rawEntries: ShelfEntryRow[],
   refs: Map<string, LibraryRef>,
   mode: ShelfOrderMode,
-  isAdmin: boolean,
+  includeExcluded: boolean,
   seasons?: SeasonAvailability,
 ): ShelfEntryView[] {
-  const visible = isAdmin ? rawEntries : rawEntries.filter((e) => !e.excluded);
-  return sortEntries(mode, visible).map((entry) =>
+  const visible = includeExcluded
+    ? rawEntries
+    : rawEntries.filter((e) => !e.excluded);
+  // Ratings come from the library's facts; entries without them sort after rated ones
+  const ordered =
+    mode === "rating"
+      ? visible.map((entry) => ({
+          ...entry,
+          voteAverage:
+            refs.get(refKey(entry.type, entry.tmdbId))?.voteAverage ?? null,
+        }))
+      : visible;
+  return sortEntries(mode, ordered).map((entry) =>
     mapShelfEntry(entry, refs.get(refKey(entry.type, entry.tmdbId)), seasons),
   );
 }
@@ -222,11 +241,12 @@ export function mapShelfSummary(input: {
   shelf: ShelfRow;
   entries: ShelfEntryView[];
   backdropUrl: string | null;
+  isAdmin: boolean;
   /** The scheme and host the client reached, for an uploaded cover's URL. */
   origin: string;
   now?: Date;
 }): ShelfSummary {
-  const { shelf, entries, backdropUrl, origin, now } = input;
+  const { shelf, entries, backdropUrl, isAdmin, origin, now } = input;
   return {
     id: shelf.id,
     name: shelf.name,
@@ -247,6 +267,9 @@ export function mapShelfSummary(input: {
           ? "movie"
           : null,
     seed_key: shelf.seedKey,
+    // Rules are an editor's concern; everyone else sees a plain shelf
+    rules: isAdmin ? rulesOf(shelf.rules) : null,
+    auto_join: isAdmin && shelf.autoJoin,
   };
 }
 
@@ -255,6 +278,13 @@ export function mapShelfDetail(
   entries: ShelfEntryView[],
 ): ShelfDetail {
   return { ...summary, entries };
+}
+
+/** The stored rules JSON, or null when the shelf has none. */
+export function rulesOf(value: unknown): ShelfRules | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ShelfRules)
+    : null;
 }
 
 export function orderModeOf(value: string): ShelfOrderMode {

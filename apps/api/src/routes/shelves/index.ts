@@ -30,6 +30,11 @@ import {
   shelfHasCoverFile,
   updateShelf,
 } from "@rawkoon/api/services/shelves/shelfService";
+import {
+  previewRules,
+  seedFromRules,
+} from "@rawkoon/api/services/shelves/shelfRulesService";
+import { searchLookup } from "@rawkoon/api/services/shelves/shelfLookups";
 import { saveShelfCover } from "@rawkoon/api/services/shelves/shelfCoverService";
 import {
   fetchShelfBackdropCandidates,
@@ -46,6 +51,41 @@ const mmddV = z
   .string()
   .regex(/^\d{2}-\d{2}$/, "Expected MM-DD")
   .refine(isValidMmdd, "Invalid month-day");
+
+const tmdbIdsV = z.array(z.number().int().positive()).max(50);
+
+/** Strict, so a misspelt field is an error instead of a rule that silently selects nothing. */
+const rulesV = z
+  .object({
+    types: z.array(mediaTypeV).max(2).optional(),
+    genres_any: tmdbIdsV.optional(),
+    genres_none: tmdbIdsV.optional(),
+    keywords_any: tmdbIdsV.optional(),
+    keywords_none: tmdbIdsV.optional(),
+    companies_any: tmdbIdsV.optional(),
+    networks_any: tmdbIdsV.optional(),
+    tmdb_collection: z.number().int().positive().optional(),
+    year_min: z.number().int().min(1800).max(2200).optional(),
+    year_max: z.number().int().min(1800).max(2200).optional(),
+    votes_min: z.number().int().min(0).optional(),
+    rating_min: z.number().min(0).max(10).optional(),
+    // TMDB ratings are upper case ("PG-13"); "pg-13" must match them too
+    certifications: z
+      .array(z.string().trim().min(1).max(12).toUpperCase())
+      .max(20)
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (rules) =>
+      rules.year_min == null ||
+      rules.year_max == null ||
+      rules.year_min <= rules.year_max,
+    { message: "year_min must not be after year_max" },
+  );
+
+const previewBody = z.object({ rules: rulesV });
+const lookupQuery = z.object({ q: z.string().trim().max(80).default("") });
 
 const coverFields = {
   cover_style: coverStyleV.optional(),
@@ -65,6 +105,12 @@ const shelfBody = {
   visible_to: mmddV.nullish(),
 };
 
+/** Rules are set on an existing shelf, where the editor previews them first. */
+const ruleFields = {
+  rules: rulesV.nullable().optional(),
+  auto_join: z.boolean().optional(),
+};
+
 /** A cover title is a TMDB id and the kind it belongs to: the same number can be a movie or a show. */
 const coverTitleRefine = {
   message: "A cover title needs its type",
@@ -74,6 +120,8 @@ const coverTitleRefine = {
 
 const createBody = z
   .object({ ...shelfBody, seed: z.string().min(1).max(40).optional() })
+  // Strict, so rules sent on create are refused rather than silently dropped
+  .strict()
   .refine((body) => !!body.seed || !!body.name, {
     message: "A name or a seed is required",
   })
@@ -84,7 +132,7 @@ const createBody = z
   });
 
 const updateBody = z
-  .object(shelfBody)
+  .object({ ...shelfBody, ...ruleFields })
   .refine(coverTitleRefine.test, { message: coverTitleRefine.message });
 
 const addEntryBody = z.object({
@@ -169,6 +217,22 @@ export const shelfRoutes = new Hono<Env>()
     const { tmdb_id, type } = c.req.valid("query");
     return ok({ shelves: await shelvesForTitle(tmdb_id, type) });
   })
+  // GET /api/shelves/lookup/keywords|companies?q= — cached TMDB search for the rules editor
+  .get("/lookup/:kind", requireAdmin, queryV(lookupQuery), async (c) => {
+    const kind =
+      c.req.param("kind") === "keywords"
+        ? "keyword"
+        : c.req.param("kind") === "companies"
+          ? "company"
+          : null;
+    if (!kind) return notFound("Not found");
+    try {
+      const items = await searchLookup(kind, c.req.valid("query").q);
+      return items ? ok({ items }) : badRequest("TMDB is not configured");
+    } catch {
+      return badGateway("TMDB search failed");
+    }
+  })
   // PUT /api/shelves/order — the order of shelves on the TV and in the editor
   .put("/order", requireAdmin, jsonV(orderBody), async (c) => {
     const moved = await reorderShelves(c.req.valid("json").ids);
@@ -196,7 +260,10 @@ export const shelfRoutes = new Hono<Env>()
   .get("/:id", async (c) => {
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");
-    const shelf = await getShelfDetail(id, c.get("user").is_admin, originOf(c));
+    const isAdmin = c.get("user").is_admin;
+    const withExcluded = isFlag(c.req.query("excluded"));
+    if (withExcluded && !isAdmin) return forbidden("Admins only");
+    const shelf = await getShelfDetail(id, isAdmin, originOf(c), withExcluded);
     if (!shelf) return notFound("Shelf not found");
     c.header("Cache-Control", "private, no-store");
     return ok({ shelf });
@@ -242,7 +309,7 @@ export const shelfRoutes = new Hono<Env>()
     if (body.cover_style === "upload" && !(await shelfHasCoverFile(id))) {
       return badRequest("Upload a cover image to use the upload style");
     }
-    const updated = await updateShelf(id, {
+    const result = await updateShelf(id, {
       name: body.name,
       description: body.description,
       orderMode: body.order_mode,
@@ -253,8 +320,13 @@ export const shelfRoutes = new Hono<Env>()
       homeRow: body.home_row,
       visibleFrom: body.visible_from,
       visibleTo: body.visible_to,
+      rules: body.rules,
+      autoJoin: body.auto_join,
     });
-    if (!updated) return notFound("Shelf not found");
+    if (result === "auto_join_needs_rules") {
+      return badRequest("Auto-join needs rules");
+    }
+    if (result === "not_found") return notFound("Shelf not found");
     const shelf = await getShelfDetail(id, true, originOf(c));
     if (!shelf) return notFound("Shelf not found");
     return ok({ shelf });
@@ -291,6 +363,26 @@ export const shelfRoutes = new Hono<Env>()
       return shelf ? ok({ shelf }) : serverError("Shelf was not saved");
     },
   )
+  // POST /api/shelves/:id/preview — what rules would select, without saving them
+  .post("/:id/preview", requireAdmin, jsonV(previewBody), async (c) => {
+    const id = pathId(c.req.param("id"));
+    if (id == null) return notFound("Shelf not found");
+    const preview = await previewRules(id, c.req.valid("json").rules);
+    return preview ? ok(preview) : notFound("Shelf not found");
+  })
+  // POST /api/shelves/:id/seed-from-rules — add the current matches once
+  .post("/:id/seed-from-rules", requireAdmin, async (c) => {
+    const id = pathId(c.req.param("id"));
+    if (id == null) return notFound("Shelf not found");
+    const seeded = await seedFromRules(id);
+    if (!seeded.ok) {
+      return seeded.reason === "not_found"
+        ? notFound("Shelf not found")
+        : badRequest("The shelf has no rules");
+    }
+    const shelf = await getShelfDetail(id, true, originOf(c));
+    return shelf ? ok({ shelf }) : notFound("Shelf not found");
+  })
   .post("/:id/entries", requireAdmin, jsonV(addEntryBody), async (c) => {
     const id = pathId(c.req.param("id"));
     if (id == null) return notFound("Shelf not found");

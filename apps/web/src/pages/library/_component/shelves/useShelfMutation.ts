@@ -10,8 +10,10 @@ export const readShelfEntries = (
   queryClient: ReturnType<typeof useQueryClient>,
   shelfId: number,
 ) =>
-  queryClient.getQueryData<DetailCache>(queryKeys.shelves.detail(shelfId))
-    ?.shelf.entries ?? [];
+  (
+    queryClient.getQueryData<DetailCache>(queryKeys.shelves.detail(shelfId))
+      ?.shelf.entries ?? []
+  ).filter((entry) => !entry.excluded);
 
 /** A mutation on one shelf's detail that shows its result at once and rolls back on error. */
 export function useShelfMutation<V>({

@@ -17,6 +17,7 @@ const entry = (id: number, group_label: string | null): ShelfEntryView => ({
   library_id: null,
   source: "manual",
   reason: null,
+  excluded: false,
 });
 
 const labels = (list: ShelfEntryView[]) => list.map((e) => e.group_label);

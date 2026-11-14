@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe("shelf seeds", () => {
-  it("ships the six starter recipes with english and french names", () => {
+  it("ships the starter recipes with english and french names", () => {
     const seeds = listSeeds();
     expect(seeds.map((seed) => seed.key)).toEqual([
       "christmas",
@@ -88,6 +88,8 @@ describe("shelf seeds", () => {
       "ghibli",
       "bond",
       "mcu",
+      "real_horror",
+      "cozy_sunday",
     ]);
     const christmas = findSeed("christmas");
     expect(christmas?.name.en).toBe("Christmas movies");
@@ -95,6 +97,22 @@ describe("shelf seeds", () => {
     expect(christmas?.visibleFrom).toBe("11-01");
     expect(christmas?.visibleTo).toBe("01-15");
     expect(christmas?.homeRow).toBe(true);
+  });
+
+  it("ships Real horror with rules and auto-join off, and Cozy Sunday empty", () => {
+    const horror = findSeed("real_horror");
+    expect(horror?.name.fr).toBe("Vraie horreur");
+    expect(horror?.rules).toEqual({
+      genres_any: [27],
+      genres_none: [35, 10751, 16],
+      keywords_none: [11931, 9755, 379671],
+      votes_min: 300,
+    });
+    expect(horror?.needsTmdb).toBe(false);
+    const cozy = findSeed("cozy_sunday");
+    expect(cozy?.name.en).toBe("Cozy Sunday");
+    expect(cozy?.rules).toBeUndefined();
+    expect(cozy?.allowEmpty).toBe(true);
   });
 
   it("loads christmas from TMDB discover with the verified keyword and votes", async () => {

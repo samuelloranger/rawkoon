@@ -528,6 +528,16 @@ model LibraryMedia {
   downloadedEpisodeCount Int?     @map("downloaded_episode_count")
   /// Persisted COUNT(DISTINCT season) of library_episodes; null for movies. DB trigger.
   seasonCount           Int?      @map("season_count")
+  /// TMDB facts in en-US, filled by the nightly sweep; rules evaluate against these. Null factsFetchedAt = not fetched yet.
+  genreIds              Int[]     @default([]) @map("genre_ids")
+  keywordIds            Int[]     @default([]) @map("keyword_ids")
+  companyIds            Int[]     @default([]) @map("company_ids")
+  networkIds            Int[]     @default([]) @map("network_ids")
+  tmdbCollectionId      Int?      @map("tmdb_collection_id")
+  certification         String?
+  voteCount             Int?      @map("vote_count")
+  voteAverage           Float?    @map("vote_average")
+  factsFetchedAt        DateTime? @map("facts_fetched_at")
 
   qualityProfile    QualityProfile?   @relation(fields: [qualityProfileId], references: [id], onDelete: SetNull)
   episodes          LibraryEpisode[]
@@ -554,6 +564,10 @@ model LibraryMedia {
   @@index([totalSizeBytes], map: "ix_library_media_total_size_bytes")
   @@index([listTitle], map: "ix_library_media_list_title")
   @@index([listYear], map: "ix_library_media_list_year")
+  @@index([genreIds], type: Gin, map: "ix_library_media_genre_ids")
+  @@index([keywordIds], type: Gin, map: "ix_library_media_keyword_ids")
+  @@index([companyIds], type: Gin, map: "ix_library_media_company_ids")
+  @@index([networkIds], type: Gin, map: "ix_library_media_network_ids")
   /// Dashboard upcoming: digital release window with no status filter, so
   /// ix_library_media_status cannot help. Measured 2.5ms → 0.04ms at 13k rows.
   /// NOTE: a (type, status, monitored) composite was tried and removed — the
