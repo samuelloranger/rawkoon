@@ -3563,6 +3563,7 @@
     "addedCount_other": "{{count}} titles added",
     "addFailedCount_one": "{{count}} title couldn't be added",
     "addFailedCount_other": "{{count}} titles couldn't be added",
-    "add": "Add"
+    "add": "Add",
+    "switchedToManual": "Switched this shelf to manual order, to keep your arrangement."
   }
 }

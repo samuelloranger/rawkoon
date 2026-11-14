@@ -22,6 +22,7 @@ import { useFetcher } from "@/lib/api/context";
 import { useAuth } from "@/lib/auth/useAuth";
 import { SHELVES_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
+import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState } from "@/components/LoadingState";
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Dialog } from "@/components/dialog";
 import { GroupHeader } from "./GroupHeader";
+import { useLiveReorder } from "./useLiveReorder";
 import { RemovedEntries } from "./RemovedEntries";
 import { AddTitlesDialog } from "./AddTitlesDialog";
 import { ShelfCoverEditor } from "./ShelfCoverEditor";
@@ -90,7 +92,6 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
     setSeeded((s) => s && { ...s, draft: { ...s.draft, ...patch } });
   const [addOpen, setAddOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [dragId, setDragId] = useState<number | null>(null);
 
   const shelf = useQuery({
     queryKey: queryKeys.shelves.detail(shelfId),
@@ -231,24 +232,43 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
   const entries = allEntries.filter((entry) => !entry.excluded);
   const removed = allEntries.filter((entry) => entry.excluded);
 
+  // A hand-made order only shows on a manual shelf, so moving a title switches it to manual
+  const ensureManual = () => {
+    if (!detail || detail.order_mode === "manual") return;
+    queryClient.setQueryData<{ shelf: ShelfDetail }>(
+      queryKeys.shelves.detail(shelfId),
+      (old) => old && { shelf: { ...old.shelf, order_mode: "manual" } },
+    );
+    patchDraft({ orderMode: "manual" });
+    void fetcher(SHELVES_ENDPOINTS.UPDATE(shelfId), {
+      method: "PATCH",
+      body: { order_mode: "manual" },
+    }).then(
+      () => toast.info(t("shelves.switchedToManual")),
+      () => toast.error(t("shelves.saveError")),
+    );
+  };
+
   /** Moves a title to another index, from the cache's latest order. */
   const moveTo = (fromId: number, toIndex: number) => {
     const latest = readShelfEntries(queryClient, shelfId);
     const from = latest.findIndex((entry) => entry.id === fromId);
     if (from < 0 || from === toIndex) return;
+    ensureManual();
     moveEntries.mutate(moveEntry(latest, from, toIndex));
   };
 
-  const dropOn = (targetId: number) => {
-    if (dragId != null && dragId !== targetId) {
-      const latest = readShelfEntries(queryClient, shelfId);
-      moveTo(
-        dragId,
-        latest.findIndex((entry) => entry.id === targetId),
-      );
-    }
-    setDragId(null);
-  };
+  const reorder = useLiveReorder({
+    items: entries,
+    idOf: (entry) => entry.id,
+    move: moveEntry,
+    enabled: isAdmin,
+    onCommit: (next) => {
+      ensureManual();
+      moveEntries.mutate(next);
+    },
+  });
+  const shown = reorder.display;
 
   const setGroup = (entryId: number, label: string) => {
     const latest = readShelfEntries(queryClient, shelfId);
@@ -476,9 +496,9 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
             </p>
           ) : (
             <ul className="divide-y divide-neutral-800 rounded-xl border border-neutral-800">
-              {entries.map((entry, index) => (
+              {shown.map((entry, index) => (
                 <Fragment key={entry.id}>
-                  {startsGroup(entries, index) && (
+                  {startsGroup(shown, index) && (
                     <GroupHeader
                       label={entry.group_label ?? ""}
                       editable={isAdmin}
@@ -486,14 +506,12 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                     />
                   )}
                   <li
-                    draggable={isAdmin}
-                    onDragStart={() => setDragId(entry.id)}
-                    onDragEnd={() => setDragId(null)}
-                    onDragOver={(event) => {
-                      if (isAdmin) event.preventDefault();
-                    }}
-                    onDrop={() => dropOn(entry.id)}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:flex-nowrap"
+                    {...reorder.rowProps(entry, index)}
+                    className={cn(
+                      "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:flex-nowrap",
+                      reorder.dragging === entry.id &&
+                        "relative z-10 opacity-50 ring-1 ring-primary-400",
+                    )}
                   >
                     {isAdmin && (
                       <span
@@ -509,6 +527,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                     <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
                       {entry.poster_url ? (
                         <img
+                          draggable={false}
                           src={entry.poster_url}
                           alt=""
                           loading="lazy"
@@ -565,7 +584,7 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                         >
                           <ArrowDown size={15} />
                         </Button>
-                        {!startsGroup(entries, index) && (
+                        {!startsGroup(shown, index) && (
                           <Button
                             size="sm"
                             variant="ghost"
