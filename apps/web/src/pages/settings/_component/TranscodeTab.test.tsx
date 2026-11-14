@@ -141,6 +141,14 @@ describe("TranscodeTab", () => {
     expect(actions.moveBefore).toHaveBeenCalledWith(3, 2);
   });
 
+  it("drags a job down after its target, so the last place is reachable", () => {
+    renderWithProviders(<TranscodeTab />);
+    const rows = screen.getAllByTestId("queue-row");
+    fireEvent.dragStart(rows[0]);
+    fireEvent.drop(rows[1]);
+    expect(actions.moveAfter).toHaveBeenCalledWith(2, 3);
+  });
+
   it("shows the failure reason and retries", () => {
     renderWithProviders(<TranscodeTab />);
     expect(screen.getByText(/SSIM 0.951 below 0.970/)).toBeInTheDocument();

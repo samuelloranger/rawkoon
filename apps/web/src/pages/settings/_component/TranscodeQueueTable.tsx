@@ -57,8 +57,15 @@ export function TranscodeQueueTable({
                   onDragStart={() => setDragId(j.id)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => {
-                    if (dragId != null && dragId !== j.id)
-                      void safe(act.moveBefore(dragId, j.id));
+                    if (dragId != null && dragId !== j.id) {
+                      // Dragged down: land after the target, so the last place is reachable
+                      const from = queued.findIndex((q) => q.id === dragId);
+                      void safe(
+                        from >= 0 && from < i
+                          ? act.moveAfter(dragId, j.id)
+                          : act.moveBefore(dragId, j.id),
+                      );
+                    }
                     setDragId(null);
                   }}
                   className="border-b border-neutral-800 last:border-b-0"
