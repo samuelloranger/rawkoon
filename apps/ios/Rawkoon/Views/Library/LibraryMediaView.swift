@@ -210,6 +210,7 @@ struct LibraryMediaView: View {
             LazyVStack(spacing: 16) {
                 LibraryGrowthStrip()
                     .padding(.horizontal, 16)
+                ShelfChipsRow(shelves: [.watchlist, .collections, .shelves])
 
                 if loadingMedia, media.isEmpty {
                     mediaGridSkeleton
@@ -372,6 +373,7 @@ struct LibraryMediaView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 LibraryGrowthStrip()
+                ShelfChipsRow(shelves: [.watchlist, .collections, .shelves])
 
                 if loadingMedia, media.isEmpty {
                     mediaListSkeleton
