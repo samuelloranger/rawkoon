@@ -34,7 +34,9 @@ vi.mock("@/features/medias/hooks/useInfiniteLibrary", () => ({
 
 describe("AddTitlesDialog", () => {
   it("lists the library, locks titles already on the shelf, and adds the ticked ones on OK", async () => {
-    const fetcher = vi.fn(async () => ({}));
+    const fetcher = vi.fn(
+      async (_url: string, _init?: { body?: unknown }) => ({}),
+    );
     const onClose = vi.fn();
     renderWithProviders(
       <AddTitlesDialog
@@ -58,7 +60,7 @@ describe("AddTitlesDialog", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const posted = fetcher.mock.calls
       .filter(([url]) => String(url).includes("/api/shelves/7/entries"))
-      .map(([, init]) => (init as { body: unknown }).body);
+      .map(([, init]) => init?.body);
     expect(posted).toEqual([
       { tmdb_id: 30, type: "show" },
       { tmdb_id: 10, type: "movie" },
