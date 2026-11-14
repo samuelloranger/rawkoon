@@ -75,43 +75,31 @@ extension ReencodeAdminView {
         }
     }
 
-    @ViewBuilder
-    var queueSections: some View {
-        if queued.isEmpty {
-            Section("Queue") {
+    var queueSection: some View {
+        Section("Queue") {
+            if queued.isEmpty {
                 Text("Nothing queued. Open a movie or show and choose Re-encode.")
                     .foregroundStyle(Theme.muted).listRowBackground(Theme.raised)
             }
-        }
-        ForEach(batches) { batch in
-            Section {
-                ForEach(batch.jobs) { job in
-                    queueRow(job)
-                }
-                .onMove { source, destination in
-                    Task { await move(in: batch.jobs, from: source, to: destination) }
-                }
-            } header: {
-                HStack {
-                    Text(verbatim: batch.jobs.first?.title.components(separatedBy: " — ").first ?? "")
-                    Spacer()
-                    Menu {
-                        Button("Move batch to top") { Task { await moveBatchTop(batch.id) } }
-                        Button("Remove all", role: .destructive) { Task { await removeBatch(batch.id) } }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .requiresConnection(model.isOffline)
-                }
+            ForEach(Array(queued.enumerated()), id: \.element.id) { index, job in
+                queueRow(job, number: index + 1)
+            }
+            .onMove { source, destination in
+                Task { await move(in: queued, from: source, to: destination) }
             }
         }
     }
 
-    func queueRow(_ job: TranscodeJob) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: job.title).foregroundStyle(Theme.text)
-            Text(verbatim: "\(settingsSummary(job.settings)) · \(Formatters.bytesEcho(job.sourceBytes))" + (job.estimatedBytes.map { " → ~\(Formatters.bytesEcho($0))" } ?? ""))
-                .font(.footnote).foregroundStyle(Theme.muted)
+    func queueRow(_ job: TranscodeJob, number: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(verbatim: "\(number)")
+                .font(.footnote.monospacedDigit()).foregroundStyle(Theme.muted)
+                .frame(minWidth: 18, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: job.title).foregroundStyle(Theme.text)
+                Text(verbatim: "\(settingsSummary(job.settings)) · \(Formatters.bytesEcho(job.sourceBytes))" + (job.estimatedBytes.map { " → ~\(Formatters.bytesEcho($0))" } ?? ""))
+                    .font(.footnote).foregroundStyle(Theme.muted)
+            }
         }
         .listRowBackground(Theme.raised)
         .swipeActions {

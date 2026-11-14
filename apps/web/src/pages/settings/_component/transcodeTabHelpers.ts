@@ -19,15 +19,3 @@ export function settingsLabel(j: TranscodeJob): string {
   if (s.convertLosslessAudio) parts.push("EAC3");
   return parts.join(" · ");
 }
-
-export function groupBatches(
-  queued: TranscodeJob[],
-): { batchId: string; jobs: TranscodeJob[] }[] {
-  const out: { batchId: string; jobs: TranscodeJob[] }[] = [];
-  for (const j of queued) {
-    const last = out[out.length - 1];
-    if (last?.batchId === j.batch_id) last.jobs.push(j);
-    else out.push({ batchId: j.batch_id, jobs: [j] });
-  }
-  return out;
-}

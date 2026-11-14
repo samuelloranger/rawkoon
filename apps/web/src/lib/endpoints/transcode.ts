@@ -7,8 +7,6 @@ export const TRANSCODE_ENDPOINTS = {
   JOB_FREE_SOURCE: (id: number) => `/api/transcode/jobs/${id}/free-source`,
   HISTORY_ITEM: (id: number) => `/api/transcode/history/${id}`,
   JOB_RETRY: (id: number) => `/api/transcode/jobs/${id}/retry`,
-  BATCH: (id: string) => `/api/transcode/batches/${id}`,
-  BATCH_MOVE: (id: string) => `/api/transcode/batches/${id}/move`,
   HISTORY: "/api/transcode/history",
   SETTINGS: "/api/transcode/settings",
   SUMMARY: "/api/transcode/summary",

@@ -191,17 +191,6 @@ export function useTranscodeJobAction() {
         method: "POST",
         body: { after_id: afterId },
       }),
-    removeBatch: (batchId: string) =>
-      run.mutateAsync({
-        url: TRANSCODE_ENDPOINTS.BATCH(batchId),
-        method: "DELETE",
-      }),
-    batchTop: (batchId: string) =>
-      run.mutateAsync({
-        url: TRANSCODE_ENDPOINTS.BATCH_MOVE(batchId),
-        method: "POST",
-        body: { top: true },
-      }),
     clearHistory: () =>
       run.mutateAsync({ url: TRANSCODE_ENDPOINTS.HISTORY, method: "DELETE" }),
   };

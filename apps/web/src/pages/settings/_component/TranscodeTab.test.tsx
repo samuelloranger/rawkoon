@@ -9,8 +9,6 @@ const actions = {
   moveTop: vi.fn(async () => {}),
   moveBefore: vi.fn(async () => {}),
   moveAfter: vi.fn(async () => {}),
-  removeBatch: vi.fn(async () => {}),
-  batchTop: vi.fn(async () => {}),
   clearHistory: vi.fn(async () => {}),
 };
 const update = vi.fn();
@@ -141,6 +139,14 @@ describe("TranscodeTab", () => {
     fireEvent.dragStart(rows[1]);
     fireEvent.drop(rows[0]);
     expect(actions.moveBefore).toHaveBeenCalledWith(3, 2);
+  });
+
+  it("drags a job down after its target, so the last place is reachable", () => {
+    renderWithProviders(<TranscodeTab />);
+    const rows = screen.getAllByTestId("queue-row");
+    fireEvent.dragStart(rows[0]);
+    fireEvent.drop(rows[1]);
+    expect(actions.moveAfter).toHaveBeenCalledWith(2, 3);
   });
 
   it("shows the failure reason and retries", () => {

@@ -63,15 +63,6 @@ extension APIClient {
         try await deleteExpectOK("/api/transcode/history/\(id)")
     }
 
-    func removeTranscodeBatch(id: String) async throws {
-        try await deleteExpectOK("/api/transcode/batches/\(id)")
-    }
-
-    func moveTranscodeBatchToTop(id: String) async throws {
-        nonisolated struct Body: Encodable { let top = true }
-        try await postExpectOK("/api/transcode/batches/\(id)/move", body: Body())
-    }
-
     func clearTranscodeHistory() async throws {
         try await deleteExpectOK("/api/transcode/history")
     }
