@@ -3477,10 +3477,8 @@
     "added": "Titre ajouté",
     "addError": "Impossible d'ajouter le titre",
     "searchPlaceholder": "Rechercher films et séries",
-    "searchHint": "Tape au moins deux lettres.",
     "searching": "Recherche…",
     "noResults": "Rien trouvé.",
-    "add": "Ajouter",
     "alreadyOnShelf": "Sur cette étagère",
     "inLibrary": "Dans la bibliothèque",
     "notInLibrary": "Absent de la bibliothèque",
@@ -3552,6 +3550,19 @@
     "removedTitle": "Titres retirés",
     "removedHint": "Vous les avez retirés ; les règles ne les rajouteront pas.",
     "putBack": "Remettre",
-    "putBackError": "Impossible de remettre le titre."
+    "putBackError": "Impossible de remettre le titre.",
+    "pickerAll": "Tout",
+    "pickerMovies": "Films",
+    "pickerShows": "Séries",
+    "notInLibrarySection": "Pas dans la bibliothèque",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés",
+    "addSelected_one": "Ajouter {{count}} titre",
+    "addSelected_other": "Ajouter {{count}} titres",
+    "addedCount_one": "{{count}} titre ajouté",
+    "addedCount_other": "{{count}} titres ajoutés",
+    "addFailedCount_one": "{{count}} titre n'a pas pu être ajouté",
+    "addFailedCount_other": "{{count}} titres n'ont pas pu être ajoutés",
+    "add": "Ajouter"
   }
 }

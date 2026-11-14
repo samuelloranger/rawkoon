@@ -31,8 +31,6 @@ export const queryKeys = {
     coverSearch: (q: string) => ["shelf-picker", "cover-search", q] as const,
     coverCandidates: (type: string | null, tmdbId: number | null) =>
       ["shelf-picker", "cover-candidates", type, tmdbId] as const,
-    librarySearch: (q: string, language: string) =>
-      ["shelf-picker", "library-search", q, language] as const,
     tmdbSearch: (q: string) => ["shelf-picker", "tmdb-search", q] as const,
     lookup: (kind: string, q: string) =>
       ["shelf-picker", "lookup", kind, q] as const,

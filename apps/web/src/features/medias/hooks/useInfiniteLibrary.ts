@@ -17,7 +17,10 @@ export interface LibraryInfiniteFilters {
   titleLanguage?: string;
 }
 
-export function useInfiniteLibrary(filters?: LibraryInfiniteFilters) {
+export function useInfiniteLibrary(
+  filters?: LibraryInfiniteFilters,
+  options?: { enabled?: boolean },
+) {
   const fetcher = useFetcher();
   const titleLanguage = useTitleLanguage();
   // In the key too, or switching locale serves the previous language's titles.
@@ -43,5 +46,6 @@ export function useInfiniteLibrary(filters?: LibraryInfiniteFilters) {
     getNextPageParam: (lastPage, allPages) =>
       lastPage.has_more ? allPages.length + 1 : undefined,
     initialPageParam: 1,
+    enabled: options?.enabled ?? true,
   });
 }

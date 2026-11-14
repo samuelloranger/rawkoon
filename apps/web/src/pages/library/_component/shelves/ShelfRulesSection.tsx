@@ -412,6 +412,22 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
                   <PreviewRow
                     key={`${item.type}-${item.tmdb_id}`}
                     item={item}
+                    action={
+                      item.in_shelf ? undefined : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            pin.isPending &&
+                            pin.variables?.tmdb_id === item.tmdb_id &&
+                            pin.variables.type === item.type
+                          }
+                          onClick={() => pin.mutate(item)}
+                        >
+                          {t("shelves.add")}
+                        </Button>
+                      )
+                    }
                   />
                 ))}
               </ul>
@@ -430,7 +446,12 @@ export function ShelfRulesSection({ shelf }: { shelf: ShelfDetail }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={pin.isPending || item.in_shelf}
+                          disabled={
+                            item.in_shelf ||
+                            (pin.isPending &&
+                              pin.variables?.tmdb_id === item.tmdb_id &&
+                              pin.variables.type === item.type)
+                          }
                           onClick={() => pin.mutate(item)}
                         >
                           {t("shelves.rules.pin")}

@@ -3477,10 +3477,8 @@
     "added": "Title added",
     "addError": "Could not add the title",
     "searchPlaceholder": "Search movies and shows",
-    "searchHint": "Type at least two letters.",
     "searching": "Searching…",
     "noResults": "Nothing found.",
-    "add": "Add",
     "alreadyOnShelf": "On this shelf",
     "inLibrary": "In the library",
     "notInLibrary": "Not in the library",
@@ -3552,6 +3550,19 @@
     "removedTitle": "Removed titles",
     "removedHint": "You took these off; the rules won't add them back.",
     "putBack": "Put back",
-    "putBackError": "Couldn't put the title back."
+    "putBackError": "Couldn't put the title back.",
+    "pickerAll": "All",
+    "pickerMovies": "Movies",
+    "pickerShows": "Shows",
+    "notInLibrarySection": "Not in the library",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "addSelected_one": "Add {{count}} title",
+    "addSelected_other": "Add {{count}} titles",
+    "addedCount_one": "{{count}} title added",
+    "addedCount_other": "{{count}} titles added",
+    "addFailedCount_one": "{{count}} title couldn't be added",
+    "addFailedCount_other": "{{count}} titles couldn't be added",
+    "add": "Add"
   }
 }
