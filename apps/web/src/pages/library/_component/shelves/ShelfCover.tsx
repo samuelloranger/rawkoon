@@ -35,6 +35,7 @@ export function ShelfCover({
     >
       {backdrop ? (
         <img
+          draggable={false}
           src={backdrop}
           alt=""
           loading="lazy"
@@ -44,6 +45,7 @@ export function ShelfCover({
         <div className="grid h-full w-full grid-cols-2 grid-rows-2">
           {posters.map((url) => (
             <img
+              draggable={false}
               key={url}
               src={url}
               alt=""

@@ -15,6 +15,7 @@ import { useFetcher } from "@/lib/api/context";
 import { useAuth } from "@/lib/auth/useAuth";
 import { SHELVES_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
+import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { LibrarySwitch } from "@/pages/medias/_component/LibrarySwitch";
 import { NewShelfDialog } from "./NewShelfDialog";
 import { moveBefore } from "./shelfOrder";
+import { useLiveReorder } from "./useLiveReorder";
 import { ShelfCover } from "./ShelfCover";
 
 /** Library → Shelves: every shelf as its cover, in the order the TV shows them. */
@@ -33,7 +35,6 @@ export function ShelvesPage() {
   const fetcher = useFetcher();
   const queryClient = useQueryClient();
   const [newShelfOpen, setNewShelfOpen] = useState(false);
-  const [dragId, setDragId] = useState<number | null>(null);
 
   const shelves = useQuery({
     queryKey: queryKeys.shelves.list(isAdmin),
@@ -85,6 +86,14 @@ export function ShelvesPage() {
     reorder.mutate(moveBefore(latest, from, toIndex).map((shelf) => shelf.id));
   };
 
+  const live = useLiveReorder({
+    items: list,
+    idOf: (shelf) => shelf.id,
+    move: moveBefore,
+    enabled: isAdmin,
+    onCommit: (next) => reorder.mutate(next.map((shelf) => shelf.id)),
+  });
+
   return (
     <PageLayout>
       <LibrarySwitch active="media" />
@@ -113,24 +122,17 @@ export function ShelvesPage() {
         />
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {list.map((shelf, index) => (
+          {live.display.map((shelf, index) => (
             <li
               key={shelf.id}
-              draggable={isAdmin}
-              onDragStart={() => setDragId(shelf.id)}
-              onDragEnd={() => setDragId(null)}
-              onDragOver={(event) => {
-                if (isAdmin) event.preventDefault();
-              }}
-              onDrop={() => {
-                if (dragId != null && dragId !== shelf.id) {
-                  moveTo(dragId, index);
-                }
-                setDragId(null);
-              }}
-              className="relative"
+              {...live.rowProps(shelf, index)}
+              className={cn(
+                "relative",
+                live.dragging === shelf.id && "z-10 opacity-50",
+              )}
             >
               <Link
+                draggable={false}
                 to="/library/shelves/$shelfId"
                 params={{ shelfId: String(shelf.id) }}
                 className="focus-ring block rounded-xl transition-transform hover:-translate-y-0.5"

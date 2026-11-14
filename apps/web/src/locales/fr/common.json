@@ -3563,6 +3563,7 @@
     "addedCount_other": "{{count}} titres ajoutés",
     "addFailedCount_one": "{{count}} titre n'a pas pu être ajouté",
     "addFailedCount_other": "{{count}} titres n'ont pas pu être ajoutés",
-    "add": "Ajouter"
+    "add": "Ajouter",
+    "switchedToManual": "Étagère passée en ordre manuel, pour garder ton arrangement."
   }
 }
