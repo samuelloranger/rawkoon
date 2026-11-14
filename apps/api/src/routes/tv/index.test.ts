@@ -44,6 +44,16 @@ mock.module("@rawkoon/api/services/integrationConfigCache", () => ({
   getIntegrationConfigRecord,
   invalidateIntegrationConfigCache: async () => {},
 }));
+const realSorts = await import("@rawkoon/api/services/tv/tvLibrarySorts");
+const getTvLibrarySorts = mock(async () => ({ MOVIES: "YEAR" }));
+const setTvLibrarySort = mock(
+  async (_page: string, _sort: string | null) => {},
+);
+mock.module("@rawkoon/api/services/tv/tvLibrarySorts", () => ({
+  ...realSorts,
+  getTvLibrarySorts,
+  setTvLibrarySort,
+}));
 const { tvRoutes } = await import("./index");
 
 const linkedUser = {
@@ -122,5 +132,49 @@ describe("tv routes", () => {
     getJellyfinConfig.mockImplementationOnce(async () => null);
     const res = await quickConnect("123456");
     expect(res.status).toBe(503);
+  });
+});
+
+describe("library sorts", () => {
+  const put = (body: unknown) =>
+    tvRoutes.fetch(
+      new Request("http://localhost/library-sorts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+
+  beforeEach(() => setTvLibrarySort.mockClear());
+
+  it("returns the shared sorts", async () => {
+    const res = await tvRoutes.fetch(
+      new Request("http://localhost/library-sorts"),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ sorts: { MOVIES: "YEAR" } });
+  });
+
+  it("saves a page's sort, a collection's included, and clears one with null", async () => {
+    expect(
+      (await put({ page: "collection:abc123", sort: "YEAR:reverse" })).status,
+    ).toBe(200);
+    expect(setTvLibrarySort).toHaveBeenCalledWith(
+      "collection:abc123",
+      "YEAR:reverse",
+    );
+    expect((await put({ page: "MOVIES", sort: null })).status).toBe(200);
+    expect(setTvLibrarySort).toHaveBeenLastCalledWith("MOVIES", null);
+  });
+
+  it("refuses a malformed page or sort", async () => {
+    expect((await put({ page: "a b", sort: "YEAR" })).status).toBe(400);
+    expect((await put({ page: "MOVIES", sort: "year; drop" })).status).toBe(
+      400,
+    );
+    expect((await put({ page: "MOVIES", sort: "YEAR:sideways" })).status).toBe(
+      400,
+    );
+    expect(setTvLibrarySort).not.toHaveBeenCalled();
   });
 });

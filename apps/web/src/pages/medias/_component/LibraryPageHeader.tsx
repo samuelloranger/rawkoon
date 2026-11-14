@@ -1,6 +1,6 @@
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 interface LibraryPageHeaderProps {
   movieCount: number;
@@ -38,6 +38,13 @@ export function LibraryPageHeader({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <Link
+          to="/library/shelves"
+          className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800/60 px-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-700/70 hover:text-neutral-100"
+        >
+          <Layers size={14} />
+          {t("shelves.pageTitle")}
+        </Link>
         {/* Primary Add action — admin only */}
         {isAdmin && (
           <button

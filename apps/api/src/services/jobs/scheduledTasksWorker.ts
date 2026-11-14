@@ -180,6 +180,13 @@ export async function processScheduledJob(job: Job) {
         await processPendingReleases();
         break;
       }
+      case SCHEDULED_JOB_NAMES.SWEEP_TITLE_FACTS: {
+        const { runTitleFactsSweep } = await import(
+          "../shelves/titleFactsSweep"
+        );
+        await runTitleFactsSweep();
+        break;
+      }
       default:
         console.warn(`[ScheduledTasksWorker] Unknown job name: ${job.name}`);
         return { success: false, error: "Unknown job name" };

@@ -15,6 +15,12 @@ import {
   authorizeJellyfinQuickConnect,
   getJellyfinConfig,
 } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
+import {
+  getTvLibrarySorts,
+  setTvLibrarySort,
+  TV_SORT_PAGE,
+  TV_SORT_VALUE,
+} from "@rawkoon/api/services/tv/tvLibrarySorts";
 import { findTvUser } from "@rawkoon/api/services/tv/tvUsers";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 
@@ -77,6 +83,25 @@ export const tvRoutes = new Hono<Env>()
       if (result === "unknown_code") {
         return notFound("Jellyfin does not know this Quick Connect code");
       }
+      return ok({ ok: true });
+    },
+  )
+  // The sort each library page opens in, shared by every TV and profile on this server
+  .get("/library-sorts", requireUser, async () =>
+    ok({ sorts: await getTvLibrarySorts() }),
+  )
+  .put(
+    "/library-sorts",
+    requireUser,
+    jsonV(
+      z.object({
+        page: z.string().regex(TV_SORT_PAGE),
+        sort: z.union([z.string().regex(TV_SORT_VALUE), z.null()]),
+      }),
+    ),
+    async (c) => {
+      const { page, sort } = c.req.valid("json");
+      await setTvLibrarySort(page, sort);
       return ok({ ok: true });
     },
   );

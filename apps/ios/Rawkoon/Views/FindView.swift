@@ -136,6 +136,7 @@ extension FindShelf {
         switch self {
         case .watchlist: "Watchlist"
         case .collections: "Collections"
+        case .shelves: "Shelves"
         case .bestsellers: "Bestsellers"
         }
     }
@@ -144,6 +145,7 @@ extension FindShelf {
         switch self {
         case .watchlist: "bookmark"
         case .collections: "rectangle.stack"
+        case .shelves: "square.stack"
         case .bestsellers: "trophy"
         }
     }
@@ -152,6 +154,7 @@ extension FindShelf {
         switch self {
         case .watchlist: WatchlistView()
         case .collections: CollectionsView()
+        case .shelves: ShelvesView()
         case .bestsellers: BookDiscoveryView()
         }
     }

@@ -17,6 +17,30 @@ export const queryKeys = {
     app: () => [...queryKeys.settings.all, "app"] as const,
   },
 
+  shelves: {
+    all: ["shelves"] as const,
+    list: (includeAll: boolean) =>
+      [...queryKeys.shelves.all, "list", includeAll] as const,
+    detail: (id: number) => [...queryKeys.shelves.all, "detail", id] as const,
+    seeds: (language: string) =>
+      [...queryKeys.shelves.all, "seeds", language] as const,
+  },
+
+  // Own root, so invalidating shelf data doesn't refetch the pickers' searches
+  shelfPicker: {
+    coverSearch: (q: string) => ["shelf-picker", "cover-search", q] as const,
+    coverCandidates: (type: string | null, tmdbId: number | null) =>
+      ["shelf-picker", "cover-candidates", type, tmdbId] as const,
+    librarySearch: (q: string, language: string) =>
+      ["shelf-picker", "library-search", q, language] as const,
+    tmdbSearch: (q: string) => ["shelf-picker", "tmdb-search", q] as const,
+    lookup: (kind: string, q: string) =>
+      ["shelf-picker", "lookup", kind, q] as const,
+    previewAll: ["shelf-picker", "preview"] as const,
+    preview: (shelfId: number, rules: string) =>
+      ["shelf-picker", "preview", shelfId, rules] as const,
+  },
+
   books: {
     all: ["books"] as const,
     list: (params?: {
