@@ -135,13 +135,14 @@ export function AddTitlesDialog({
   const close = () => {
     setSelected(new Map());
     setQuery("");
+    setType("");
     onClose();
   };
 
   // One POST per title, in the order they were ticked; the shelf is read again once at the end
   const addAll = useMutation({
     mutationFn: async (candidates: Candidate[]) => {
-      let failed = 0;
+      const failed: Candidate[] = [];
       for (const candidate of candidates) {
         try {
           await fetcher(SHELVES_ENDPOINTS.ENTRIES(shelfId), {
@@ -149,17 +150,19 @@ export function AddTitlesDialog({
             body: { tmdb_id: candidate.tmdbId, type: candidate.type },
           });
         } catch {
-          failed++;
+          failed.push(candidate);
         }
       }
-      return { added: candidates.length - failed, failed };
+      return { added: candidates.length - failed.length, failed };
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.shelves.all }),
     onSuccess: ({ added, failed }) => {
       if (added) toast.success(t("shelves.addedCount", { count: added }));
-      if (failed) toast.error(t("shelves.addFailedCount", { count: failed }));
-      if (!failed) close();
+      if (!failed.length) return close();
+      toast.error(t("shelves.addFailedCount", { count: failed.length }));
+      // Only the titles that failed stay ticked, so OK retries just those
+      setSelected(new Map(failed.map((c) => [c.key, c])));
     },
   });
 
@@ -226,7 +229,9 @@ export function AddTitlesDialog({
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={close}
+      onClose={() => {
+        if (!addAll.isPending) close();
+      }}
       title={t("shelves.addTitles")}
       bodyScroll
     >
@@ -298,7 +303,12 @@ export function AddTitlesDialog({
             {t("shelves.selectedCount", { count })}
           </span>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={close}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={addAll.isPending}
+              onClick={close}
+            >
               {t("common.cancel")}
             </Button>
             <Button
