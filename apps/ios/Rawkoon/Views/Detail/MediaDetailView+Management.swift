@@ -29,6 +29,7 @@ extension MediaDetailView {
             .padding(.top, 8)
         } else if managementItem != nil {
             if mediaType == "tv" {
+                manageSeasonsButton
                 manageSeasonsSection
             }
             // TV files fold into the seasons section; only movies keep a card.

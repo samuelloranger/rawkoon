@@ -6,9 +6,40 @@ import RawkoonKit
 extension APIClient {
     /// Admin: add a movie/show to the library directly from TMDB. `searchOnAdd` nil follows the
     /// server's auto-grab setting; true or false overrides it for this add.
-    func addToLibrary(tmdbId: Int, type: String, searchOnAdd: Bool? = nil) async throws -> AddToLibraryResult {
-        nonisolated struct Body: Encodable { let tmdbId: Int; let type: String; let searchOnAdd: Bool? }
-        return try await post("/api/library", body: Body(tmdbId: tmdbId, type: type, searchOnAdd: searchOnAdd))
+    /// `choice` carries the add sheet's picks; nil fields keep the server defaults.
+    func addToLibrary(
+        tmdbId: Int, type: String, searchOnAdd: Bool? = nil, choice: AddChoice? = nil
+    ) async throws -> AddToLibraryResult {
+        nonisolated struct Body: Encodable {
+            let tmdbId: Int
+            let type: String
+            let searchOnAdd: Bool?
+            let qualityProfileId: Int?
+            let seasonMode: String?
+            let seasons: [Int]?
+            let monitorNewSeasons: Bool?
+        }
+        return try await post("/api/library", body: Body(
+            tmdbId: tmdbId, type: type, searchOnAdd: searchOnAdd ?? choice?.searchOnAdd,
+            qualityProfileId: choice?.qualityProfileId,
+            seasonMode: choice?.season?.mode.rawValue,
+            seasons: choice?.season?.seasonsPayload,
+            monitorNewSeasons: choice?.season?.monitorNew
+        ))
+    }
+
+    /// Admin: re-plan which seasons of a show are monitored.
+    /// Without a `choice` only the new-seasons flag changes and episode monitoring is left alone.
+    func setMonitoredSeasons(id: Int, monitorNew: Bool, choice: SeasonChoice? = nil) async throws {
+        nonisolated struct Body: Encodable {
+            let seasonMode: String?
+            let seasons: [Int]?
+            let monitorNewSeasons: Bool
+        }
+        try await patchExpectOK(
+            "/api/library/\(id)/monitored-seasons",
+            body: Body(seasonMode: choice?.mode.rawValue, seasons: choice?.seasonsPayload, monitorNewSeasons: monitorNew)
+        )
     }
 
     /// Library (movies / shows)

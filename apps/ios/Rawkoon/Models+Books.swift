@@ -7,6 +7,9 @@ import Foundation
 
 nonisolated struct SystemFeatures: Decodable, Sendable {
     let booksEnabled: Bool
+    /// Absent on an older server, which keeps today's instant add.
+    let askBeforeAdding: Bool?
+    let requestersChooseSeasons: Bool?
 }
 
 nonisolated struct ListeningSeriesStat: Decodable, Sendable, Identifiable {

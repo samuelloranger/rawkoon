@@ -197,6 +197,8 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
     /// the new profile. `affectedEpisodes` counts the failing episodes of a show.
     var needsUpgrade: Bool?
     var affectedEpisodes: Int?
+    /// A show's choice about monitoring seasons that air later; absent for movies or an older server.
+    var monitorNewSeasons: Bool?
     /// Optimistic row standing in for an add the server has not confirmed yet.
     var isProvisional = false
 
@@ -208,7 +210,7 @@ nonisolated struct LibraryMedia: Decodable, Identifiable, Sendable {
         case downloadedEpisodeCount, seasonCount, durationSecs, resolution
         case videoCodec, hdrFormat, audioFormat, languageTags, lastGrabbedAt
         case addedAt, digitalReleaseDate, needsUpgrade, affectedEpisodes
-        case lastSearchAt, lastSearchOutcome, lastSearchReason
+        case lastSearchAt, lastSearchOutcome, lastSearchReason, monitorNewSeasons
     }
 
     /// What the item is labelled as: a downloaded show that is still airing reads as its airing state.
