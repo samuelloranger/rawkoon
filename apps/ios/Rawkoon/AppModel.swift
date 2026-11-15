@@ -24,6 +24,11 @@ final class AppModel {
     var userId: String?
     /// Mirrors the server's books feature flag; stays on until the server says otherwise.
     var booksEnabled = true
+    /// The server's add-dialog switches; off until the server says otherwise, so a failed fetch keeps the instant add.
+    var askBeforeAdding = false
+    var requestersChooseSeasons = false
+    /// The add sheet currently waiting for an answer; presented by the app root.
+    var addRequest: AddSheetRequest?
     var libraryGrowth: LibraryGrowth?
     var libraryGrowthFetchedAt: Date?
     /// True once a fetch failed with nothing cached, so the Library strip hides instead of waiting.

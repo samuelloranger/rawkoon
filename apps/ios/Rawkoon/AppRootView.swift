@@ -80,7 +80,10 @@ struct AppRootView: View {
                         }
                     }
             }
+            // The root cannot present over this sheet, so it hosts the add sheet while it is open.
+            .addSheetHost()
         }
+        .addSheetHost(enabled: model.deepLinkTarget == nil)
         .task {
             #if DEBUG
                 await model.debugAutologinIfNeeded()

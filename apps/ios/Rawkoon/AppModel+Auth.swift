@@ -170,6 +170,8 @@ extension AppModel {
         }
         registeredApnsToken = nil
         booksEnabled = true
+        askBeforeAdding = false
+        requestersChooseSeasons = false
 
         stopLiveStreams()
         serverStateStore.clear()

@@ -34,6 +34,7 @@ struct RequestsView: View {
     // Approve flow
     @State private var profileOptions: [ApprovalProfileOption] = []
     @State private var approvingRequest: MediaRequest?
+    @State private var approvalSeasons: [SeasonInfo] = []
     @State private var busyRequestId: Int?
     @State private var denyTarget: MediaRequest?
 
@@ -78,8 +79,12 @@ struct RequestsView: View {
             }
         }
         .sheet(item: $approvingRequest) { request in
-            ProfilePickerSheet(options: profileOptions) { option in
-                Task { await approve(request: request, profileId: option.id) }
+            ProfilePickerSheet(
+                options: profileOptions,
+                seasons: approvalSeasons,
+                requested: SeasonDraft(requestMode: request.seasonMode, seasons: request.seasons)
+            ) { option, seasons in
+                Task { await approve(request: request, profileId: option.id, seasons: seasons) }
             }
         }
         .rawkoonConfirm(
@@ -391,6 +396,7 @@ struct RequestsView: View {
                 return
             }
             profileOptions = options
+            approvalSeasons = request.type == "show" ? await AppModel.loadSeasons(client, tmdbId: request.tmdbId) : []
             approvingRequest = request // presents the picker sheet via .sheet(item:)
         } catch APIError.unauthorized {
             busyRequestId = nil
@@ -401,13 +407,13 @@ struct RequestsView: View {
         }
     }
 
-    private func approve(request: MediaRequest, profileId: Int) async {
+    private func approve(request: MediaRequest, profileId: Int, seasons: SeasonChoice?) async {
         guard let client = model.api() else { return }
         approvingRequest = nil
         busyRequestId = request.id
         defer { busyRequestId = nil }
         do {
-            let approved = try await client.approveRequest(id: request.id, qualityProfileId: profileId)
+            let approved = try await client.approveRequest(id: request.id, qualityProfileId: profileId, seasons: seasons)
             if request.type != "book" {
                 model.liveSearch.announceApproved(approved, title: request.title, isShow: request.type == "show")
             }

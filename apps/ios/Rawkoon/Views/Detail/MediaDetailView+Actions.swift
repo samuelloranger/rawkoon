@@ -345,6 +345,14 @@ extension MediaDetailView {
         }
     }
 
+    /// This screen's title as the add sheet's subject.
+    var detailPick: TitlePick {
+        TitlePick(
+            tmdbId: tmdbId, mediaType: mediaType, title: title, year: yearValue,
+            posterUrl: resolvedPosterPath, overview: details?.overview
+        )
+    }
+
     func submitRequest() async {
         guard let client = model.api() else {
             requestError = String(localized: "Not logged in.")
@@ -354,20 +362,24 @@ extension MediaDetailView {
         requestError = nil
         defer { requesting = false }
 
-        let body = CreateRequestBody(
-            tmdbId: tmdbId,
-            type: mediaType == "tv" ? "show" : "movie",
-            title: title,
-            posterUrl: resolvedPosterPath,
-            year: yearValue,
-            googleVolumeId: nil,
-            author: nil
-        )
-
         do {
+            let choice = try await model.chooseAdd(AddSubject(detailPick))
+            let body = CreateRequestBody(
+                tmdbId: tmdbId,
+                type: mediaType == "tv" ? "show" : "movie",
+                title: title,
+                posterUrl: resolvedPosterPath,
+                year: yearValue,
+                googleVolumeId: nil,
+                author: nil,
+                seasonMode: choice?.season?.mode.rawValue,
+                seasons: choice?.season?.seasonsPayload
+            )
             _ = try await client.createRequest(body)
             requested = true
             model.requestPushAuthorization()
+        } catch is CancellationError {
+            return
         } catch APIError.unauthorized {
             requestError = String(localized: "Sign in required.")
         } catch let error as APIError where error.isConflict {
@@ -388,6 +400,7 @@ extension MediaDetailView {
         defer { requesting = false }
         let type = mediaType == "tv" ? "show" : "movie"
         do {
+            let choice = mode == .standard ? try await model.chooseAdd(AddSubject(detailPick)) : nil
             // The store shows an `Adding…` row in Library immediately and swaps in
             // the server's created item — or drops it again if the add fails.
             let item = try await model.addTitleToLibrary(
@@ -403,7 +416,8 @@ extension MediaDetailView {
                 type: type,
                 title: title,
                 searchOnAdd: mode.searchOnAdd,
-                announce: !mode.opensReleaseSheet
+                announce: !mode.opensReleaseSheet,
+                choice: choice
             )
             added = true
             model.requestPushAuthorization()
@@ -418,6 +432,8 @@ extension MediaDetailView {
             if mode.opensReleaseSheet {
                 openReleaseSearch()
             }
+        } catch is CancellationError {
+            return
         } catch APIError.unauthorized {
             requestError = String(localized: "Admin only.")
         } catch let error as APIError where error.isConflict {

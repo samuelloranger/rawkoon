@@ -13,16 +13,36 @@ struct ApprovalProfileOption: Identifiable {
 /// can be long and each row carries a resolution/size detail line.
 struct ProfilePickerSheet: View {
     let options: [ApprovalProfileOption]
-    let onSelect: (ApprovalProfileOption) -> Void
+    /// A show request's seasons; empty hides the season section.
+    var seasons: [SeasonInfo] = []
+    let onSelect: (ApprovalProfileOption, SeasonChoice?) -> Void
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var draft: SeasonDraft
+    private let initialDraft: SeasonDraft
+
+    init(
+        options: [ApprovalProfileOption], seasons: [SeasonInfo] = [], requested: SeasonDraft = SeasonDraft(mode: .all, monitorNew: true),
+        onSelect: @escaping (ApprovalProfileOption, SeasonChoice?) -> Void
+    ) {
+        self.options = options
+        self.seasons = seasons
+        self.onSelect = onSelect
+        initialDraft = requested
+        _draft = State(initialValue: requested)
+    }
 
     var body: some View {
         NavigationStack {
             List {
+                if !seasons.isEmpty {
+                    SeasonSection(seasons: seasons, draft: $draft)
+                        .listRowBackground(Theme.raised)
+                }
                 ForEach(options) { option in
                     Button {
-                        onSelect(option)
+                        // Untouched keeps the requester's own choice on the server.
+                        onSelect(option, draft == initialDraft ? nil : draft.choice)
                         dismiss()
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
@@ -40,10 +60,11 @@ struct ProfilePickerSheet: View {
                     }
                     .buttonStyle(.plain)
                     .requiresConnection(model.isOffline)
+                    .disabled(!draft.isValid)
                     .listRowBackground(Theme.raised)
                 }
             }
-            .listStyle(.plain)
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .readableWidth()
             .background(Theme.base)
@@ -55,7 +76,7 @@ struct ProfilePickerSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(seasons.isEmpty ? [.medium, .large] : [.large])
         .presentationBackground(Theme.base)
     }
 }

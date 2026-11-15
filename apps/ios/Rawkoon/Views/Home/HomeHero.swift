@@ -333,6 +333,8 @@ struct HomeHero<Greeting: View>: View {
             do {
                 try await model.addDiscoverPick(item.deckItem)
                 added.insert(item.tmdbId)
+            } catch is CancellationError {
+                return
             } catch let error as APIError {
                 model.toast(error.userMessage(unauthorized: String(localized: "Sign in required.")), style: .error)
             } catch {

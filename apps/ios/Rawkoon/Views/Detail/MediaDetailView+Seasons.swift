@@ -45,6 +45,44 @@ extension MediaDetailView {
         }
     }
 
+    /// The seasons as the strip draws them: TMDB's air dates, with episode counts from the library once loaded.
+    var manageSeasonInfos: [SeasonInfo] {
+        SeasonPlan.regular((details?.seasons ?? []).map { season in
+            SeasonInfo(
+                number: season.seasonNumber,
+                episodes: episodesBySeason[season.seasonNumber]?.count ?? season.episodeCount ?? 0,
+                airDate: season.airDate
+            )
+        })
+    }
+
+    /// What the show monitors now: a season counts when any of its episodes is monitored.
+    func currentSeasonDraft(_ item: LibraryMedia) -> SeasonDraft {
+        let picked = Set(episodesBySeason.filter { $0.key >= 1 && $0.value.contains(where: \.monitored) }.keys)
+        return SeasonDraft(mode: .pick, picked: picked, monitorNew: item.monitorNewSeasons ?? true)
+    }
+
+    var manageSeasonsButton: some View {
+        Button {
+            showingManageSeasons = true
+        } label: {
+            HStack {
+                Label("Manage seasons", systemImage: "slider.horizontal.3")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold))
+            }
+            .foregroundStyle(Theme.apricot)
+            .padding(12)
+            .frame(minHeight: 44)
+            .background(Theme.raised, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .requiresConnection(model.isOffline)
+    }
+
     /// Files tab: the full per-season controls.
     var manageSeasonsSection: some View {
         seasonsList(manage: true)

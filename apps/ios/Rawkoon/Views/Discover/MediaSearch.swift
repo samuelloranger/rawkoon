@@ -400,6 +400,8 @@ struct FindSearchResults: View {
         do {
             let added = try await model.addPick(TitlePick(item), mode: mode)
             markDone(item, library: added?.id)
+        } catch is CancellationError {
+            return
         } catch let error as APIError {
             // 409: it is already added or requested, so show that state.
             if error.isConflict {
@@ -426,10 +428,16 @@ struct FindSearchResults: View {
         addingVolumeId = hit.googleVolumeId
         defer { addingVolumeId = nil }
         do {
-            try await client.addBook(googleVolumeId: hit.googleVolumeId)
+            let choice = try await model.chooseAdd(AddSubject(
+                bookTitle: hit.title, author: hit.authors.isEmpty ? nil : hit.authors.joined(separator: ", "),
+                year: hit.publishedYear, coverUrl: hit.coverUrl
+            ))
+            try await client.addBook(googleVolumeId: hit.googleVolumeId, choice: choice)
             model.requestPushAuthorization()
             await model.loadLibrary()
             await runSearch(query: trimmedQuery)
+        } catch is CancellationError {
+            return
         } catch {
             searchError = String(localized: "Could not add that book.")
         }

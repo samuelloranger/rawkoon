@@ -356,12 +356,14 @@ extension AppModel {
     @discardableResult
     func addTitleToLibrary(
         provisional: LibraryMedia, tmdbId: Int, type: String, title: String, searchOnAdd: Bool? = nil,
-        announce: Bool = true
+        announce: Bool = true, choice: AddChoice? = nil
     ) async throws -> LibraryMedia {
         guard let client = api() else { throw URLError(.notConnectedToInternet) }
         let captured = CapturedAdd()
         let item = try await serverStateStore.addToLibrary(provisional: provisional) {
-            let result = try await client.addToLibrary(tmdbId: tmdbId, type: type, searchOnAdd: searchOnAdd)
+            let result = try await client.addToLibrary(
+                tmdbId: tmdbId, type: type, searchOnAdd: searchOnAdd, choice: choice
+            )
             captured.set(result)
             return result.item
         }
