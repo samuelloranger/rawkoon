@@ -18232,6 +18232,16 @@
           }
         }
       }
+    },
+    "Gets %lld episodes from season %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupère %lld épisodes de la saison %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

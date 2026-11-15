@@ -158,7 +158,10 @@ enum SeasonSummaryText {
                 ? String(localized: "Gets new seasons as they air.")
                 : String(localized: "Nothing selected.")
         }
-        let base = String(localized: "Gets \(summary.episodes) episodes from seasons \(summary.seasonList)")
+        let single = summary.seasonList.allSatisfy(\.isNumber)
+        let base = single
+            ? String(localized: "Gets \(summary.episodes) episodes from season \(summary.seasonList)")
+            : String(localized: "Gets \(summary.episodes) episodes from seasons \(summary.seasonList)")
         return summary.monitorNew
             ? base + String(localized: ", plus new seasons as they air.")
             : base + "."
