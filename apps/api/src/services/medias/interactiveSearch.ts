@@ -30,12 +30,13 @@ export async function findEpisodeMediaId(
   return episode?.mediaId;
 }
 
-export async function libraryMediaExists(id: number): Promise<boolean> {
+/** The library item's type, or null when it does not exist. */
+export async function findLibraryMediaType(id: number): Promise<string | null> {
   const media = await prisma.libraryMedia.findUnique({
     where: { id },
-    select: { id: true },
+    select: { type: true },
   });
-  return media !== null;
+  return media?.type ?? null;
 }
 
 export function findMediaWithQualityProfile(id: number) {

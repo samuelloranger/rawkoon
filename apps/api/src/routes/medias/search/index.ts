@@ -17,7 +17,7 @@ import {
   applyQualityProfileToReleases,
   findEpisodeMediaId,
   findMediaWithQualityProfile,
-  libraryMediaExists,
+  findLibraryMediaType,
   normalizedToInteractive,
 } from "@rawkoon/api/services/medias/interactiveSearch";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@rawkoon/api/errors";
 import { gateAiCall } from "@rawkoon/api/services/aiProvider/aiGate";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
+import { resolveShowGrabEpisode } from "@rawkoon/api/services/library/libraryGrabQueries";
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeAiProviderConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import {
@@ -94,15 +95,28 @@ export async function downloadInteractiveSearchRelease(
         "No library item to attach this download to. Add the title to your library first.",
       );
     }
-    if (!(await libraryMediaExists(mediaId))) {
+    const mediaType = await findLibraryMediaType(mediaId);
+    if (mediaType == null) {
       return conflict(
         "No library item to attach this download to. Add the title to your library first.",
       );
     }
 
+    let episodeId = body.episode_id;
+    // Same as the URL grab: an episode release is keyed to its episode, not the searched season.
+    if (mediaType === "show") {
+      const resolved = await resolveShowGrabEpisode(
+        mediaId,
+        episodeId,
+        releaseTitle,
+      );
+      if (!resolved.ok) return badRequest(resolved.reason);
+      episodeId = resolved.episodeId;
+    }
+
     const result = await grabRelease({
       mediaId,
-      episodeId: body.episode_id,
+      episodeId,
       season: body.season,
       downloadUrl,
       releaseTitle,
