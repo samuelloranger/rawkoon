@@ -128,6 +128,18 @@ export async function setMonitoredSeasons(
   return stored;
 }
 
+/** Saves only the new-season flag; episode monitoring is untouched. */
+export async function setMonitorNewSeasons(
+  mediaId: number,
+  monitorNewSeasons: boolean,
+): Promise<boolean> {
+  await prisma.libraryMedia.update({
+    where: { id: mediaId },
+    data: { monitorNewSeasons },
+  });
+  return monitorNewSeasons;
+}
+
 /** The settings-backed form of resolveSeasonChoice, for callers that don't hold the settings row. */
 export async function resolveSeasonChoiceWithSettings(
   input: Parameters<typeof resolveSeasonChoice>[0],

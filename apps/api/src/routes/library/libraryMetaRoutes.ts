@@ -27,6 +27,7 @@ import {
   resolveSeasonChoice,
   seasonModeSchema,
   setMonitoredSeasons,
+  setMonitorNewSeasons,
 } from "@rawkoon/api/services/library/seasonMonitoring";
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
 import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
@@ -275,7 +276,8 @@ export const libraryMetaRoutes = new Hono<Env>()
     requireAdmin,
     jsonV(
       z.object({
-        season_mode: seasonModeSchema,
+        // Absent season_mode saves only the new-season flag and leaves episode monitoring alone.
+        season_mode: seasonModeSchema.optional(),
         seasons: z.array(z.number().int().positive()).optional(),
         monitor_new_seasons: z.boolean(),
       }),
@@ -288,6 +290,17 @@ export const libraryMetaRoutes = new Hono<Env>()
         const existing = await findLibraryMedia(id);
         if (!existing) return notFound("Library item not found");
         if (existing.type !== "show") return badRequest("Not a show");
+        if (body.season_mode === undefined) {
+          if (body.seasons !== undefined) {
+            return badRequest("seasons is only valid when season_mode is pick");
+          }
+          return ok({
+            monitor_new_seasons: await setMonitorNewSeasons(
+              id,
+              body.monitor_new_seasons,
+            ),
+          });
+        }
         const resolved = resolveSeasonChoice(
           {
             seasonMode: body.season_mode,
