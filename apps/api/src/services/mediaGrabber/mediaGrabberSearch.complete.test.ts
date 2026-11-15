@@ -215,6 +215,20 @@ describe("searchAndGrab for one season", () => {
     expect(grabRelease).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "Show.Name.Integrale.Saison.1.FRENCH.1080p",
+    "Show.Name.2024.01.05.1080p.WEB",
+  ])("rejects %s as a season 2 pack", async (title) => {
+    freeTitles = [title];
+    expect((await seasonSearch(2)).grabbed).toBe(false);
+    expect(grabRelease).not.toHaveBeenCalled();
+  });
+
+  it("accepts a single-season integrale for its season", async () => {
+    freeTitles = ["Show.Name.Integrale.Saison.2.FRENCH.1080p"];
+    expect((await seasonSearch(2)).grabbed).toBe(true);
+  });
+
   it("keeps a plain season pack keyed to its season", async () => {
     freeTitles = ["Show.Name.S02.1080p.WEB-DL"];
     expect((await seasonSearch(2)).grabbed).toBe(true);

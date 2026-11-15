@@ -274,7 +274,7 @@ export function parseReleaseStructure(rawName: string): ReleaseStructure {
 }
 
 const SEASON_WORDS = "(?:Seasons?|Saisons?|Stagione|Temporada|Staffel)";
-const SPAN_SEP = `${SEP}*(?:-|to|through|thru|and|&|à|et)${SEP}*`;
+const SPAN_SEP = `${SEP}*(?:-|to|through|thru|and|&|à|a|et)${SEP}*`;
 // "Seasons 1-3", "Saisons 1 à 3".
 const WORD_SPAN = new RegExp(
   `(?:^|${SEP})${SEASON_WORDS}${SEP}*(\\d{1,2})${SPAN_SEP}(\\d{1,2})(?=$|${SEP})`,

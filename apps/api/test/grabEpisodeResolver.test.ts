@@ -137,10 +137,24 @@ describe("resolveGrabEpisodeId", () => {
     expect(r).toEqual({ ok: true, episodeId: 110, corrected: false });
   });
 
-  it("keeps the requested episode for a season-only (pack) release title", () => {
+  it.each([
+    "Bellefleur.S03.FRENCH.1080p.WEB",
+    "Bellefleur.Integrale.Saison.3.FRENCH.1080p",
+    "Bellefleur.S01-S03.MULTi.1080p.WEB",
+    "Bellefleur.Integrale.MULTi.1080p.WEB",
+  ])("keys a pack grabbed from an episode as a pack: %s", (releaseTitle) => {
     const r = resolveGrabEpisodeId({
       requested: EPISODES[2],
-      releaseTitle: "Bellefleur.S03.FRENCH.1080p.WEB",
+      releaseTitle,
+      episodesBySeasonEpisode: map,
+    });
+    expect(r).toEqual({ ok: true, episodeId: null, corrected: false });
+  });
+
+  it("keeps the requested episode for an unparseable release title", () => {
+    const r = resolveGrabEpisodeId({
+      requested: EPISODES[2],
+      releaseTitle: "Bellefleur.FRENCH.1080p.WEB",
       episodesBySeasonEpisode: map,
     });
     expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });

@@ -8,6 +8,7 @@ describe("parseReleaseSeasonSpan", () => {
     ["Show.Name.S01.S02.S03.MULTi.1080p", { from: 1, to: 3 }],
     ["Show Name Seasons 1-4 Complete 720p", { from: 1, to: 4 }],
     ["Show Name Saisons 1 à 5 FRENCH 1080p", { from: 1, to: 5 }],
+    ["Show.Name.Saison.1.a.3.FRENCH.1080p", { from: 1, to: 3 }],
     ["Show.Name.Season.2.to.6.1080p", { from: 2, to: 6 }],
   ])("reads the range of %s", (name, span) => {
     expect(parseReleaseSeasonSpan(name)).toEqual(span);

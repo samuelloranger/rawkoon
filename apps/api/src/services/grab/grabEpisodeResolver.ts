@@ -56,11 +56,15 @@ export function resolveGrabEpisodeId(opts: {
     return { ok: true, episodeId: match?.id ?? null, corrected: false };
   }
 
-  // Unparseable, or a season-only match (episode == null): can't reconcile, so
-  // trust the requested episode rather than block a legitimate grab.
-  if (!se || se.episode == null) {
-    return { ok: true, episodeId: requested.id, corrected: false };
-  }
+  // A pack grabbed from an episode is still a pack: keyed by season and imported whole.
+  const isPack = se
+    ? se.episode == null
+    : isMultiSeasonRelease(releaseTitle) ||
+      singleSeasonNamed(releaseTitle) != null;
+  if (isPack) return { ok: true, episodeId: null, corrected: false };
+
+  // Unparseable: can't reconcile, so trust the requested episode rather than block the grab.
+  if (!se) return { ok: true, episodeId: requested.id, corrected: false };
 
   if (se.season === requested.season && se.episode === requested.episode) {
     return { ok: true, episodeId: requested.id, corrected: false };

@@ -16,6 +16,14 @@ export function singleSeasonNamed(title: string): number | null {
   return m ? Number(m[1] ?? m[2]) : null;
 }
 
+/** Whether a release can be one season's pack: not an episode, a daily release, or another season's. */
+export function fitsSeasonPack(title: string, season: number): boolean {
+  const structure = parseReleaseStructure(title);
+  if (structure.episodes.length > 0 || structure.airDate) return false;
+  const named = structure.season ?? singleSeasonNamed(title);
+  return named == null || named === season;
+}
+
 /**
  * Whether a release spans several seasons: a named range, or a complete-series
  * label that doesn't also pin a single season.

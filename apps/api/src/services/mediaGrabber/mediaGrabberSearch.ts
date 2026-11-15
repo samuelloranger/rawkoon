@@ -8,6 +8,7 @@ import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { tieredSearch } from "@rawkoon/api/services/indexerManager/searchStrategy";
 import { parseReleaseSeasonSpan } from "@rawkoon/shared/utils/releaseStructure";
 import {
+  fitsSeasonPack,
   isMultiSeasonRelease,
   multiSeasonReleaseCovers,
   releaseCoversSeasons,
@@ -229,8 +230,7 @@ export async function searchAndGrab(opts: {
         }
       } else if (!completeSeasons && season != null && episodeId == null) {
         // A season search must not take an episode release or another season's pack.
-        const se = parseReleaseSeasonEpisode(title);
-        if (se && (se.season !== season || se.episode != null)) continue;
+        if (!fitsSeasonPack(title, season)) continue;
       }
 
       // For episode grabs, require the release's SxxExx to match the episode.
