@@ -2,7 +2,15 @@ import { Hono } from "hono";
 import { airingStateOf } from "@rawkoon/api/utils/medias/libraryAiring";
 import { z } from "zod";
 import { badRequest, conflict, notFound, ok } from "@rawkoon/api/errors";
-import type { RequestTitleStatusResponse } from "@rawkoon/shared/types";
+import type {
+  RequestTitleStatusResponse,
+  SeasonMode,
+} from "@rawkoon/shared/types";
+import {
+  requestersMayChooseSeasons,
+  resolveSeasonChoice,
+  seasonModeSchema,
+} from "@rawkoon/api/services/library/seasonMonitoring";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
@@ -33,6 +41,8 @@ function mapRequest(r: {
   author?: string | null;
   posterUrl: string | null;
   year: number | null;
+  seasonMode?: string | null;
+  seasons?: number[];
   status: string;
   requestedById: string;
   qualityProfileId: number | null;
@@ -53,6 +63,8 @@ function mapRequest(r: {
     author: r.author ?? null,
     poster_url: r.posterUrl,
     year: r.year,
+    season_mode: r.seasonMode ?? null,
+    seasons: r.seasons ?? [],
     status: r.status,
     requested_by: {
       id: r.requestedBy?.id ?? r.requestedById,
@@ -76,6 +88,8 @@ const createBody = z.union([
     title: z.string(),
     poster_url: z.union([z.string(), z.null()]).optional(),
     year: z.union([z.number(), z.null()]).optional(),
+    season_mode: seasonModeSchema.optional(),
+    seasons: z.array(z.number().int().positive()).optional(),
   }),
   z.object({
     type: z.literal("book"),
@@ -145,6 +159,28 @@ export const requestRoutes = new Hono<Env>()
   .post("/", jsonV(createBody), async (c) => {
     const body = c.req.valid("json");
     const user = c.get("user");
+    let seasonMode: SeasonMode | null = null;
+    let seasons: number[] = [];
+    if (body.type !== "book") {
+      const wantsSeasons =
+        body.season_mode !== undefined || body.seasons !== undefined;
+      if (wantsSeasons && body.type !== "show") {
+        return badRequest("Season options are only valid for shows");
+      }
+      if (wantsSeasons) {
+        // Same shape rules as an add; the defaults are filled in at approval.
+        const checked = resolveSeasonChoice(
+          { seasonMode: body.season_mode, seasons: body.seasons },
+          null,
+        );
+        if ("error" in checked) return badRequest(checked.error);
+        // Admins aren't requesters, so the toggle only gates other users.
+        if (user.is_admin || (await requestersMayChooseSeasons())) {
+          seasonMode = body.season_mode ?? null;
+          seasons = body.seasons ?? [];
+        }
+      }
+    }
     const result = await createRequest(
       body.type === "book"
         ? {
@@ -164,6 +200,8 @@ export const requestRoutes = new Hono<Env>()
             year: body.year ?? null,
             userId: user.id,
             autoApprove: !!user.is_admin,
+            seasonMode,
+            seasons,
           },
     );
     if (!result.ok) {
@@ -182,17 +220,33 @@ export const requestRoutes = new Hono<Env>()
   .post(
     "/:id/approve",
     requireAdmin,
-    jsonV(z.object({ quality_profile_id: z.number() })),
+    jsonV(
+      z.object({
+        quality_profile_id: z.number(),
+        season_mode: seasonModeSchema.optional(),
+        seasons: z.array(z.number().int().positive()).optional(),
+        monitor_new_seasons: z.boolean().optional(),
+      }),
+    ),
     async (c) => {
       const id = requestId(c.req.param("id"));
       if (id == null) return notFound("Request not found");
+      const body = c.req.valid("json");
       const result = await approveRequest(
         id,
-        c.req.valid("json").quality_profile_id,
+        body.quality_profile_id,
         c.get("user").id,
+        {
+          seasonMode: body.season_mode,
+          seasons: body.seasons,
+          monitorNewSeasons: body.monitor_new_seasons,
+        },
       );
       if (!result.ok) {
         if (result.reason === "not_found") return notFound("Request not found");
+        if (result.reason === "invalid_seasons") {
+          return badRequest(result.message);
+        }
         if (result.reason === "invalid_profile")
           return badRequest("Quality profile not found");
         return badRequest("Request is not pending");

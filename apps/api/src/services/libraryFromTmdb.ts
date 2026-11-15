@@ -12,6 +12,10 @@ import {
 } from "@rawkoon/api/utils/medias/libraryHelpers";
 import { extractTitleTranslations } from "@rawkoon/api/utils/medias/tmdbFetcherDetails";
 import { resolvePreferredSearchTitle } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import {
+  applySeasonChoice,
+  type ResolvedSeasonChoice,
+} from "@rawkoon/api/services/library/seasonMonitoring";
 import { writeLocalizedTitles } from "@rawkoon/api/services/localizedTitleSync";
 import { DEFAULT_TMDB_REGION } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { toStringOrNull } from "@rawkoon/api/utils/medias/mappers";
@@ -95,6 +99,8 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
   region?: string;
   /** When set, used for search-title default and assigned on create. */
   qualityProfileId?: number | null;
+  /** Shows only: which episodes a newly created row monitors; an existing row keeps its monitoring. */
+  seasonChoice?: ResolvedSeasonChoice;
 }): Promise<NonNullable<LibraryMediaWithProfile>> {
   const key = await getLibraryTmdbApiKey();
   if (!key) throw new Error("TMDB is not configured");
@@ -232,6 +238,7 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     where: { tmdbId_type: { tmdbId: tmdb_id, type: "show" } },
     select: { overrides: true },
   });
+  const showCreated = !existingShow;
   const showOv = (existingShow?.overrides ?? {}) as Record<string, unknown>;
   const showLocked = (field: string) => field in showOv;
 
@@ -260,6 +267,9 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
       overview: details.overview || null,
       ...searchFields,
       ...(qualityProfileId != null ? { qualityProfileId } : {}),
+      ...(opts.seasonChoice
+        ? { monitorNewSeasons: opts.seasonChoice.monitorNewSeasons }
+        : {}),
     },
     update: {
       ...(!showLocked("title") ? { title: details.name } : {}),
@@ -289,6 +299,10 @@ export async function addOrUpdateLibraryFromTmdb(opts: {
     apiKey: key,
     languageParams: { language: TMDB_LANGUAGE_LIBRARY_PERSISTENCE },
   });
+
+  if (showCreated && opts.seasonChoice) {
+    await applySeasonChoice(media.id, opts.seasonChoice.choice);
+  }
 
   await writeLocalizedTitles(media.id, {
     englishTitle: details.name,

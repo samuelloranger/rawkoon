@@ -119,6 +119,8 @@ export interface LibraryMedia {
   episode_count: number | null;
   downloaded_episode_count: number | null;
   season_count: number | null;
+  /** Shows only: episodes of a newly aired season are monitored when true. */
+  monitor_new_seasons?: boolean;
 }
 
 export interface LibraryListResponse {
@@ -128,11 +130,22 @@ export interface LibraryListResponse {
   has_more: boolean;
 }
 
+/** Which episodes of a show are monitored when it is added or its seasons are managed. */
+export type SeasonMode = "all" | "future" | "latest" | "pick";
+
 export interface AddToLibraryRequest {
   tmdb_id: number;
   type: "movie" | "show";
   /** Absent = follow the server-wide search-on-add setting. */
   search_on_add?: boolean;
+  /** Absent = the default profile for the type. */
+  quality_profile_id?: number;
+  /** Shows only; absent = the default_season_mode setting. */
+  season_mode?: SeasonMode;
+  /** Required and non-empty with season_mode "pick", rejected otherwise. */
+  seasons?: number[];
+  /** Shows only; absent = the default_monitor_new_seasons setting ("future" forces true). */
+  monitor_new_seasons?: boolean;
 }
 
 export type SearchSkippedReason =
@@ -282,6 +295,13 @@ export interface MediaPostProcessingSettings {
   default_show_quality_profile_id: number | null;
   /** Search for a release right after a movie or show is added. */
   search_on_add: boolean;
+  /** Admins get the add dialog instead of an instant add. */
+  ask_before_adding: boolean;
+  /** Non-admins may pick seasons when requesting a show. */
+  requesters_choose_seasons: boolean;
+  /** Season mode when the dialog is skipped, and its prefill. */
+  default_season_mode: Exclude<SeasonMode, "pick">;
+  default_monitor_new_seasons: boolean;
   /** 5-field cron for the scheduled movie and episode release checks. */
   release_check_cron: string;
   /** Minutes between indexer RSS polls; one of RSS_POLL_INTERVAL_MINUTES. */
@@ -321,6 +341,10 @@ export interface UpdateMediaPostProcessingSettingsRequest {
   default_movie_quality_profile_id?: number | null;
   default_show_quality_profile_id?: number | null;
   search_on_add?: boolean;
+  ask_before_adding?: boolean;
+  requesters_choose_seasons?: boolean;
+  default_season_mode?: Exclude<SeasonMode, "pick">;
+  default_monitor_new_seasons?: boolean;
   release_check_cron?: string;
   rss_poll_interval_minutes?: number;
   active_indexer_manager?: IndexerManagerType | null;

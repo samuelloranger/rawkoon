@@ -23,6 +23,11 @@ import {
   profileToScoreInput,
   loadProfileWithFormats,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
+import {
+  resolveSeasonChoice,
+  seasonModeSchema,
+  setMonitoredSeasons,
+} from "@rawkoon/api/services/library/seasonMonitoring";
 import { filesFailProfile } from "@rawkoon/api/services/upgradeDetection";
 import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
 
@@ -261,6 +266,46 @@ export const libraryMetaRoutes = new Hono<Env>()
         return ok({ updated });
       } catch {
         return serverError("Failed to update season monitored status");
+      }
+    },
+  )
+
+  .patch(
+    "/:id/monitored-seasons",
+    requireAdmin,
+    jsonV(
+      z.object({
+        season_mode: seasonModeSchema,
+        seasons: z.array(z.number().int().positive()).optional(),
+        monitor_new_seasons: z.boolean(),
+      }),
+    ),
+    async (c) => {
+      try {
+        const id = parseInt(c.req.param("id"), 10);
+        if (!Number.isFinite(id)) return badRequest("Invalid ID");
+        const body = c.req.valid("json");
+        const existing = await findLibraryMedia(id);
+        if (!existing) return notFound("Library item not found");
+        if (existing.type !== "show") return badRequest("Not a show");
+        const resolved = resolveSeasonChoice(
+          {
+            seasonMode: body.season_mode,
+            seasons: body.seasons,
+            monitorNewSeasons: body.monitor_new_seasons,
+          },
+          null,
+        );
+        if ("error" in resolved) return badRequest(resolved.error);
+        const monitorNewSeasons = await setMonitoredSeasons(
+          id,
+          resolved.choice,
+          resolved.monitorNewSeasons,
+        );
+        await recheckRequestAvailable(id);
+        return ok({ monitor_new_seasons: monitorNewSeasons });
+      } catch {
+        return serverError("Failed to update monitored seasons");
       }
     },
   )

@@ -40,6 +40,10 @@ export function mapSettings(row: {
   defaultMovieQualityProfileId?: number | null;
   defaultShowQualityProfileId?: number | null;
   searchOnAdd?: boolean;
+  askBeforeAdding?: boolean;
+  requestersChooseSeasons?: boolean;
+  defaultSeasonMode?: string;
+  defaultMonitorNewSeasons?: boolean;
   releaseCheckCron?: string;
   rssPollIntervalMinutes?: number;
   activeIndexerManager?: string | null;
@@ -68,6 +72,10 @@ export function mapSettings(row: {
     default_movie_quality_profile_id: row.defaultMovieQualityProfileId ?? null,
     default_show_quality_profile_id: row.defaultShowQualityProfileId ?? null,
     search_on_add: row.searchOnAdd ?? true,
+    ask_before_adding: row.askBeforeAdding ?? true,
+    requesters_choose_seasons: row.requestersChooseSeasons ?? true,
+    default_season_mode: row.defaultSeasonMode ?? "all",
+    default_monitor_new_seasons: row.defaultMonitorNewSeasons ?? true,
     release_check_cron: row.releaseCheckCron ?? DEFAULT_RELEASE_CHECK_CRON,
     rss_poll_interval_minutes: isRssPollInterval(row.rssPollIntervalMinutes)
       ? row.rssPollIntervalMinutes
@@ -135,6 +143,10 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
           .union([z.number(), z.null()])
           .optional(),
         search_on_add: z.boolean().optional(),
+        ask_before_adding: z.boolean().optional(),
+        requesters_choose_seasons: z.boolean().optional(),
+        default_season_mode: z.enum(["all", "future", "latest"]).optional(),
+        default_monitor_new_seasons: z.boolean().optional(),
         release_check_cron: z.string().max(100).optional(),
         rss_poll_interval_minutes: z.number().int().optional(),
         active_indexer_manager: z
@@ -202,6 +214,14 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
             body.default_show_quality_profile_id;
         if (body.search_on_add !== undefined)
           update.searchOnAdd = body.search_on_add;
+        if (body.ask_before_adding !== undefined)
+          update.askBeforeAdding = body.ask_before_adding;
+        if (body.requesters_choose_seasons !== undefined)
+          update.requestersChooseSeasons = body.requesters_choose_seasons;
+        if (body.default_season_mode !== undefined)
+          update.defaultSeasonMode = body.default_season_mode;
+        if (body.default_monitor_new_seasons !== undefined)
+          update.defaultMonitorNewSeasons = body.default_monitor_new_seasons;
         if (body.release_check_cron !== undefined) {
           const parsed = parseReleaseCheckCron(body.release_check_cron);
           if (!parsed.ok) return badRequest(parsed.error);
