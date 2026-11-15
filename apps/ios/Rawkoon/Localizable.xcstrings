@@ -18222,6 +18222,16 @@
           }
         }
       }
+    },
+    "Soon": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bientôt"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

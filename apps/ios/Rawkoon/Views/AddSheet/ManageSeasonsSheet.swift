@@ -51,7 +51,7 @@ struct ManageSeasonsSheet: View {
                             Text("Save")
                         }
                     }
-                    .disabled(saving || draft == initial || !draft.isValid)
+                    .disabled(saving || draft == initial || (seasonsChanged && !draft.isValid))
                     .requiresConnection(model.isOffline)
                 }
             }
@@ -60,13 +60,20 @@ struct ManageSeasonsSheet: View {
         .presentationBackground(Theme.base)
     }
 
+    /// Mode or picks differ from what the show monitors now; a flag-only change leaves episodes alone.
+    private var seasonsChanged: Bool {
+        draft.mode != initial.mode || (draft.mode == .pick && draft.picked != initial.picked)
+    }
+
     private func save() async {
         guard let client = model.api() else { return }
         saving = true
         error = nil
         defer { saving = false }
         do {
-            try await client.setMonitoredSeasons(id: libraryId, choice: draft.choice)
+            try await client.setMonitoredSeasons(
+                id: libraryId, monitorNew: draft.choice.monitorNew, choice: seasonsChanged ? draft.choice : nil
+            )
             onSaved()
             dismiss()
         } catch {

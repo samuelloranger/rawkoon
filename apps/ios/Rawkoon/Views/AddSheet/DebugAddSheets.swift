@@ -33,9 +33,9 @@
             ))
         }
 
-        private func request(_ subject: AddSubject, admin: Bool, mode: SeasonMode = .all, picked: Set<Int> = []) -> AddSheetRequest {
+        private func request(_ subject: AddSubject, admin: Bool, mode: SeasonMode = .all, picked: Set<Int> = [], compact: Bool = false) -> AddSheetRequest {
             AddSheetRequest(
-                subject: subject, isAdmin: admin, compact: false,
+                subject: subject, isAdmin: admin, compact: compact,
                 profiles: subject.kind == .book ? Self.bookProfiles : Self.profiles,
                 seasons: subject.kind == .show ? Self.seasons : [],
                 defaults: AddDefaults(profileId: 1, seasonMode: mode, picked: picked),
@@ -52,6 +52,8 @@
             switch screen {
             case "addShowPick":
                 AddTitleSheet(request: request(show, admin: true, mode: .pick, picked: [1, 2, 5]))
+            case "addCompact":
+                AddTitleSheet(request: request(show, admin: true, compact: true))
             case "addMovie":
                 AddTitleSheet(request: request(
                     AddSubject(TitlePick(tmdbId: 2, mediaType: "movie", title: "Dune: Part Two", year: 2024, posterUrl: nil, overview: nil)),
@@ -71,7 +73,9 @@
                 ) { _, _ in }
             case "manageSeasons":
                 ManageSeasonsSheet(
-                    libraryId: 1, seasons: Self.seasons, current: SeasonDraft(mode: .pick, picked: [4, 5], monitorNew: true)
+                    libraryId: 1,
+                    seasons: Self.seasons.map { $0.number == 5 ? SeasonInfo(number: 5, episodes: 6, airDate: $0.airDate, aired: 3) : $0 },
+                    current: SeasonDraft(mode: .pick, picked: [4, 5], monitorNew: true)
                 ) {}
             default:
                 AddTitleSheet(request: request(show, admin: true))

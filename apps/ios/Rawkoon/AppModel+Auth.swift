@@ -171,6 +171,9 @@ extension AppModel {
         registeredApnsToken = nil
         booksEnabled = true
         askBeforeAdding = false
+        // Answers a waiting add so its caller stops spinning.
+        addRequest?.finish(nil)
+        addRequest = nil
         requestersChooseSeasons = false
 
         stopLiveStreams()

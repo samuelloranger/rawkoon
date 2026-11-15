@@ -12,15 +12,18 @@ public struct SeasonInfo: Equatable, Sendable, Identifiable {
     public let episodes: Int
     /// `yyyy-MM-dd`; nil when TMDB has no date.
     public let airDate: String?
+    /// Episodes already aired, when episode air dates are known (a show in the library); nil derives it from `airDate`.
+    public let aired: Int?
 
     public var id: Int {
         number
     }
 
-    public init(number: Int, episodes: Int, airDate: String?) {
+    public init(number: Int, episodes: Int, airDate: String?, aired: Int? = nil) {
         self.number = number
         self.episodes = episodes
         self.airDate = airDate
+        self.aired = aired
     }
 }
 
@@ -74,6 +77,33 @@ public enum SeasonPlan {
         regular(seasons).last { isAired($0, today: today) && !isAnnounced($0) }?.number
     }
 
+    /// Seasons with episodes listed; an announced one is left out of counts and spans.
+    public static func released(_ seasons: [SeasonInfo]) -> [SeasonInfo] {
+        regular(seasons).filter { !isAnnounced($0) }
+    }
+
+    public static func announced(_ seasons: [SeasonInfo]) -> [SeasonInfo] {
+        regular(seasons).filter(isAnnounced)
+    }
+
+    /// How many of a season's episodes have aired.
+    public static func airedEpisodes(_ season: SeasonInfo, today: String) -> Int {
+        min(season.aired ?? (isAired(season, today: today) ? season.episodes : 0), season.episodes)
+    }
+
+    /// One flag per episode: will it be grabbed under `choice`.
+    public static func litEpisodes(_ season: SeasonInfo, choice: SeasonChoice, latest: Int?, today: String) -> [Bool] {
+        let aired = airedEpisodes(season, today: today)
+        return (0 ..< season.episodes).map { index in
+            switch choice.mode {
+            case .all: true
+            case .future: index >= aired
+            case .latest: season.number == latest || index >= aired
+            case .pick: choice.picked.contains(season.number)
+            }
+        }
+    }
+
     /// The seasons whose episodes get monitored under `choice`.
     public static func monitored(_ seasons: [SeasonInfo], choice: SeasonChoice, today: String) -> Set<Int> {
         let all = regular(seasons)
@@ -99,11 +129,19 @@ public enum SeasonPlan {
     }
 
     public static func summary(_ seasons: [SeasonInfo], choice: SeasonChoice, today: String) -> Summary {
-        let chosen = monitored(seasons, choice: choice, today: today)
-        let episodes = regular(seasons).filter { chosen.contains($0.number) }.reduce(0) { $0 + $1.episodes }
+        let latest = latestSeason(seasons, today: today)
+        var episodes = 0
+        var numbers: [Int] = []
+        for season in released(seasons) {
+            let lit = litEpisodes(season, choice: choice, latest: latest, today: today).filter(\.self).count
+            episodes += lit
+            if lit > 0 {
+                numbers.append(season.number)
+            }
+        }
         return Summary(
             episodes: episodes,
-            seasonList: ranges(chosen.sorted()),
+            seasonList: ranges(numbers),
             monitorNew: choice.monitorNew,
             futureOnly: choice.mode == .future
         )

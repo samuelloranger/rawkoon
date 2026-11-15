@@ -29,15 +29,16 @@ extension APIClient {
     }
 
     /// Admin: re-plan which seasons of a show are monitored.
-    func setMonitoredSeasons(id: Int, choice: SeasonChoice) async throws {
+    /// Without a `choice` only the new-seasons flag changes and episode monitoring is left alone.
+    func setMonitoredSeasons(id: Int, monitorNew: Bool, choice: SeasonChoice? = nil) async throws {
         nonisolated struct Body: Encodable {
-            let seasonMode: String
+            let seasonMode: String?
             let seasons: [Int]?
             let monitorNewSeasons: Bool
         }
         try await patchExpectOK(
             "/api/library/\(id)/monitored-seasons",
-            body: Body(seasonMode: choice.mode.rawValue, seasons: choice.seasonsPayload, monitorNewSeasons: choice.monitorNew)
+            body: Body(seasonMode: choice?.mode.rawValue, seasons: choice?.seasonsPayload, monitorNewSeasons: monitorNew)
         )
     }
 

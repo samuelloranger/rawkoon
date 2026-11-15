@@ -56,7 +56,7 @@
                 }
             case "motionKit":
                 DebugMotionGallery()
-            case "addShow", "addShowPick", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons":
+            case "addShow", "addShowPick", "addCompact", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons":
                 DebugAddSheets(screen: screen)
             default:
                 featureView(for: screen)
@@ -118,7 +118,7 @@
                 "autoSearchIdle", "autoSearchBusy", "upgradeDialog", "motionKit",
                 "growthAdmin", "growthMember", "growthNoBooks", "liveSearchToasts",
                 "releaseNotes", "shelves", "shelfDetail", "shelfEditor",
-                "addShow", "addShowPick", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons",
+                "addShow", "addShowPick", "addCompact", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons",
             ].contains(screen)
         }
     }

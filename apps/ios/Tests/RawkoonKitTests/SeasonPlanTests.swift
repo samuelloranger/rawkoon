@@ -61,6 +61,28 @@ final class SeasonPlanTests: XCTestCase {
         XCTAssertFalse(summary.monitorNew)
     }
 
+    func testAnAnnouncedSeasonIsNotCounted() {
+        let summary = SeasonPlan.summary(
+            seasons, choice: SeasonChoice(mode: .all, monitorNew: true), today: today
+        )
+        XCTAssertEqual(summary.episodes, 32)
+        XCTAssertEqual(summary.seasonList, "1\u{2013}4")
+        XCTAssertEqual(SeasonPlan.released(seasons).count, 4)
+        XCTAssertEqual(SeasonPlan.announced(seasons).map(\.number), [5])
+    }
+
+    func testFutureCountsOnlyEpisodesNotYetAired() {
+        let midAir = [SeasonInfo(number: 1, episodes: 8, airDate: "2026-01-01", aired: 5)]
+        let summary = SeasonPlan.summary(
+            midAir, choice: SeasonChoice(mode: .future, monitorNew: true), today: today
+        )
+        XCTAssertEqual(summary.episodes, 3)
+        XCTAssertEqual(
+            SeasonPlan.litEpisodes(midAir[0], choice: SeasonChoice(mode: .future, monitorNew: true), latest: 1, today: today),
+            [false, false, false, false, false, true, true, true]
+        )
+    }
+
     func testRanges() {
         XCTAssertEqual(SeasonPlan.ranges([1, 2, 3, 5]), "1\u{2013}3, 5")
         XCTAssertEqual(SeasonPlan.ranges([]), "")

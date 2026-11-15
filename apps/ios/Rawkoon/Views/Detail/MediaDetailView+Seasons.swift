@@ -47,11 +47,14 @@ extension MediaDetailView {
 
     /// The seasons as the strip draws them: TMDB's air dates, with episode counts from the library once loaded.
     var manageSeasonInfos: [SeasonInfo] {
-        SeasonPlan.regular((details?.seasons ?? []).map { season in
-            SeasonInfo(
+        let today = SeasonPlan.today()
+        return SeasonPlan.regular((details?.seasons ?? []).map { season in
+            let episodes = episodesBySeason[season.seasonNumber]
+            return SeasonInfo(
                 number: season.seasonNumber,
-                episodes: episodesBySeason[season.seasonNumber]?.count ?? season.episodeCount ?? 0,
-                airDate: season.airDate
+                episodes: episodes?.count ?? season.episodeCount ?? 0,
+                airDate: season.airDate,
+                aired: episodes.map { $0.count { ($0.airDate.map { String($0.prefix(10)) } ?? "9999") <= today } }
             )
         })
     }
@@ -80,6 +83,8 @@ extension MediaDetailView {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
+        // The draft is read from the episodes, so wait for them rather than open an empty Pick.
+        .disabled(episodesBySeason.isEmpty)
         .requiresConnection(model.isOffline)
     }
 

@@ -12,9 +12,9 @@ struct AddTitleSheet: View {
     @State private var profileId: Int?
     @State private var draft: SeasonDraft
     @State private var searchNow: Bool
-    @State private var format: BookFormat = .both
+    @State private var format: BookFormat
     @State private var expanded = false
-    @State private var detent: PresentationDetent = Self.startDetent
+    @State private var detent: PresentationDetent
 
     init(request: AddSheetRequest) {
         self.request = request
@@ -23,7 +23,13 @@ struct AddTitleSheet: View {
             mode: request.defaults.seasonMode, picked: request.defaults.picked, monitorNew: request.defaults.monitorNew
         ))
         _searchNow = State(initialValue: request.defaults.searchOnAdd)
+        // Both only when the default book profile serves both formats.
+        let defaultKind = request.profiles.first { $0.id == request.defaults.profileId }?.kind
+        _format = State(initialValue: defaultKind == "both" ? .both : .ebook)
+        _detent = State(initialValue: request.compact ? .height(Self.trayHeight) : Self.startDetent)
     }
+
+    private static let trayHeight: CGFloat = 260
 
     /// The screenshot harness opens at the large detent so the whole form shows.
     private static var startDetent: PresentationDetent {
@@ -64,7 +70,7 @@ struct AddTitleSheet: View {
                 NavigationStack { form }
             }
         }
-        .presentationDetents(showsCompactTray ? [.height(260)] : [.medium, .large], selection: $detent)
+        .presentationDetents(showsCompactTray ? [.height(Self.trayHeight)] : [.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .onAppear {
             // The default book profile may not serve the opening format.
@@ -170,8 +176,8 @@ struct AddTitleSheet: View {
             parts.append(String(year))
         }
         if kind == .show, !request.seasons.isEmpty {
-            parts.append(String(localized: "\(request.seasons.count) seasons"))
-            if let announced = request.seasons.last(where: SeasonPlan.isAnnounced) {
+            parts.append(String(localized: "\(SeasonPlan.released(request.seasons).count) seasons"))
+            if let announced = SeasonPlan.announced(request.seasons).last {
                 parts.append(String(localized: "Season \(announced.number) announced"))
             }
         }
@@ -266,7 +272,7 @@ struct AddTitleSheet: View {
                     .lineLimit(1)
                 Spacer()
                 if kind == .show, !request.seasons.isEmpty {
-                    Text("\(request.seasons.count) seasons")
+                    Text("\(SeasonPlan.released(request.seasons).count) seasons")
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                 }
@@ -299,7 +305,10 @@ struct AddTitleSheet: View {
     }
 
     private func chip(_ label: String) -> some View {
-        Button { expanded = true } label: {
+        Button {
+            expanded = true
+            detent = .medium
+        } label: {
             HStack(spacing: 6) {
                 Text(label).font(.subheadline.weight(.medium)).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
