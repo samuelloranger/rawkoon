@@ -24,6 +24,7 @@ vi.mock("@/features/medias/hooks/useLiveSearchToast", () => ({
 const books = vi.hoisted(() => ({
   profiles: [] as { id: number; name: string; kind: string }[],
   addBook: vi.fn().mockResolvedValue({}),
+  defaultId: null as number | null,
 }));
 vi.mock("@/pages/books/_hooks/useBooks", () => ({
   useAddBook: () => ({ mutateAsync: books.addBook }),
@@ -57,7 +58,7 @@ function makeFetcher() {
         settings: {
           default_movie_quality_profile_id: 2,
           default_show_quality_profile_id: 1,
-          default_book_quality_profile_id: null,
+          default_book_quality_profile_id: books.defaultId,
           search_on_add: true,
           default_season_mode: "all",
           default_monitor_new_seasons: true,
@@ -159,6 +160,7 @@ beforeEach(() => {
   books.profiles = [];
   books.addBook.mockClear();
   seasonsFail.on = false;
+  books.defaultId = null;
 });
 
 describe("add dialog", () => {
@@ -400,6 +402,34 @@ describe("book dialog", () => {
         book_quality_profile_id: 10,
       }),
     );
+  });
+
+  it("preselects Both when the default book profile covers both formats", async () => {
+    books.defaultId = 12;
+    mount();
+    fireEvent.click(screen.getByText("add-book"));
+    await screen.findByText("A Book");
+    expect(
+      screen.getByRole("button", { name: "addDialog.formats.both" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "addDialog.add" }));
+    await waitFor(() => expect(books.addBook).toHaveBeenCalled());
+    expect(books.addBook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kinds: ["ebook", "audiobook"],
+        book_quality_profile_id: 12,
+      }),
+    );
+  });
+
+  it("preselects Ebook when the default book profile is single-format", async () => {
+    books.defaultId = 11;
+    mount();
+    fireEvent.click(screen.getByText("add-book"));
+    await screen.findByText("A Book");
+    expect(
+      screen.getByRole("button", { name: "addDialog.formats.ebook" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("adds instantly with an ebook when ask before adding is off", async () => {

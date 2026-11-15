@@ -48,13 +48,22 @@ function Form({
     [episodes],
   );
   const changed = !sameChoice(draft, current);
+  // A flag-only save must not re-monitor partly monitored seasons, so a mode goes along only when it or the picks changed.
+  const modeChanged =
+    draft.mode !== current.mode ||
+    draft.picked.join() !== current.picked.join();
   const next = seasons.find((s) => s.announced);
 
   const onSave = () =>
-    save.mutate(choiceToBody(draft), {
-      onSuccess: () => toast.success(t("addDialog.manage.saved")),
-      onError: () => toast.error(t("addDialog.manage.saveFailed")),
-    });
+    save.mutate(
+      modeChanged
+        ? choiceToBody(draft)
+        : { monitor_new_seasons: draft.newSeasons },
+      {
+        onSuccess: () => toast.success(t("addDialog.manage.saved")),
+        onError: () => toast.error(t("addDialog.manage.saveFailed")),
+      },
+    );
 
   return (
     <section className="mb-5 rounded-[18px] border border-border bg-surface-raised px-[22px] py-5">
@@ -74,7 +83,9 @@ function Form({
             <button
               type="button"
               className={`${PRIMARY_BTN} !px-3.5 !py-2`}
-              disabled={save.isPending || !isChoiceValid(draft)}
+              disabled={
+                save.isPending || (modeChanged && !isChoiceValid(draft))
+              }
               onClick={onSave}
             >
               {t("addDialog.manage.save")}
@@ -105,9 +116,11 @@ export function ManageSeasons({
   episodes: LibraryEpisodesResponse;
 }) {
   const { data: item } = useLibraryItem(libraryId);
+  // Wait for the flag so the draft never starts from a guessed value.
+  if (!item) return null;
   const current = currentChoice(
     episodes,
-    item?.item.monitor_new_seasons ?? true,
+    item.item.monitor_new_seasons ?? true,
   );
   // Remount on server change so a save (or another tab) replaces the draft.
   return (

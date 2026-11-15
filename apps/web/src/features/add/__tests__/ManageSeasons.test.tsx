@@ -40,7 +40,7 @@ describe("ManageSeasons", () => {
     renderWithProviders(<ManageSeasons libraryId={5} episodes={episodes} />, {
       fetcher,
     });
-    const s1 = screen.getByRole("button", {
+    const s1 = await screen.findByRole("button", {
       name: "addDialog.seasonLabel n:1",
     });
     const s2 = screen.getByRole("button", {
@@ -67,12 +67,38 @@ describe("ManageSeasons", () => {
     );
   });
 
-  it("Reset drops the change and hides Save and Reset again", () => {
+  it("a flag-only save sends no season mode so partly monitored seasons stay as they are", async () => {
+    fetcher.mockClear();
+    renderWithProviders(<ManageSeasons libraryId={5} episodes={episodes} />, {
+      fetcher,
+    });
+    fireEvent.click(await screen.findByRole("switch"));
+    fireEvent.click(screen.getByText("addDialog.manage.save"));
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(
+        "/api/library/5/monitored-seasons",
+        expect.objectContaining({
+          method: "PATCH",
+          body: { monitor_new_seasons: false },
+        }),
+      ),
+    );
+  });
+
+  it("renders nothing until the library item has loaded", () => {
+    const never = vi.fn(() => new Promise(() => {}));
+    renderWithProviders(<ManageSeasons libraryId={5} episodes={episodes} />, {
+      fetcher: never,
+    });
+    expect(screen.queryByTestId("season-strip")).not.toBeInTheDocument();
+  });
+
+  it("Reset drops the change and hides Save and Reset again", async () => {
     renderWithProviders(<ManageSeasons libraryId={5} episodes={episodes} />, {
       fetcher,
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "addDialog.seasonLabel n:1" }),
+      await screen.findByRole("button", { name: "addDialog.seasonLabel n:1" }),
     );
     fireEvent.click(screen.getByText("addDialog.manage.reset"));
     expect(screen.queryByText("addDialog.manage.save")).not.toBeInTheDocument();

@@ -10,7 +10,8 @@ export function useSetMonitoredSeasons(mediaId: number) {
 
   return useMutation({
     mutationFn: (body: {
-      season_mode: SeasonMode;
+      /** Absent = only the new-season flag changes. */
+      season_mode?: SeasonMode;
       seasons?: number[];
       monitor_new_seasons: boolean;
     }) =>

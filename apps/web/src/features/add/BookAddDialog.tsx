@@ -43,12 +43,18 @@ export function BookAddDialog({
   const { t } = useTranslation("common");
   const { data } = useBookQualityProfiles();
   const { data: settings } = useMediaPostProcessingSettings();
-  const [format, setFormat] = useState<Format>("ebook");
+  const [pickedFormat, setFormat] = useState<Format | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const profiles = profilesForFormat(data?.profiles ?? [], format);
   const defaultId = settings?.settings.default_book_quality_profile_id ?? null;
+  // Both only when the default profile covers both formats; otherwise an ebook.
+  const format: Format =
+    pickedFormat ??
+    (data?.profiles.find((p) => p.id === defaultId)?.kind === "both"
+      ? "both"
+      : "ebook");
+  const profiles = profilesForFormat(data?.profiles ?? [], format);
   // An explicit pick wins while it still fits the format; otherwise the default, then the first.
   const profileId =
     profiles.find((p) => p.id === picked)?.id ??
