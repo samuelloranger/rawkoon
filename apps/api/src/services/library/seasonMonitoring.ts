@@ -136,13 +136,21 @@ export async function resolveSeasonChoiceWithSettings(
   return resolveSeasonChoice(input, settings);
 }
 
-/** Whether non-admins may pick seasons when requesting a show. */
-export async function requestersMayChooseSeasons(): Promise<boolean> {
+/** The add-dialog switches, readable by any client before it decides to open the dialog. */
+export async function getAddDialogFlags() {
   const row = await prisma.mediaSettings.findUnique({
     where: { id: 1 },
-    select: { requestersChooseSeasons: true },
+    select: { askBeforeAdding: true, requestersChooseSeasons: true },
   });
-  return row?.requestersChooseSeasons ?? true;
+  return {
+    ask_before_adding: row?.askBeforeAdding ?? true,
+    requesters_choose_seasons: row?.requestersChooseSeasons ?? true,
+  };
+}
+
+/** Whether non-admins may pick seasons when requesting a show. */
+export async function requestersMayChooseSeasons(): Promise<boolean> {
+  return (await getAddDialogFlags()).requesters_choose_seasons;
 }
 
 /**
