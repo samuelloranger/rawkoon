@@ -14,8 +14,9 @@ const adapterGrab = mock(async () => ({
 }));
 
 const state = {
-  media: { id: 42 } as { id: number } | null,
+  media: { id: 42, type: "movie" } as { id: number; type: string } | null,
   episode: null as { mediaId: number } | null,
+  showEpisodes: [] as Array<{ id: number; season: number; episode: number }>,
 };
 
 mock.module("@rawkoon/api/db", () =>
@@ -26,6 +27,9 @@ mock.module("@rawkoon/api/db", () =>
       },
       libraryEpisode: {
         findUnique: async () => state.episode,
+        findFirst: async ({ where }: { where: { id: number } }) =>
+          state.showEpisodes.find((e) => e.id === where.id) ?? null,
+        findMany: async () => state.showEpisodes,
       },
     },
   }),
@@ -80,8 +84,9 @@ describe("downloadInteractiveSearchRelease", () => {
       grabbed: true as const,
       releaseTitle: "Movie.2024.1080p",
     }));
-    state.media = { id: 42 };
+    state.media = { id: 42, type: "movie" };
     state.episode = null;
+    state.showEpisodes = [];
   });
 
   it("enqueues via grabRelease when a library item is present", async () => {
@@ -127,5 +132,42 @@ describe("downloadInteractiveSearchRelease", () => {
     expect(grabRelease).toHaveBeenCalledWith(
       expect.objectContaining({ mediaId: 42, episodeId: 7 }),
     );
+  });
+
+  it("records a show's episode release under its episode, not the searched season", async () => {
+    state.media = { id: 42, type: "show" };
+    state.showEpisodes = [
+      { id: 501, season: 5, episode: 2 },
+      { id: 502, season: 5, episode: 3 },
+    ];
+    adapterGrab.mockImplementation(async () => ({
+      success: true,
+      downloadUrl: "https://indexer.example/dl.torrent",
+      title: "Show.S05E03.1080p.WEB",
+      indexer: "tracker-a",
+    }));
+    const res = await post({ token: "abc", library_media_id: 42, season: 5 });
+    expect(res.status).toBe(200);
+    expect(grabRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaId: 42, episodeId: 502, season: 5 }),
+    );
+  });
+
+  it("rejects a show's episode release that is not in the library", async () => {
+    state.media = { id: 42, type: "show" };
+    state.showEpisodes = [{ id: 501, season: 5, episode: 2 }];
+    adapterGrab.mockImplementation(async () => ({
+      success: true,
+      downloadUrl: "https://indexer.example/dl.torrent",
+      title: "Show.S05E03.1080p.WEB",
+      indexer: "tracker-a",
+    }));
+    const res = await post({
+      token: "abc",
+      library_media_id: 42,
+      episode_id: 501,
+    });
+    expect(res.status).toBe(400);
+    expect(grabRelease).not.toHaveBeenCalled();
   });
 });
