@@ -142,6 +142,43 @@ describe("book discovery routes", () => {
     expect(addCalls[0]?.via).toBe("metadata");
   });
 
+  it("keeps the ebook default and sets no profile when the new fields are absent", async () => {
+    addCalls.length = 0;
+    await app.request("/discovery/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ volume_id: "vol-1", title: "A" }),
+    });
+    expect(addCalls[0]?.arg).toMatchObject({ kinds: ["ebook"] });
+    expect(
+      (addCalls[0]?.arg as { bookQualityProfileId?: number })
+        .bookQualityProfileId,
+    ).toBeUndefined();
+  });
+
+  it("passes the chosen kinds and book profile through, on both add paths", async () => {
+    addCalls.length = 0;
+    for (const extra of [{ volume_id: "vol-1" }, { isbn13: "9780000000002" }]) {
+      await app.request("/discovery/add", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...extra,
+          title: "A",
+          kinds: ["ebook", "audiobook"],
+          book_quality_profile_id: 7,
+        }),
+      });
+    }
+    expect(addCalls).toHaveLength(2);
+    for (const call of addCalls) {
+      expect(call.arg).toMatchObject({
+        kinds: ["ebook", "audiobook"],
+        bookQualityProfileId: 7,
+      });
+    }
+  });
+
   it("400s an add with neither volume_id nor isbn13", async () => {
     const res = await app.request("/discovery/add", {
       method: "POST",

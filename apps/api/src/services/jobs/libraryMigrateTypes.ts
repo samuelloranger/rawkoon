@@ -87,6 +87,7 @@ export type SonarrSeries = {
   images: Array<{ remoteUrl: string; coverType: string }>;
   seasons: Array<{
     seasonNumber: number;
+    monitored?: boolean;
     statistics?: { episodeFileCount: number };
   }>;
 };

@@ -122,3 +122,11 @@ export function updateLibraryOverrides(
     include: libraryMediaInclude,
   });
 }
+
+export async function qualityProfileExists(id: number): Promise<boolean> {
+  const row = await prisma.qualityProfile.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  return row != null;
+}

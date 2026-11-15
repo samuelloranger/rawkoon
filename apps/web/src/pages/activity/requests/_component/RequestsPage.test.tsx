@@ -25,6 +25,8 @@ const base: MediaRequest = {
   author: "Auteur",
   poster_url: null,
   year: 2026,
+  season_mode: null,
+  seasons: [],
   status: "pending",
   requested_by: { id: "m", name: "Marie" },
   quality_profile_id: null,

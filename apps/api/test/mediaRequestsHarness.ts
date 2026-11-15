@@ -11,6 +11,8 @@ export type Req = {
   googleVolumeId?: string | null;
   bookQualityProfileId?: number | null;
   libraryBookId?: number | null;
+  seasonMode?: string | null;
+  seasons?: number[];
 };
 
 export type EpisodeRow = {
@@ -63,6 +65,8 @@ export const state: {
   searchQueued: number[];
   beforeDeleteMany: (() => void) | null;
   deletedLibrary: string[];
+  addOpts: Array<Record<string, unknown>>;
+  settingsExtra: Record<string, unknown>;
 } = {
   library: [],
   libraryBooks: [],
@@ -82,6 +86,8 @@ export const state: {
   searchQueued: [],
   beforeDeleteMany: null,
   deletedLibrary: [],
+  addOpts: [],
+  settingsExtra: {},
 };
 
 function installMediaRequestDbMock() {
@@ -290,6 +296,7 @@ function installMediaRequestDbMock() {
           Promise.resolve({
             defaultMovieQualityProfileId: state.defaultProfiles.movie,
             defaultShowQualityProfileId: state.defaultProfiles.show,
+            ...state.settingsExtra,
           }),
       },
       $transaction: (promises: Promise<any>[]) => {
@@ -309,8 +316,10 @@ export function installMediaRequestMocks() {
   installMediaRequestDbMock();
 
   mock.module("@rawkoon/api/services/libraryFromTmdb", () => ({
-    addOrUpdateLibraryFromTmdb: ({ tmdb_id }: { tmdb_id: number }) =>
-      state.failLibraryAdd
+    addOrUpdateLibraryFromTmdb: (opts: { tmdb_id: number }) => {
+      const { tmdb_id } = opts;
+      state.addOpts.push(opts);
+      return state.failLibraryAdd
         ? Promise.reject(new Error("TMDB unreachable"))
         : Promise.resolve({
             id: 900 + tmdb_id,
@@ -319,7 +328,8 @@ export function installMediaRequestMocks() {
             title: "T",
             status: "wanted",
             digitalReleaseDate: new Date("2020-01-01"),
-          }),
+          });
+    },
   }));
 
   mock.module("@rawkoon/api/services/searchOnAdd", () => ({
@@ -410,5 +420,7 @@ export function useMediaRequestHooks() {
     state.searchQueued = [];
     state.beforeDeleteMany = null;
     state.deletedLibrary = [];
+    state.addOpts = [];
+    state.settingsExtra = {};
   });
 }

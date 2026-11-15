@@ -1,4 +1,4 @@
-import type { AiringState, SearchSkippedReason } from "./library";
+import type { AiringState, SearchSkippedReason, SeasonMode } from "./library";
 
 export type MediaRequestStatus =
   | "pending"
@@ -16,6 +16,10 @@ export interface MediaRequest {
   author: string | null;
   poster_url: string | null;
   year: number | null;
+  /** Show requests only: what the requester chose; null = every season. */
+  season_mode: SeasonMode | null;
+  /** The seasons asked for when season_mode is "pick". */
+  seasons: number[];
   status: MediaRequestStatus;
   requested_by: { id: string; name: string | null };
   quality_profile_id: number | null;
@@ -61,6 +65,10 @@ export type CreateMediaRequestBody =
       title: string;
       poster_url?: string | null;
       year?: number | null;
+      /** Shows only; absent = every season. */
+      season_mode?: SeasonMode;
+      /** Required and non-empty with season_mode "pick", rejected otherwise. */
+      seasons?: number[];
     }
   | {
       type: "book";

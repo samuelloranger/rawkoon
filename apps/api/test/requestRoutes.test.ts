@@ -40,6 +40,7 @@ let requestRows: Array<{
 }> = [];
 let libraryRows: Array<{ tmdbId: number }> = [];
 let nextRequestId = 1;
+let requestersChooseSeasons = true;
 let lastFindManyWhere: unknown;
 
 const prismaStub = {
@@ -115,6 +116,9 @@ const prismaStub = {
       return { count: before - requestRows.length };
     },
   },
+  mediaSettings: {
+    findUnique: async () => ({ requestersChooseSeasons }),
+  },
   user: {
     findUnique: async () => injectedDbUser,
     findMany: async () =>
@@ -189,6 +193,7 @@ beforeEach(() => {
   ];
   libraryRows = [];
   nextRequestId = 2;
+  requestersChooseSeasons = true;
 });
 
 describe("requestRoutes", () => {
@@ -234,6 +239,74 @@ describe("requestRoutes", () => {
       body: JSON.stringify({ tmdb_id: 42, type: "movie", title: "X" }),
     });
     expect(await res.json()).toEqual({ id: 2 });
+  });
+
+  it("POST / stores a show request's season choice and GET / returns it", async () => {
+    const res = await requestRoutes.request("/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tmdb_id: 42,
+        type: "show",
+        title: "X",
+        season_mode: "pick",
+        seasons: [1, 3],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const list = (await (await requestRoutes.request("/")).json()) as {
+      requests: Array<Record<string, unknown>>;
+    };
+    expect(list.requests.find((r) => r.id === 2)).toMatchObject({
+      season_mode: "pick",
+      seasons: [1, 3],
+    });
+    expect(list.requests[0]).toMatchObject({ season_mode: null, seasons: [] });
+  });
+
+  it("POST / drops a non-admin's season choice when requesters may not choose", async () => {
+    injectedDbUser = { ...ADMIN_USER, id: "u2", isAdmin: false };
+    requestersChooseSeasons = false;
+    const res = await requestRoutes.request("/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tmdb_id: 42,
+        type: "show",
+        title: "X",
+        season_mode: "pick",
+        seasons: [1],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(requestRows.find((r) => r.id === 2)).toMatchObject({
+      seasonMode: null,
+      seasons: [],
+    });
+  });
+
+  it("POST / rejects season options on a movie and a malformed pick", async () => {
+    for (const body of [
+      { tmdb_id: 42, type: "movie", title: "X", season_mode: "all" },
+      { tmdb_id: 42, type: "show", title: "X", season_mode: "pick" },
+      { tmdb_id: 42, type: "show", title: "X", seasons: [1] },
+    ]) {
+      const res = await requestRoutes.request("/", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+    }
+  });
+
+  it("POST /:id/approve rejects season options on a movie request", async () => {
+    const res = await requestRoutes.request("/1/approve", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ quality_profile_id: 1, season_mode: "all" }),
+    });
+    expect(res.status).toBe(400);
   });
 
   it("GET /status tells the caller whether the request is theirs", async () => {

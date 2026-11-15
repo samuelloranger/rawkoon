@@ -1,12 +1,17 @@
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
+import { resolveDefaultQualityProfileId } from "@rawkoon/api/lib/defaultQualityProfile";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { addBookFromVolume } from "@rawkoon/api/services/books/bookLibrary";
 import { getGlobalTmdbRegion } from "@rawkoon/api/utils/medias/tmdbRegion";
 import { deleteCache } from "@rawkoon/api/services/cache";
 import { queueSearchOnAdd } from "@rawkoon/api/services/searchOnAdd";
-import type { SearchSkippedReason } from "@rawkoon/shared/types";
+import type { SearchSkippedReason, SeasonMode } from "@rawkoon/shared/types";
+import {
+  resolveApprovalSeasons,
+  type ResolvedSeasonChoice,
+} from "@rawkoon/api/services/library/seasonMonitoring";
 import { invalidateUpcomingCache } from "@rawkoon/api/utils/dashboard/tmdbUpcoming";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 import { getNotificationTarget } from "@rawkoon/api/services/notification/notificationPreferences";
@@ -14,6 +19,12 @@ import {
   notifyAdminsRequestPending,
   requestTitleLabel,
 } from "@rawkoon/api/services/mediaRequestNotifications";
+
+export {
+  deleteLibraryBookWithRequests,
+  deleteLibraryMediaWithRequests,
+  deleteRequest,
+} from "@rawkoon/api/services/mediaRequestDeletion";
 
 export {
   notifyBookRequestAvailable,
@@ -30,6 +41,9 @@ type CreateOpts =
       userId: string;
       /** The requester is an admin: approve on the spot with the default profile. */
       autoApprove?: boolean;
+      /** Shows only; null = the requester made no choice. */
+      seasonMode?: SeasonMode | null;
+      seasons?: number[];
     }
   | {
       type: "book";
@@ -50,9 +64,7 @@ async function defaultQualityProfileId(
   type: "movie" | "show",
 ): Promise<number | null> {
   const settings = await prisma.mediaSettings.findUnique({ where: { id: 1 } });
-  return type === "movie"
-    ? (settings?.defaultMovieQualityProfileId ?? null)
-    : (settings?.defaultShowQualityProfileId ?? null);
+  return resolveDefaultQualityProfileId(type, settings);
 }
 
 /**
@@ -184,6 +196,8 @@ export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
         decidedAt: null,
         requestedById: opts.userId,
         createdAt: new Date(),
+        seasonMode: opts.seasonMode ?? null,
+        seasons: opts.seasons ?? [],
       },
     });
 
@@ -201,6 +215,8 @@ export async function createRequest(opts: CreateOpts): Promise<CreateResult> {
         year: opts.year,
         requestedById: opts.userId,
         status: "pending",
+        seasonMode: opts.seasonMode ?? null,
+        seasons: opts.seasons ?? [],
       },
     });
   } catch (error) {
@@ -220,17 +236,39 @@ interface ApprovedMediaSearch {
   search_skipped_reason: SearchSkippedReason | null;
 }
 
+export type ApproveSeasonInput = {
+  seasonMode?: SeasonMode;
+  seasons?: number[];
+  monitorNewSeasons?: boolean;
+};
+
 export async function approveRequest(
   id: number,
   qualityProfileId: number,
   adminId: string,
+  seasonInput: ApproveSeasonInput = {},
 ): Promise<
   | ({ ok: true } & Partial<ApprovedMediaSearch>)
-  | { ok: false; reason: "not_found" | "not_pending" | "invalid_profile" }
+  | {
+      ok: false;
+      reason: "not_found" | "not_pending" | "invalid_profile";
+    }
+  | { ok: false; reason: "invalid_seasons"; message: string }
 > {
   const req = await prisma.mediaRequest.findUnique({ where: { id } });
   if (!req) return { ok: false, reason: "not_found" };
   if (req.status !== "pending") return { ok: false, reason: "not_pending" };
+
+  const hasSeasonInput = Object.values(seasonInput).some(
+    (v) => v !== undefined,
+  );
+  if (req.type !== "show" && hasSeasonInput) {
+    return {
+      ok: false,
+      reason: "invalid_seasons",
+      message: "Season options are only valid for shows",
+    };
+  }
 
   if (req.type === "book") {
     return approveBookRequest(req, qualityProfileId, adminId);
@@ -244,6 +282,15 @@ export async function approveRequest(
     select: { id: true },
   });
   if (!profile) return { ok: false, reason: "invalid_profile" };
+
+  let seasonChoice: ResolvedSeasonChoice | undefined;
+  if (req.type === "show") {
+    const resolved = await resolveApprovalSeasons(req, seasonInput);
+    if ("error" in resolved) {
+      return { ok: false, reason: "invalid_seasons", message: resolved.error };
+    }
+    seasonChoice = resolved;
+  }
 
   // Preserve the configured TMDB region so release dates match the normal
   // library add flow, and invalidate the same per-region upcoming cache.
@@ -264,6 +311,7 @@ export async function approveRequest(
     type: req.type as "movie" | "show",
     region,
     qualityProfileId,
+    seasonChoice,
   });
 
   try {
@@ -441,48 +489,4 @@ export async function denyRequest(
   );
 
   return { ok: true };
-}
-
-/** Deletes a library title with its request, so the title can be requested again. */
-export async function deleteLibraryMediaWithRequests(
-  id: number,
-): Promise<void> {
-  await prisma.$transaction([
-    prisma.mediaRequest.deleteMany({ where: { libraryMediaId: id } }),
-    prisma.libraryMedia.delete({ where: { id } }),
-  ]);
-}
-
-/** Deletes a library book with its request, so the book can be requested again. */
-export async function deleteLibraryBookWithRequests(id: number): Promise<void> {
-  await prisma.$transaction([
-    prisma.mediaRequest.deleteMany({ where: { libraryBookId: id } }),
-    prisma.libraryBook.delete({ where: { id } }),
-  ]);
-}
-
-const DELETABLE_STATUSES = ["pending", "denied"] as const;
-
-/** Deletes a pending or denied request; to a non-admin, someone else's reads as not found. */
-export async function deleteRequest(
-  id: number,
-  userId: string,
-  isAdmin: boolean,
-): Promise<
-  { ok: true } | { ok: false; reason: "not_found" | "not_deletable" }
-> {
-  const req = await prisma.mediaRequest.findUnique({ where: { id } });
-  if (!req || (!isAdmin && req.requestedById !== userId)) {
-    return { ok: false, reason: "not_found" };
-  }
-  if (!(DELETABLE_STATUSES as readonly string[]).includes(req.status)) {
-    return { ok: false, reason: "not_deletable" };
-  }
-  // Conditional so an approval landing after the read isn't deleted.
-  const { count } = await prisma.mediaRequest.deleteMany({
-    where: { id, status: { in: [...DELETABLE_STATUSES] } },
-  });
-  if (count > 0) return { ok: true };
-  const current = await prisma.mediaRequest.findUnique({ where: { id } });
-  return { ok: false, reason: current ? "not_deletable" : "not_found" };
 }

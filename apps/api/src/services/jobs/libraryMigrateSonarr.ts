@@ -159,8 +159,14 @@ export async function migrateFromSonarr(
           );
         }
 
+        // Sonarr's per-season monitored flag carries over; a season it doesn't list stays monitored.
+        const seasonMonitored = new Map(
+          series.seasons.map((s) => [s.seasonNumber, s.monitored ?? true]),
+        );
+
         for (const ep of episodes) {
           if (ep.seasonNumber === 0) continue;
+          const monitored = seasonMonitored.get(ep.seasonNumber) ?? true;
           const key = `${ep.seasonNumber}_${ep.episodeNumber}`;
           const existingEpStatus = existingEpisodesMap.get(key);
           const newEpStatus = ep.hasFile ? "downloaded" : "wanted";
@@ -185,6 +191,7 @@ export async function migrateFromSonarr(
               title: ep.title || null,
               airDate: ep.airDate ? new Date(ep.airDate) : null,
               status: epStatusToSet,
+              monitored,
             },
             update: {
               title: ep.title || null,
