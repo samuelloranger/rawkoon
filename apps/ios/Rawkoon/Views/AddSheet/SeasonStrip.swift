@@ -17,7 +17,7 @@ struct SeasonStrip: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: 6) {
+            HStack(alignment: .bottom, spacing: 4) {
                 ForEach(seasons) { season in
                     seasonView(season)
                 }
@@ -57,8 +57,8 @@ struct SeasonStrip: View {
                     .frame(minHeight: 14)
             }
         }
-        .frame(minWidth: 46)
-        .padding(.horizontal, 4)
+        .frame(minWidth: 40)
+        .padding(.horizontal, 2)
         .padding(.top, 4)
         .padding(.bottom, 2)
         .rawkoonMotion(RawkoonMotion.spring, value: lit)
