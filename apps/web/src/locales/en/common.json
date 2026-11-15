@@ -3565,5 +3565,88 @@
     "addFailedCount_other": "{{count}} titles couldn't be added",
     "add": "Add",
     "switchedToManual": "Switched this shelf to manual order, to keep your arrangement."
+  },
+  "addDialog": {
+    "title": "Add {{title}}",
+    "requestTitle": "Request {{title}}",
+    "quality": "Quality",
+    "seasons": "Seasons",
+    "format": "Format",
+    "formats": {
+      "ebook": "Ebook",
+      "audiobook": "Audiobook",
+      "both": "Both"
+    },
+    "noBookProfile": "No quality profile matches this format. The default is used.",
+    "modes": {
+      "all": "All seasons",
+      "future": "Future episodes only",
+      "latest": "Latest season",
+      "pick": "Pick seasons"
+    },
+    "newSeasons": "Get new seasons as they air",
+    "newSeasonsHint": "Seasons that start later are added and searched when they air.",
+    "newSeasonsHintNext": "Season {{n}} and later are added and searched when they start.",
+    "searchNow": "Search for releases now",
+    "searchNowHint": "Off adds it as wanted; the next scheduled check picks it up.",
+    "add": "Add to library",
+    "adding": "Adding…",
+    "addShort": "Add",
+    "cancel": "Cancel",
+    "skip": "Skip",
+    "apply": "Apply",
+    "loadingSeasons": "Loading seasons…",
+    "seasonLabel": "Season {{n}}",
+    "soon": "Soon",
+    "today": "Today",
+    "seasonCount_one": "{{count}} season",
+    "seasonCount_other": "{{count}} seasons",
+    "announcedSeason": "Season {{n}} announced",
+    "requestAll": "Request all seasons",
+    "requestFuture": "Request new episodes",
+    "requestLatest": "Request season {{season}}",
+    "requestPick_one": "Request {{count}} season",
+    "requestPick_other": "Request {{count}} seasons",
+    "pickASeason": "Pick a season",
+    "requestNote": "An admin approves it before anything downloads.",
+    "changeSeasons": "Change seasons",
+    "bookAddFailed": "Couldn't add this book",
+    "summary": {
+      "nothing": "Nothing selected yet. Pick at least one season.",
+      "gets": "Gets",
+      "episodes_one": "{{count}} episode",
+      "episodes_other": "{{count}} episodes",
+      "fromSeason": "from season {{list}}",
+      "fromSeasons": "from seasons {{list}}",
+      "getsNothing": "Gets nothing that has aired",
+      "plus": ", plus",
+      "newSeasons": "new seasons",
+      "asTheyAir": "as they air."
+    },
+    "chip": {
+      "all": "All seasons{{plus}}",
+      "future": "Future episodes only",
+      "latest": "Season {{n}}",
+      "pick_one": "{{count}} season",
+      "pick_other": "{{count}} seasons",
+      "plusNew": " + new"
+    },
+    "manage": {
+      "title": "Seasons to get",
+      "save": "Save",
+      "reset": "Reset",
+      "saved": "Seasons updated",
+      "saveFailed": "Couldn't update the seasons"
+    },
+    "settings": {
+      "title": "When adding titles",
+      "ask": "Ask before adding",
+      "askHint": "Admins choose quality and seasons each time. When off, titles are added right away with the defaults below.",
+      "requesters": "Let requesters choose seasons",
+      "requestersHint": "When off, a show request covers every season.",
+      "defaultSeasons": "Default seasons",
+      "defaultSeasonsHint": "Used for new shows when nobody picks.",
+      "newSeasonsHint": "The starting value for each new show."
+    }
   }
 }

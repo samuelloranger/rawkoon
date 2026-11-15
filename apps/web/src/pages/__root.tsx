@@ -14,6 +14,7 @@ import { NotificationPermissionModal } from "@/components/NotificationPermission
 import { QuickActionPalette } from "@/components/QuickActionPalette";
 import { useAutoSubscribeNotifications } from "@/lib/notifications/useAutoSubscribeNotifications";
 import { LibraryNavigationProvider } from "@/features/medias/context/LibraryNavigationContext";
+import { AddFlowProvider } from "@/features/add/useAddFlow";
 import { ConfirmProvider } from "@/components/confirm/ConfirmContext";
 import { useNavPosition } from "@/pages/settings/useNavPosition";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
@@ -45,57 +46,59 @@ function RootLayout() {
 
   return (
     <ConfirmProvider>
-      <PlayerProvider>
-        <LibraryNavigationProvider>
-          <ScrollRestoration />
-          {shouldShowNav && (
-            <>
-              {/*
+      <AddFlowProvider>
+        <PlayerProvider>
+          <LibraryNavigationProvider>
+            <ScrollRestoration />
+            {shouldShowNav && (
+              <>
+                {/*
               Visible only once focused, so keyboard users can jump the sidebar
               instead of tabbing every nav item on every route change.
             */}
-              <a
-                href="#main-content"
-                className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
-              >
-                {t("a11y.skipToContent")}
-              </a>
-              <Sidebar
-                position={position}
-                onOpenQuickActions={() => setIsQuickActionsOpen(true)}
-              />
-              <MobileTabBar />
-            </>
-          )}
-          <div
-            className={
-              shouldShowNav
-                ? `${contentPadding[position]} max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]`
-                : ""
-            }
-          >
-            <MainWithPlayerPad isSettings={isSettings} />
-          </div>
-          <QuickActionPalette
-            isOpen={isQuickActionsOpen}
-            onOpen={() => setIsQuickActionsOpen(true)}
-            onClose={() => setIsQuickActionsOpen(false)}
-          />
-          <NotificationPermissionModal
-            isOpen={showModal}
-            onAllow={handleAllow}
-            onDismiss={handleDismiss}
-          />
-          <Toaster
-            position="bottom-center"
-            richColors
-            mobileOffset={{
-              bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
-            }}
-          />
-          <MiniPlayer navPosition={position} />
-        </LibraryNavigationProvider>
-      </PlayerProvider>
+                <a
+                  href="#main-content"
+                  className="focus-ring sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[var(--z-tooltip)] focus:rounded-lg focus:bg-neutral-800 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-50"
+                >
+                  {t("a11y.skipToContent")}
+                </a>
+                <Sidebar
+                  position={position}
+                  onOpenQuickActions={() => setIsQuickActionsOpen(true)}
+                />
+                <MobileTabBar />
+              </>
+            )}
+            <div
+              className={
+                shouldShowNav
+                  ? `${contentPadding[position]} max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]`
+                  : ""
+              }
+            >
+              <MainWithPlayerPad isSettings={isSettings} />
+            </div>
+            <QuickActionPalette
+              isOpen={isQuickActionsOpen}
+              onOpen={() => setIsQuickActionsOpen(true)}
+              onClose={() => setIsQuickActionsOpen(false)}
+            />
+            <NotificationPermissionModal
+              isOpen={showModal}
+              onAllow={handleAllow}
+              onDismiss={handleDismiss}
+            />
+            <Toaster
+              position="bottom-center"
+              richColors
+              mobileOffset={{
+                bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))",
+              }}
+            />
+            <MiniPlayer navPosition={position} />
+          </LibraryNavigationProvider>
+        </PlayerProvider>
+      </AddFlowProvider>
     </ConfirmProvider>
   );
 }

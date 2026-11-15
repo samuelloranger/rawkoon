@@ -31,6 +31,8 @@ export const LIBRARY_ENDPOINTS = {
   UPDATE_MONITORED: (id: number) => `/api/library/${id}/monitored`,
   UPDATE_EPISODE_MONITORED: (mediaId: number, episodeId: number) =>
     `/api/library/${mediaId}/episodes/${episodeId}/monitored`,
+  UPDATE_MONITORED_SEASONS: (id: number) =>
+    `/api/library/${id}/monitored-seasons`,
   UPDATE_SEASON_MONITORED: (mediaId: number, season: number) =>
     `/api/library/${mediaId}/seasons/${season}/monitored`,
   FILES: (id: number) => `/api/library/${id}/files`,

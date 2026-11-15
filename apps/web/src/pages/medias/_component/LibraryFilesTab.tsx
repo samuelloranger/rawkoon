@@ -12,6 +12,7 @@ import { useToggleSeasonMonitored } from "@/features/medias/hooks/useToggleSeaso
 import { useDeleteLibraryEpisode } from "@/features/medias/hooks/useDeleteLibraryEpisode";
 import { useDeleteLibraryFile } from "@/features/medias/hooks/useDeleteLibraryFile";
 import type { LibraryFileInfo } from "@rawkoon/shared/types";
+import { ManageSeasons } from "@/features/add/ManageSeasons";
 import { Card } from "./LibrarySharedUI";
 import { getMappedFolder } from "@/utils/libraryDisplayUtils";
 import { LibraryShowSeason } from "./LibraryShowSeason";
@@ -119,6 +120,10 @@ export function LibraryFilesTab({
           <p className="-mt-1.5 mb-3 break-all font-mono text-xs text-neutral-400">
             {mappedFolder}
           </p>
+        )}
+
+        {isAdmin && hasEpisodes && (
+          <ManageSeasons libraryId={libraryId} episodes={episodesQuery.data!} />
         )}
 
         {isShow ? (

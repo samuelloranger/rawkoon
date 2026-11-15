@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BookOpen, Headphones, Loader2, Plus, Search, X } from "lucide-react";
-import type { BookEditionKind } from "@rawkoon/shared/types";
+import { BookOpen, Loader2, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { useCurrentUser } from "@/lib/auth/useAuth";
-import { useAddBook, useBookProviderSearch } from "../_hooks/useBooks";
+import { useAddFlow } from "@/features/add/useAddFlow";
+import { useBookProviderSearch } from "../_hooks/useBooks";
 import { BookRequestAction } from "./BookRequestAction";
 
 /**
@@ -27,22 +27,15 @@ export function AddBookDialog({
   const { t } = useTranslation("common");
   const [input, setInput] = useState(initialQuery);
   const [submitted, setSubmitted] = useState(initialQuery.trim());
-  const [kinds, setKinds] = useState<BookEditionKind[]>(["ebook"]);
 
   const { data, isFetching, error } = useBookProviderSearch(
     submitted,
     submitted.length > 1,
   );
-  const addBook = useAddBook();
+  const { addBook } = useAddFlow();
   // Members request a book; only admins add it straight to the library.
   const me = useCurrentUser().data;
   const isAdmin = me?.is_admin ?? false;
-
-  const toggleKind = (kind: BookEditionKind) => {
-    setKinds((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
-    );
-  };
 
   const searchError =
     error instanceof ApiError
@@ -90,31 +83,6 @@ export function AddBookDialog({
             )}
           </Button>
         </form>
-
-        {isAdmin && (
-          <div className="flex items-center gap-2 px-5 pt-3 text-xs text-neutral-400">
-            <span>{t("books.add.addAs")}</span>
-            {(["ebook", "audiobook"] as BookEditionKind[]).map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => toggleKind(kind)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium transition-colors ${
-                  kinds.includes(kind)
-                    ? "bg-primary-500/15 text-primary-300"
-                    : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
-                }`}
-              >
-                {kind === "audiobook" ? (
-                  <Headphones className="h-3 w-3" />
-                ) : (
-                  <BookOpen className="h-3 w-3" />
-                )}
-                {t(`books.kind${kind === "audiobook" ? "Audiobook" : "Ebook"}`)}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="max-h-[50vh] overflow-y-auto px-5 py-4">
           {searchError && (
@@ -187,16 +155,20 @@ export function AddBookDialog({
                 ) : (
                   <Button
                     size="sm"
-                    disabled={kinds.length === 0 || addBook.isPending}
                     onClick={() =>
-                      addBook.mutate(
+                      void addBook(
                         {
+                          kind: "search",
                           google_volume_id: r.google_volume_id,
                           isbn13: r.isbn13,
-                          kinds,
                         },
-                        { onSuccess: onClose },
-                      )
+                        {
+                          title: r.title,
+                          author: r.authors.join(", ") || null,
+                          coverUrl: r.cover_url,
+                          year: r.published_year,
+                        },
+                      ).then((added) => added && onClose())
                     }
                   >
                     <Plus className="mr-1 h-3.5 w-3.5" />

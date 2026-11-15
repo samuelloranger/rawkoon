@@ -7,10 +7,9 @@ vi.mock("@/lib/auth/useAuth", () => ({
 }));
 
 const providerSearch = vi.hoisted(() => vi.fn());
-const addMutate = vi.fn();
+const addBook = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const requestMutate = vi.fn();
 vi.mock("../_hooks/useBooks", () => ({
-  useAddBook: () => ({ mutate: addMutate, isPending: false }),
   useBookProviderSearch: (term: string, enabled: boolean) => {
     providerSearch(term, enabled);
     return {
@@ -37,6 +36,9 @@ vi.mock("../_hooks/useBooks", () => ({
     };
   },
 }));
+vi.mock("@/features/add/useAddFlow", () => ({
+  useAddFlow: () => ({ addBook }),
+}));
 vi.mock("@/pages/activity/requests/_hooks/useRequests", () => ({
   useCreateRequest: () => ({
     mutate: requestMutate,
@@ -51,16 +53,18 @@ import { AddBookDialog } from "./AddBookDialog";
 describe("AddBookDialog", () => {
   beforeEach(() => {
     auth.isAdmin = true;
-    addMutate.mockClear();
+    addBook.mockClear();
     requestMutate.mockClear();
   });
 
   it("lets an admin add straight to the library", () => {
     renderWithProviders(<AddBookDialog onClose={vi.fn()} />);
-    expect(screen.getByText("books.add.addAs")).toBeInTheDocument();
     expect(screen.queryByText("books.request.action")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("books.add.addAction"));
-    expect(addMutate).toHaveBeenCalled();
+    expect(addBook).toHaveBeenCalledWith(
+      { kind: "search", google_volume_id: "vol-1", isbn13: null },
+      expect.objectContaining({ title: "Livre A", author: "Auteur" }),
+    );
     expect(requestMutate).not.toHaveBeenCalled();
   });
 
@@ -68,7 +72,6 @@ describe("AddBookDialog", () => {
     auth.isAdmin = false;
     renderWithProviders(<AddBookDialog onClose={vi.fn()} />);
     expect(screen.queryByText("books.add.addAction")).not.toBeInTheDocument();
-    expect(screen.queryByText("books.add.addAs")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("books.request.action"));
     expect(requestMutate).toHaveBeenCalledWith({
       type: "book",
@@ -78,7 +81,7 @@ describe("AddBookDialog", () => {
       poster_url: null,
       year: 2026,
     });
-    expect(addMutate).not.toHaveBeenCalled();
+    expect(addBook).not.toHaveBeenCalled();
   });
 
   it("starts searching for the initial query as soon as it opens", () => {

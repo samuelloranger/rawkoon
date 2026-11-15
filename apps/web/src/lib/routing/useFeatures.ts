@@ -3,11 +3,15 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import { fetchApi } from "@/lib/api/client";
 
-interface FeatureFlags {
+export interface FeatureFlags {
   books_enabled: boolean;
+  /** Admins get the add dialog instead of an instant add. */
+  ask_before_adding: boolean;
+  /** Non-admins may pick seasons when requesting a show. */
+  requesters_choose_seasons: boolean;
 }
 
-const featuresQuery = queryOptions({
+export const featuresQuery = queryOptions({
   queryKey: ["system", "features"],
   queryFn: () => fetchApi<FeatureFlags>("/api/system/features"),
   staleTime: 5 * 60 * 1000,

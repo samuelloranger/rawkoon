@@ -4,6 +4,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { BOOKS_ENDPOINTS } from "@/lib/endpoints";
 import type {
   BookDiscoveryBook,
+  BookEditionKind,
   BookDiscoveryResponse,
   BookDiscoverySourcesResponse,
 } from "@rawkoon/shared/types";
@@ -38,7 +39,15 @@ export function useBookDiscovery(source: string, list: string) {
 export function useAddDiscoveryBook() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (book: BookDiscoveryBook) =>
+    mutationFn: ({
+      book,
+      kinds,
+      book_quality_profile_id,
+    }: {
+      book: BookDiscoveryBook;
+      kinds?: BookEditionKind[];
+      book_quality_profile_id?: number;
+    }) =>
       fetchApi<{ added: boolean; book_id: number }>(
         BOOKS_ENDPOINTS.DISCOVERY_ADD,
         {
@@ -51,6 +60,8 @@ export function useAddDiscoveryBook() {
             overview: book.overview,
             cover_url: book.coverUrl,
             published_year: book.publishedYear,
+            kinds,
+            book_quality_profile_id,
           }),
         },
       ),

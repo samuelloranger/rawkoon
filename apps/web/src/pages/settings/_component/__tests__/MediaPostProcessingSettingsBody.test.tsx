@@ -46,6 +46,10 @@ const settings = {
   default_show_quality_profile_id: null,
   default_book_quality_profile_id: 5,
   search_on_add: true,
+  ask_before_adding: true,
+  requesters_choose_seasons: true,
+  default_season_mode: "all",
+  default_monitor_new_seasons: true,
   release_check_cron: "0 */6 * * *",
   rss_poll_interval_minutes: 15,
   active_indexer_manager: "prowlarr",
@@ -143,6 +147,30 @@ describe("library settings", () => {
     fireEvent.click(screen.getByText("settings.mediaLibrary.save"));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
     expect(mutateAsync.mock.calls[0][0].rss_poll_interval_minutes).toBe(5);
+  });
+
+  it("saves the add-dialog switches and the default season mode", async () => {
+    mutateAsync.mockClear();
+    render(
+      <MediaPostProcessingSettingsBody
+        settings={settings}
+        profilesData={profilesData}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("switch", { name: "addDialog.settings.ask" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "addDialog.modes.latest" }),
+    );
+    fireEvent.click(screen.getByText("settings.mediaLibrary.save"));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync.mock.calls[0][0]).toMatchObject({
+      ask_before_adding: false,
+      requesters_choose_seasons: true,
+      default_season_mode: "latest",
+      default_monitor_new_seasons: true,
+    });
   });
 
   it("warns about Jackett's feed cache only when Jackett is the indexer manager", () => {

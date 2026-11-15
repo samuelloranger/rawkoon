@@ -93,8 +93,8 @@ vi.mock("@/pages/books/_hooks/useBooks", () => ({
 vi.mock("@/pages/books/_component/BookRequestAction", () => ({
   BookRequestAction: () => <span>request</span>,
 }));
-vi.mock("@/pages/books/_component/AddBookDialog", () => ({
-  AddBookDialog: () => null,
+vi.mock("@/features/add/useAddFlow", () => ({
+  useAddFlow: () => ({ addBook: vi.fn().mockResolvedValue(false) }),
 }));
 
 describe("FindResults", () => {

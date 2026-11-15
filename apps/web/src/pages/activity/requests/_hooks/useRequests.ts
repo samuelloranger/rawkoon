@@ -15,6 +15,7 @@ import type {
   CreateMediaRequestBody,
   MediaRequest,
   MediaRequestsResponse,
+  SeasonMode,
 } from "@rawkoon/shared/types";
 
 /** A 404 on a listed request means its requester withdrew it meanwhile. */
@@ -61,10 +62,20 @@ export function useApproveRequest() {
   const fetcher = useFetcher();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: number; quality_profile_id: number }) =>
-      fetcher<ApproveRequestResponse>(REQUEST_ENDPOINTS.APPROVE(vars.id), {
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: number;
+      quality_profile_id: number;
+      /** Absent = what the requester chose. */
+      season_mode?: SeasonMode;
+      seasons?: number[];
+      monitor_new_seasons?: boolean;
+    }) =>
+      fetcher<ApproveRequestResponse>(REQUEST_ENDPOINTS.APPROVE(id), {
         method: "POST",
-        body: { quality_profile_id: vars.quality_profile_id },
+        body,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.requests.all }),
     onError: onModerationError(qc),

@@ -1,5 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useFetcher } from "@/lib/api/context";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useFetcher, type Fetcher } from "@/lib/api/context";
 import { queryKeys } from "@/lib/queryKeys";
 import { QUALITY_PROFILES_ENDPOINTS, MEDIAS_ENDPOINTS } from "@/lib/endpoints";
 import type {
@@ -9,18 +14,22 @@ import type {
   ProwlarrIndexersResponse,
 } from "@rawkoon/shared/types";
 
+/** Shared with the add flow, which prefetches the list before deciding whether to open the dialog. */
+export function qualityProfilesListQuery(fetcher: Fetcher) {
+  return queryOptions({
+    queryKey: queryKeys.qualityProfiles.list(),
+    queryFn: () =>
+      fetcher<QualityProfilesListResponse>(QUALITY_PROFILES_ENDPOINTS.LIST),
+  });
+}
+
 export function useQualityProfilesList(options?: {
   staleTime?: number;
   gcTime?: number;
   enabled?: boolean;
 }) {
   const fetcher = useFetcher();
-  return useQuery({
-    queryKey: queryKeys.qualityProfiles.list(),
-    queryFn: () =>
-      fetcher<QualityProfilesListResponse>(QUALITY_PROFILES_ENDPOINTS.LIST),
-    ...options,
-  });
+  return useQuery({ ...qualityProfilesListQuery(fetcher), ...options });
 }
 
 export type QualityProfileFormPayload = {

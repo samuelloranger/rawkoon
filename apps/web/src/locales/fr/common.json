@@ -3565,5 +3565,88 @@
     "addFailedCount_other": "{{count}} titres n'ont pas pu être ajoutés",
     "add": "Ajouter",
     "switchedToManual": "Étagère passée en ordre manuel, pour garder ton arrangement."
+  },
+  "addDialog": {
+    "title": "Ajouter {{title}}",
+    "requestTitle": "Demander {{title}}",
+    "quality": "Qualité",
+    "seasons": "Saisons",
+    "format": "Format",
+    "formats": {
+      "ebook": "Livre numérique",
+      "audiobook": "Livre audio",
+      "both": "Les deux"
+    },
+    "noBookProfile": "Aucun profil de qualité ne correspond à ce format. Le profil par défaut sera utilisé.",
+    "modes": {
+      "all": "Toutes les saisons",
+      "future": "Épisodes à venir seulement",
+      "latest": "Dernière saison",
+      "pick": "Choisir les saisons"
+    },
+    "newSeasons": "Récupérer les nouvelles saisons à leur diffusion",
+    "newSeasonsHint": "Les saisons qui commencent plus tard sont ajoutées et recherchées dès leur diffusion.",
+    "newSeasonsHintNext": "La saison {{n}} et les suivantes sont ajoutées et recherchées dès leur début.",
+    "searchNow": "Chercher des versions maintenant",
+    "searchNowHint": "Désactivé, le titre est ajouté comme recherché; la prochaine vérification planifiée s’en occupe.",
+    "add": "Ajouter à la bibliothèque",
+    "adding": "Ajout…",
+    "addShort": "Ajouter",
+    "cancel": "Annuler",
+    "skip": "Passer",
+    "apply": "Appliquer",
+    "loadingSeasons": "Chargement des saisons…",
+    "seasonLabel": "Saison {{n}}",
+    "soon": "Bientôt",
+    "today": "Aujourd’hui",
+    "seasonCount_one": "{{count}} saison",
+    "seasonCount_other": "{{count}} saisons",
+    "announcedSeason": "Saison {{n}} annoncée",
+    "requestAll": "Demander toutes les saisons",
+    "requestFuture": "Demander les nouveaux épisodes",
+    "requestLatest": "Demander la saison {{season}}",
+    "requestPick_one": "Demander {{count}} saison",
+    "requestPick_other": "Demander {{count}} saisons",
+    "pickASeason": "Choisissez une saison",
+    "requestNote": "Un administrateur l’approuve avant tout téléchargement.",
+    "changeSeasons": "Modifier les saisons",
+    "bookAddFailed": "Impossible d’ajouter ce livre",
+    "summary": {
+      "nothing": "Rien de sélectionné. Choisissez au moins une saison.",
+      "gets": "Récupère",
+      "episodes_one": "{{count}} épisode",
+      "episodes_other": "{{count}} épisodes",
+      "fromSeason": "de la saison {{list}}",
+      "fromSeasons": "des saisons {{list}}",
+      "getsNothing": "Ne récupère rien de déjà diffusé",
+      "plus": ", plus les",
+      "newSeasons": "nouvelles saisons",
+      "asTheyAir": "dès leur diffusion."
+    },
+    "chip": {
+      "all": "Toutes les saisons{{plus}}",
+      "future": "Épisodes à venir seulement",
+      "latest": "Saison {{n}}",
+      "pick_one": "{{count}} saison",
+      "pick_other": "{{count}} saisons",
+      "plusNew": " + nouvelles"
+    },
+    "manage": {
+      "title": "Saisons à récupérer",
+      "save": "Enregistrer",
+      "reset": "Réinitialiser",
+      "saved": "Saisons mises à jour",
+      "saveFailed": "Impossible de mettre à jour les saisons"
+    },
+    "settings": {
+      "title": "Lors de l’ajout de titres",
+      "ask": "Demander avant d’ajouter",
+      "askHint": "Les administrateurs choisissent la qualité et les saisons à chaque fois. Désactivé, les titres sont ajoutés tout de suite avec les valeurs par défaut ci-dessous.",
+      "requesters": "Laisser les demandeurs choisir les saisons",
+      "requestersHint": "Désactivé, une demande de série couvre toutes les saisons.",
+      "defaultSeasons": "Saisons par défaut",
+      "defaultSeasonsHint": "Utilisées pour les nouvelles séries quand personne ne choisit.",
+      "newSeasonsHint": "La valeur de départ pour chaque nouvelle série."
+    }
   }
 }

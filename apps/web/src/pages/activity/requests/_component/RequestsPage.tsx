@@ -6,6 +6,8 @@ import type { MediaRequest, MediaRequestStatus } from "@rawkoon/shared/types";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/lib/auth/useAuth";
+import { RequestSeasonsEditor } from "@/features/add/RequestSeasonsEditor";
+import { choiceToBody, type SeasonChoice } from "@/features/add/seasonPlan";
 import { useQualityProfilesList } from "@/pages/settings/useQualityProfiles";
 import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import {
@@ -152,6 +154,10 @@ function RequestRow({
   const approve = useApproveRequest();
   const deny = useDenyRequest();
   const [profileId, setProfileId] = useState<number | "">("");
+  // Set only when the admin changes the requester's seasons; otherwise the server uses theirs.
+  const [seasonOverride, setSeasonOverride] = useState<SeasonChoice | null>(
+    null,
+  );
 
   const profiles = isBook
     ? (bookProfilesData?.profiles ?? [])
@@ -198,6 +204,14 @@ function RequestRow({
             {t("requests.requestedBy", { name: request.requested_by.name })}
           </p>
         ) : null}
+        {request.type === "show" && (
+          <RequestSeasonsEditor
+            request={request}
+            override={seasonOverride}
+            onChange={setSeasonOverride}
+            editable={canApprove}
+          />
+        )}
       </div>
 
       {canApprove ? (
@@ -223,7 +237,11 @@ function RequestRow({
             type="button"
             onClick={() =>
               profileId !== "" &&
-              approve.mutate({ id: request.id, quality_profile_id: profileId })
+              approve.mutate({
+                id: request.id,
+                quality_profile_id: profileId,
+                ...(seasonOverride ? choiceToBody(seasonOverride) : {}),
+              })
             }
             disabled={profileId === "" || approve.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-neutral-950 transition-[background-color] hover:bg-primary-500 active:bg-primary-700 disabled:opacity-50"

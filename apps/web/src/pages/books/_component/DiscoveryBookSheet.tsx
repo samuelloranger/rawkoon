@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BookOpen, ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "@tanstack/react-router";
@@ -5,7 +6,7 @@ import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 import { providerHtmlParagraphs } from "@rawkoon/shared";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/lib/auth/useAuth";
-import { useAddDiscoveryBook } from "../_hooks/useBookDiscovery";
+import { useAddFlow } from "@/features/add/useAddFlow";
 import { BookRequestAction } from "./BookRequestAction";
 
 /** External-link label from the product URL's host. */
@@ -31,7 +32,9 @@ export function DiscoveryBookSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation("common");
-  const addBook = useAddDiscoveryBook();
+  const { addBook } = useAddFlow();
+  const [added, setAdded] = useState(false);
+  const [adding, setAdding] = useState(false);
   const me = useCurrentUser().data;
   const isAdmin = me?.is_admin ?? false;
   const paragraphs = providerHtmlParagraphs(book.overview);
@@ -116,17 +119,29 @@ export function DiscoveryBookSheet({
             ) : null
           ) : book.isbn13 ? (
             <Button
-              disabled={addBook.isPending || addBook.isSuccess}
-              onClick={() => addBook.mutate(book)}
+              disabled={adding || added}
+              onClick={() => {
+                setAdding(true);
+                void addBook(
+                  { kind: "discovery", book },
+                  {
+                    title: book.title,
+                    author: book.author,
+                    coverUrl: book.coverUrl,
+                    year: book.publishedYear,
+                  },
+                ).then((ok) => {
+                  setAdding(false);
+                  setAdded(ok);
+                });
+              }}
             >
-              {addBook.isPending ? (
+              {adding ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="mr-1.5 h-4 w-4" />
               )}
-              {addBook.isSuccess
-                ? t("books.explore.added")
-                : t("books.explore.add")}
+              {added ? t("books.explore.added") : t("books.explore.add")}
             </Button>
           ) : null}
 
