@@ -258,6 +258,17 @@ describe("PATCH /api/library/:id/monitored-seasons", () => {
     });
   });
 
+  it("saves only the new-season flag when season_mode is absent", async () => {
+    const res = await patch(libraryMetaRoutes, "/5/monitored-seasons", {
+      monitor_new_seasons: false,
+    });
+    expect(res.status).toBe(200);
+    expect(episodeUpdates).toHaveLength(0);
+    expect(mediaUpdates[0]).toMatchObject({
+      data: { monitorNewSeasons: false },
+    });
+  });
+
   it("rejects pick without seasons and a movie", async () => {
     const bad = await patch(libraryMetaRoutes, "/5/monitored-seasons", {
       season_mode: "pick",
