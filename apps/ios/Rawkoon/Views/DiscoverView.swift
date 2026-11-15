@@ -273,6 +273,8 @@ struct DiscoverView: View {
         Task {
             do {
                 try await model.addDiscoverPick(item)
+            } catch is CancellationError {
+                return
             } catch let error as APIError {
                 model.toast(message(for: error), style: .error)
             } catch {

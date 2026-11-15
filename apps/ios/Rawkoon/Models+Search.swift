@@ -25,6 +25,9 @@ nonisolated struct MediaRequest: Decodable, Identifiable, Sendable {
     let libraryBookId: Int?
     let denyReason: String?
     let createdAt: String
+    /// A show's requested season mode; nil means every season, and an older server omits it.
+    let seasonMode: String?
+    let seasons: [Int]?
 }
 
 nonisolated struct RequestedBy: Decodable, Sendable {
@@ -47,6 +50,9 @@ nonisolated struct CreateRequestBody: Encodable, Sendable {
     let googleVolumeId: String?
     /// Book requests only.
     let author: String?
+    /// Show requests only; nil asks for every season.
+    var seasonMode: String?
+    var seasons: [Int]?
 }
 
 // MARK: - Interactive release search + grab

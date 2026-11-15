@@ -25,6 +25,8 @@ const base: MediaRequest = {
   author: "Auteur",
   poster_url: null,
   year: 2026,
+  season_mode: null,
+  seasons: [],
   status: "pending",
   requested_by: { id: "m", name: "Marie" },
   quality_profile_id: null,
@@ -94,6 +96,44 @@ describe("RequestsPage book rows", () => {
     renderWithProviders(<RequestsPage />);
     expect(screen.queryByText("requests.approve")).not.toBeInTheDocument();
     expect(screen.getByText("requests.status.pending")).toBeInTheDocument();
+  });
+});
+
+describe("RequestsPage show rows", () => {
+  const show = {
+    ...base,
+    type: "show" as const,
+    tmdb_id: 7,
+    season_mode: "pick" as const,
+    seasons: [5],
+  };
+
+  beforeEach(() => {
+    auth.isAdmin = true;
+    approve.mockClear();
+    rows.list = [show];
+  });
+
+  it("shows the requested seasons as pills and lets an admin change them", () => {
+    renderWithProviders(<RequestsPage />);
+    expect(screen.getByText("addDialog.seasonLabel n:5")).toBeInTheDocument();
+    expect(screen.getByText("addDialog.changeSeasons")).toBeInTheDocument();
+  });
+
+  it("approves with the requester's seasons when the admin changes nothing", () => {
+    renderWithProviders(<RequestsPage />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "5" } });
+    fireEvent.click(screen.getByText("requests.approve"));
+    expect(approve).toHaveBeenCalledWith({ id: 1, quality_profile_id: 5 });
+  });
+
+  it("shows a member the pills without the change control", () => {
+    auth.isAdmin = false;
+    renderWithProviders(<RequestsPage />);
+    expect(screen.getByText("addDialog.seasonLabel n:5")).toBeInTheDocument();
+    expect(
+      screen.queryByText("addDialog.changeSeasons"),
+    ).not.toBeInTheDocument();
   });
 });
 

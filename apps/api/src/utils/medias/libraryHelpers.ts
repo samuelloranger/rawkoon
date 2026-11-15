@@ -91,6 +91,26 @@ export async function upsertLibraryShowEpisodesFromTmdb(opts: {
   };
   const { mediaId, tmdbShowId, apiKey } = opts;
 
+  // A season the show lacks starts as monitorNewSeasons says; more episodes of a known season follow it.
+  const [media, known] = await Promise.all([
+    prisma.libraryMedia.findUnique({
+      where: { id: mediaId },
+      select: { monitorNewSeasons: true },
+    }),
+    prisma.libraryEpisode.findMany({
+      where: { mediaId },
+      select: { season: true, monitored: true },
+    }),
+  ]);
+  const monitorNewSeasons = media?.monitorNewSeasons ?? true;
+  const seasonMonitored = new Map<number, boolean>();
+  for (const e of known) {
+    seasonMonitored.set(
+      e.season,
+      (seasonMonitored.get(e.season) ?? false) || e.monitored,
+    );
+  }
+
   const details = await tmdbApiFetch<{
     seasons: Array<{ season_number: number; episode_count: number }>;
   }>(`tv/${tmdbShowId}`, apiKey, lang);
@@ -124,6 +144,8 @@ export async function upsertLibraryShowEpisodesFromTmdb(opts: {
             title: ep.name || null,
             airDate: ep.air_date ? new Date(ep.air_date) : null,
             tmdbEpisodeId: ep.id,
+            monitored:
+              seasonMonitored.get(s.season_number) ?? monitorNewSeasons,
           },
           update: {
             title: ep.name || null,

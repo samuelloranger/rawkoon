@@ -54,6 +54,7 @@ export function mapLibraryMedia(
     status: string;
     tmdbStatus: string | null;
     monitored: boolean;
+    monitorNewSeasons?: boolean;
     posterUrl: string | null;
     overview: string | null;
     overrides?: unknown;
@@ -176,6 +177,9 @@ export function mapLibraryMedia(
     episode_count: episodeCount,
     downloaded_episode_count: downloadedEpisodeCount,
     season_count: seasonCount,
+    ...(item.type === "show" && item.monitorNewSeasons !== undefined
+      ? { monitor_new_seasons: item.monitorNewSeasons }
+      : {}),
   };
 }
 

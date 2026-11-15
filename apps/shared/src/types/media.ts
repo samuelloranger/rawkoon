@@ -326,6 +326,8 @@ export interface TmdbSeasonSummary {
   /** Display name from TMDB (e.g. "Season 1", "Specials"). */
   name: string;
   episode_count: number | null;
+  /** First air date of the season (YYYY-MM-DD), null when TMDB has none. */
+  air_date: string | null;
 }
 
 export interface TitleTranslation {

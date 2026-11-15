@@ -90,8 +90,15 @@ extension APIClient {
     }
 
     /// The search fields are absent for a book request and on an older server.
-    func approveRequest(id: Int, qualityProfileId: Int) async throws -> ApproveRequestResult {
-        try await post("/api/requests/\(id)/approve", body: ApproveRequestBody(qualityProfileId: qualityProfileId))
+    func approveRequest(
+        id: Int, qualityProfileId: Int, seasons: SeasonChoice? = nil
+    ) async throws -> ApproveRequestResult {
+        try await post("/api/requests/\(id)/approve", body: ApproveRequestBody(
+            qualityProfileId: qualityProfileId,
+            seasonMode: seasons?.mode.rawValue,
+            seasons: seasons?.seasonsPayload,
+            monitorNewSeasons: seasons?.monitorNew
+        ))
     }
 
     func denyRequest(id: Int, reason: String?) async throws {

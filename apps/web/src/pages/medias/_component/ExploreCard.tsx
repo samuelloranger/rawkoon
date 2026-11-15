@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { useAddFlow } from "@/features/add/useAddFlow";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import { useAddTitle } from "@/features/medias/hooks/useAddTitle";
 import { useFetcher } from "@/lib/api/context";
 import { queryKeys } from "@/lib/queryKeys";
@@ -10,7 +12,7 @@ import type {
   TmdbMediaSearchItem,
 } from "@rawkoon/shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Check, Film } from "lucide-react";
+import { Plus, Check, Film, Send } from "lucide-react";
 import { ExploreCardDetailDialog } from "@/pages/medias/_component/ExploreCardDetailDialog";
 
 export function ExploreCard({
@@ -25,6 +27,10 @@ export function ExploreCard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
   const { addTitle, isAdding } = useAddTitle();
+  const { request } = useAddFlow();
+  const isAdmin = useCurrentUser().data?.is_admin === true;
+  const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const queryClient = useQueryClient();
   const fetcher = useFetcher();
 
@@ -63,11 +69,24 @@ export function ExploreCard({
     setDetailOpen(true);
   }, [navigate, navigateToLibraryItem, libraryRowId]);
 
-  // Same add as everywhere else, so search-on-add and the live toast apply here too.
+  // Admins add (dialog or instant); everyone else requests, since adding 403s for them.
   const handleAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (item.already_exists) return;
-    await addTitle(item);
+    if (isAdmin) {
+      await addTitle(item);
+      return;
+    }
+    setRequesting(true);
+    const sent = await request({
+      tmdb_id: item.tmdb_id,
+      type: item.media_type === "tv" ? "show" : "movie",
+      title: item.title,
+      poster_url: item.poster_url,
+      year: item.release_year,
+    });
+    setRequesting(false);
+    setRequested(sent);
   };
 
   const showImage = Boolean(item.poster_url) && !imgError;
@@ -131,14 +150,18 @@ export function ExploreCard({
           <button
             type="button"
             onClick={handleAdd}
-            disabled={isAdding}
-            aria-label={`Add ${item.title}`}
+            disabled={isAdding || requesting || requested}
+            aria-label={`${isAdmin ? "Add" : "Request"} ${item.title}`}
             className="absolute top-2 right-2 z-20 flex size-6 items-center justify-center rounded-full bg-primary-500 opacity-0 ring-1 ring-black/30 transition-opacity duration-200 group-hover:opacity-100 hover:bg-primary-400 disabled:opacity-40"
           >
             {isAdding ? (
               <div className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-neutral-950 border-t-transparent" />
-            ) : (
+            ) : requested ? (
+              <Check size={9} strokeWidth={3} className="text-neutral-950" />
+            ) : isAdmin ? (
               <Plus size={9} strokeWidth={3} className="text-neutral-950" />
+            ) : (
+              <Send size={9} strokeWidth={3} className="text-neutral-950" />
             )}
           </button>
         )}

@@ -246,6 +246,8 @@ nonisolated struct SeasonSummary: Decodable, Hashable, Sendable {
     let seasonNumber: Int
     let name: String
     let episodeCount: Int?
+    /// `yyyy-MM-dd`; absent on an older server or an unannounced season.
+    let airDate: String?
 }
 
 // MARK: - Quick search (library)

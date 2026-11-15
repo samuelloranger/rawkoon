@@ -493,6 +493,8 @@ model LibraryMedia {
   tmdbStatus            String?   @map("tmdb_status")
   tmdbStatusRefreshedAt DateTime? @map("tmdb_status_refreshed_at")
   monitored             Boolean   @default(true)
+  /// Shows only: episodes of a season the show did not have before are created monitored when true.
+  monitorNewSeasons     Boolean   @default(true) @map("monitor_new_seasons")
   posterUrl             String?   @map("poster_url")
   overview              String?
   overrides             Json?     @map("overrides")
@@ -802,6 +804,13 @@ model MediaSettings {
   defaultShowQualityProfileId  Int? @map("default_show_quality_profile_id")
   /// Server-wide: a newly added movie or show is searched right away instead of waiting for the scheduled check.
   searchOnAdd             Boolean  @default(true) @map("search_on_add")
+  /// Admins get the add dialog (profile + seasons) instead of an instant add.
+  askBeforeAdding         Boolean  @default(true) @map("ask_before_adding")
+  /// Non-admins may pick seasons when requesting a show.
+  requestersChooseSeasons Boolean  @default(true) @map("requesters_choose_seasons")
+  /// "all" | "future" | "latest": the season mode when the dialog is skipped or prefilled.
+  defaultSeasonMode       String   @default("all") @map("default_season_mode")
+  defaultMonitorNewSeasons Boolean @default(true) @map("default_monitor_new_seasons")
   /// Cron for the scheduled movie and episode release checks.
   releaseCheckCron        String   @default("0 */6 * * *") @map("release_check_cron")
   /// Minutes between indexer RSS polls; one of RSS_POLL_INTERVAL_MINUTES.
@@ -956,6 +965,10 @@ model MediaRequest {
   author           String?
   posterUrl        String?            @map("poster_url")
   year             Int?
+  /// Show requests only: "all" | "future" | "latest" | "pick"; null = all.
+  seasonMode       String?            @map("season_mode")
+  /// Show requests only: the seasons asked for when seasonMode is "pick".
+  seasons          Int[]              @default([]) @map("seasons")
   requestedById    String             @map("requested_by_id")
   requestedBy      User               @relation("MediaRequestRequester", fields: [requestedById], references: [id], onDelete: Cascade)
   status           MediaRequestStatus @default(pending)

@@ -17922,6 +17922,326 @@
           }
         }
       }
+    },
+    "Change this later from the show's page.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifiable plus tard depuis la page de la série."
+          }
+        }
+      }
+    },
+    "Opens all the options.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvre toutes les options."
+          }
+        }
+      }
+    },
+    "All seasons + new": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les saisons + nouvelles"
+          }
+        }
+      }
+    },
+    "All seasons": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toutes les saisons"
+          }
+        }
+      }
+    },
+    "New episodes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveaux épisodes"
+          }
+        }
+      }
+    },
+    "Latest season": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière saison"
+          }
+        }
+      }
+    },
+    "Manage seasons": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gérer les saisons"
+          }
+        }
+      }
+    },
+    "Couldn't update the seasons.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour les saisons."
+          }
+        }
+      }
+    },
+    "Future": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À venir"
+          }
+        }
+      }
+    },
+    "Latest": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière"
+          }
+        }
+      }
+    },
+    "Pick": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir"
+          }
+        }
+      }
+    },
+    "Season details aren't available yet.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les détails des saisons ne sont pas encore disponibles."
+          }
+        }
+      }
+    },
+    "Gets new episodes only, as they air.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupère seulement les nouveaux épisodes à leur diffusion."
+          }
+        }
+      }
+    },
+    "Gets new seasons as they air.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupère les nouvelles saisons à leur diffusion."
+          }
+        }
+      }
+    },
+    ", plus new seasons as they air.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", plus les nouvelles saisons à leur diffusion."
+          }
+        }
+      }
+    },
+    "Seasons updated.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisons mises à jour."
+          }
+        }
+      }
+    },
+    "Gets %lld episodes from seasons %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupère %lld épisodes des saisons %@"
+          }
+        }
+      }
+    },
+    "Season %lld, %lld episodes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saison %lld, %lld épisodes"
+          }
+        }
+      }
+    },
+    "Season %lld announced": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saison %lld annoncée"
+          }
+        }
+      }
+    },
+    "Request season %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander la saison %lld"
+          }
+        }
+      }
+    },
+    "Request %lld seasons": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander %lld saisons"
+          }
+        }
+      }
+    },
+    "Request new episodes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander les nouveaux épisodes"
+          }
+        }
+      }
+    },
+    "Request latest season": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander la dernière saison"
+          }
+        }
+      }
+    },
+    "Add show": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter la série"
+          }
+        }
+      }
+    },
+    "Add movie": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter le film"
+          }
+        }
+      }
+    },
+    "Add book": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter le livre"
+          }
+        }
+      }
+    },
+    "Request show": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander la série"
+          }
+        }
+      }
+    },
+    "Up to %lldp": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jusqu'à %lldp"
+          }
+        }
+      }
+    },
+    "Format": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format"
+          }
+        }
+      }
+    },
+    "New seasons as they air": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouvelles saisons à leur diffusion"
+          }
+        }
+      }
+    },
+    "Soon": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bientôt"
+          }
+        }
+      }
+    },
+    "Gets %lld episodes from season %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupère %lld épisodes de la saison %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

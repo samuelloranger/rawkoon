@@ -24,6 +24,10 @@ const addBody = z.object({
   overview: z.string().nullish(),
   cover_url: z.string().nullish(),
   published_year: z.number().nullish(),
+  kinds: z
+    .array(z.union([z.literal("ebook"), z.literal("audiobook")]))
+    .optional(),
+  book_quality_profile_id: z.coerce.number().nullable().optional(),
 });
 
 /**
@@ -55,11 +59,14 @@ export const bookDiscoveryRoutes = new Hono<Env>()
   // so a francophone-Québec title Google does not index is still addable.
   .post("/discovery/add", requireAdmin, jsonV(addBody), async (c) => {
     const b = c.req.valid("json");
+    const kinds = b.kinds && b.kinds.length > 0 ? b.kinds : ["ebook" as const];
+    const bookQualityProfileId = b.book_quality_profile_id;
     const outcome = b.volume_id
       ? await addBookFromVolume({
           volumeId: b.volume_id,
           isbn13: b.isbn13 ?? null,
-          kinds: ["ebook"],
+          kinds,
+          bookQualityProfileId,
         })
       : b.isbn13
         ? await addBookFromMetadata({
@@ -69,7 +76,8 @@ export const bookDiscoveryRoutes = new Hono<Env>()
             overview: b.overview ?? null,
             coverUrl: b.cover_url ?? null,
             publishedYear: b.published_year ?? null,
-            kinds: ["ebook"],
+            kinds,
+            bookQualityProfileId,
           })
         : { added: false as const, reason: "isbn13 or volume_id is required" };
 

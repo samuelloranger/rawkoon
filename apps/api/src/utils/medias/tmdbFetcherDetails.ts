@@ -157,7 +157,12 @@ function parseTvFields(data: Record<string, unknown>): TvFields {
             : `Season ${season_number}`;
       const ep = r.episode_count;
       const episode_count = typeof ep === "number" && ep >= 0 ? ep : null;
-      seasons.push({ season_number, name, episode_count });
+      seasons.push({
+        season_number,
+        name,
+        episode_count,
+        air_date: parseYmd(r.air_date),
+      });
     }
     seasons.sort((a, b) => a.season_number - b.season_number);
   }

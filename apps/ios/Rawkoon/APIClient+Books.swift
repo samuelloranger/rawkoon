@@ -329,9 +329,16 @@ extension APIClient {
         try await get("/api/books/search", query: ["q": q])
     }
 
-    func addBook(googleVolumeId: String) async throws {
-        nonisolated struct Body: Encodable { let googleVolumeId: String }
-        try await postExpectOK("/api/books", body: Body(googleVolumeId: googleVolumeId))
+    /// `choice` carries the add sheet's format and book profile; nil keeps the server defaults.
+    func addBook(googleVolumeId: String, choice: AddChoice? = nil) async throws {
+        nonisolated struct Body: Encodable {
+            let googleVolumeId: String
+            let kinds: [String]?
+            let bookQualityProfileId: Int?
+        }
+        try await postExpectOK("/api/books", body: Body(
+            googleVolumeId: googleVolumeId, kinds: choice?.bookKinds, bookQualityProfileId: choice?.bookProfileId
+        ))
     }
 
     /// Book discovery (Explore): configured sources and a ranked list.
@@ -345,8 +352,10 @@ extension APIClient {
 
     /// Add a discovered book. Sends scraped metadata so a title Google Books does
     /// not index is still created; the server prefers a Google volume when present.
-    func addDiscoveryBook(_ book: BookDiscoveryBook) async throws {
+    func addDiscoveryBook(_ book: BookDiscoveryBook, choice: AddChoice? = nil) async throws {
         nonisolated struct Body: Encodable {
+            let kinds: [String]?
+            let bookQualityProfileId: Int?
             let volumeId: String?
             let isbn13: String?
             let title: String
@@ -358,6 +367,8 @@ extension APIClient {
         try await postExpectOK(
             "/api/books/discovery/add",
             body: Body(
+                kinds: choice?.bookKinds,
+                bookQualityProfileId: choice?.bookProfileId,
                 volumeId: book.volumeId,
                 isbn13: book.isbn13,
                 title: book.title,

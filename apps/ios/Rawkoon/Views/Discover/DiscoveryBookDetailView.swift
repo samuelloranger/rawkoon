@@ -233,10 +233,15 @@ struct DiscoveryBookDetailView: View {
         adding = true
         defer { adding = false }
         do {
-            try await client.addDiscoveryBook(book)
+            let choice = try await model.chooseAdd(AddSubject(
+                bookTitle: book.title, author: book.author, year: book.publishedYear, coverUrl: book.coverUrl
+            ))
+            try await client.addDiscoveryBook(book, choice: choice)
             added = true
             model.toast(String(localized: "Added to library."), style: .success)
             model.requestPushAuthorization()
+        } catch is CancellationError {
+            return
         } catch {
             model.toast(settingsErrorMessage(error), style: .error)
         }

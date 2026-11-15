@@ -21,6 +21,10 @@ export type MediaSettingsUpdate = {
   defaultMovieQualityProfileId?: number | null;
   defaultShowQualityProfileId?: number | null;
   searchOnAdd?: boolean;
+  askBeforeAdding?: boolean;
+  requestersChooseSeasons?: boolean;
+  defaultSeasonMode?: string;
+  defaultMonitorNewSeasons?: boolean;
   releaseCheckCron?: string;
   rssPollIntervalMinutes?: number;
   activeIndexerManager?: string | null;

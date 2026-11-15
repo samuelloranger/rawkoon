@@ -83,6 +83,9 @@ nonisolated struct PostProcessingSettingsDTO: Decodable, Sendable {
     let postProcessingEnabled: Bool?
     let defaultMovieQualityProfileId: Int?
     let defaultShowQualityProfileId: Int?
+    let defaultSeasonMode: String?
+    let defaultMonitorNewSeasons: Bool?
+    let searchOnAdd: Bool?
     let activeIndexerManager: String?
     let booksLibraryPath: String?
     let audiobooksLibraryPath: String?
@@ -317,6 +320,10 @@ nonisolated struct UpdateDefaultProfilesBody: Encodable, Sendable {
 
 nonisolated struct ApproveRequestBody: Encodable, Sendable {
     let qualityProfileId: Int
+    /// Show requests only; all nil keeps what the requester chose.
+    var seasonMode: String?
+    var seasons: [Int]?
+    var monitorNewSeasons: Bool?
 }
 
 nonisolated struct DenyRequestBody: Encodable, Sendable {

@@ -5,6 +5,12 @@ import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
+import { qualityProfileExists } from "@rawkoon/api/services/library/libraryMetaMutations";
+import {
+  resolveSeasonChoiceWithSettings,
+  seasonModeSchema,
+  type ResolvedSeasonChoice,
+} from "@rawkoon/api/services/library/seasonMonitoring";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { deleteCache } from "@rawkoon/api/services/cache";
 import { deleteLibraryItem } from "@rawkoon/api/services/library/deleteLibraryItem";
@@ -123,15 +129,43 @@ export const libraryListRoutes = new Hono<Env>()
         tmdb_id: z.number(),
         type: z.union([z.literal("movie"), z.literal("show")]),
         search_on_add: z.boolean().optional(),
+        quality_profile_id: z.number().int().optional(),
+        season_mode: seasonModeSchema.optional(),
+        seasons: z.array(z.number().int().positive()).optional(),
+        monitor_new_seasons: z.boolean().optional(),
       }),
     ),
     async (c) => {
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const { tmdb_id, type, search_on_add } = c.req.valid("json");
+        const body = c.req.valid("json");
+        const { tmdb_id, type, search_on_add } = body;
         if (type !== "movie" && type !== "show") {
           return badRequest("type must be 'movie' or 'show'");
+        }
+        if (
+          type === "movie" &&
+          (body.season_mode !== undefined ||
+            body.seasons !== undefined ||
+            body.monitor_new_seasons !== undefined)
+        ) {
+          return badRequest("Season options are only valid for shows");
+        }
+        if (body.quality_profile_id !== undefined) {
+          if (!(await qualityProfileExists(body.quality_profile_id))) {
+            return badRequest("Quality profile not found");
+          }
+        }
+        let seasonChoice: ResolvedSeasonChoice | undefined;
+        if (type === "show") {
+          const resolved = await resolveSeasonChoiceWithSettings({
+            seasonMode: body.season_mode,
+            seasons: body.seasons,
+            monitorNewSeasons: body.monitor_new_seasons,
+          });
+          if ("error" in resolved) return badRequest(resolved.error);
+          seasonChoice = resolved;
         }
         try {
           const region = await getGlobalTmdbRegion();
@@ -139,6 +173,10 @@ export const libraryListRoutes = new Hono<Env>()
             tmdb_id,
             type,
             region,
+            seasonChoice,
+            ...(body.quality_profile_id !== undefined
+              ? { qualityProfileId: body.quality_profile_id }
+              : {}),
           });
           await invalidateUpcomingCache(region);
           const search = await queueSearchOnAdd(item, search_on_add);

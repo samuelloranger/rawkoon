@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import type {
   DashboardHeroItem,
   DashboardJellyfinNowPlayingItem,
-  AddToLibraryResponse,
   DashboardHeroSource,
   TmdbMediaSearchItem,
 } from "@rawkoon/shared/types";
@@ -14,11 +12,9 @@ import {
   AddOnlyMenu,
   AddSearchCaption,
 } from "@/features/medias/components/AddSearchControls";
-import { useAddToLibrary } from "@/features/medias/hooks/useAddToLibrary";
+import { useAddFlow } from "@/features/add/useAddFlow";
 import { useSearchOnAddEnabled } from "@/features/medias/hooks/useSearchOnAddEnabled";
-import { useLiveSearchToast } from "@/features/medias/hooks/useLiveSearchToast";
 import { useCurrentUser } from "@/lib/auth/useAuth";
-import { useCreateRequest } from "@/pages/activity/requests/_hooks/useRequests";
 import { formatRelativeTime } from "@/lib/utils/relativeTime";
 import { ExploreCardDetailDialog } from "@/pages/medias/_component/ExploreCardDetailDialog";
 import { GreetingCard } from "@/pages/_component/GreetingCard";
@@ -165,10 +161,9 @@ function HeroCarousel({
   const paused = hovered || focused;
   const [detail, setDetail] = useState<TmdbMediaSearchItem | null>(null);
   const [added, setAdded] = useState<Set<number>>(() => new Set());
-  const addToLibrary = useAddToLibrary();
+  const { add, request, isAdding } = useAddFlow();
+  const [busy, setBusy] = useState(false);
   const searchOnAddEnabled = useSearchOnAddEnabled();
-  const liveSearchToast = useLiveSearchToast();
-  const createRequest = useCreateRequest();
   const { data: user } = useCurrentUser();
 
   // Someone watching right now goes first, ahead of arrivals and deck picks.
@@ -219,44 +214,32 @@ function HeroCarousel({
       ].filter((part) => part != null && part !== "")
     : [];
 
-  const onAdd = (searchOnAdd?: boolean) => {
-    if (!item) return;
+  const onAdd = async (searchOnAdd?: boolean) => {
+    if (!item || busy) return;
+    setBusy(true);
     const tmdbId = item.tmdb_id;
-    const type = item.media_type === "tv" ? "show" : "movie";
-    const callbacks = {
-      onSuccess: () => setAdded((prev) => new Set(prev).add(tmdbId)),
-      onError: () =>
-        toast.error(t("dashboard.hero.addFailed", { title: item.title })),
-    };
-    const addCallbacks = {
-      ...callbacks,
-      onSuccess: (response: AddToLibraryResponse) => {
-        callbacks.onSuccess();
-        liveSearchToast.announceAdd(response, item.title);
-      },
-    };
     // Adding to the library is admin-only; everyone else files a request, as on iOS.
-    if (user?.is_admin) {
-      addToLibrary.mutate(
-        {
+    const done = user?.is_admin
+      ? await add(
+          {
+            tmdb_id: tmdbId,
+            media_type: item.media_type,
+            title: item.title,
+            can_add: true,
+            poster_url: item.poster_url,
+            release_year: item.year,
+          },
+          { compact: true, ...(searchOnAdd === false ? { searchOnAdd } : {}) },
+        )
+      : await request({
           tmdb_id: tmdbId,
-          type,
-          ...(searchOnAdd === false ? { search_on_add: false } : {}),
-        },
-        addCallbacks,
-      );
-    } else {
-      createRequest.mutate(
-        {
-          tmdb_id: tmdbId,
-          type,
+          type: item.media_type === "tv" ? "show" : "movie",
           title: item.title,
           poster_url: item.poster_url,
           year: item.year,
-        },
-        callbacks,
-      );
-    }
+        });
+    setBusy(false);
+    if (done) setAdded((prev) => new Set(prev).add(tmdbId));
   };
 
   return (
@@ -342,9 +325,7 @@ function HeroCarousel({
                         <button
                           type="button"
                           onClick={() => onAdd()}
-                          disabled={
-                            addToLibrary.isPending || createRequest.isPending
-                          }
+                          disabled={isAdding || busy}
                           className={`${buttonBase} bg-primary-500 text-neutral-950 hover:bg-primary-400 disabled:opacity-60 ${showSearchHint ? "rounded-r-none pr-4" : ""}`}
                         >
                           {t("dashboard.hero.add")}
@@ -352,7 +333,7 @@ function HeroCarousel({
                         {showSearchHint && (
                           <AddOnlyMenu
                             onAddOnly={() => onAdd(false)}
-                            disabled={addToLibrary.isPending}
+                            disabled={isAdding || busy}
                             className="h-10 rounded-r-full border-l border-white/25 bg-primary-500 px-2.5 text-neutral-950 hover:bg-primary-400"
                           />
                         )}

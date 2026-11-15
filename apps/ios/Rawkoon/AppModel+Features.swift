@@ -5,10 +5,16 @@ extension AppModel {
     func refreshBooksEnabled() async {
         guard let client = api() else { return }
         if let cached = client.cached(Endpoints.systemFeatures) {
-            booksEnabled = cached.value.booksEnabled
+            apply(cached.value)
         }
         if let features = try? await client.systemFeatures() {
-            booksEnabled = features.booksEnabled
+            apply(features)
         }
+    }
+
+    private func apply(_ features: SystemFeatures) {
+        booksEnabled = features.booksEnabled
+        askBeforeAdding = features.askBeforeAdding ?? false
+        requestersChooseSeasons = features.requestersChooseSeasons ?? false
     }
 }

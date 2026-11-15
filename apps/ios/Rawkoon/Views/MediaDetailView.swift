@@ -9,6 +9,7 @@ enum MediaDetailSheet: Identifiable {
     case release
     case menuRelease(ReleaseSearchPresentation)
     case addToShelf(LibraryMedia)
+    case manageSeasons(LibraryMedia)
 
     var id: String {
         switch self {
@@ -18,6 +19,7 @@ enum MediaDetailSheet: Identifiable {
         case .release: "release"
         case let .menuRelease(target): "menu-\(target.id)"
         case let .addToShelf(item): "add-to-shelf-\(item.id)"
+        case let .manageSeasons(item): "manage-seasons-\(item.id)"
         }
     }
 }
@@ -122,6 +124,7 @@ struct MediaDetailView: View {
     @State var showingOverridesEditor = false
     @State var showingArtworkPicker = false
     @State var showingAddToShelf = false
+    @State var showingManageSeasons = false
     @State var detailTab: DetailTab = .info
 
     /// The detail page's own sections, shown in an in-content segmented control
@@ -296,6 +299,9 @@ struct MediaDetailView: View {
         if showingAddToShelf, let item = managementItem {
             return .addToShelf(item)
         }
+        if showingManageSeasons, let item = managementItem {
+            return .manageSeasons(item)
+        }
         if let reencodeTarget {
             return .reencode(reencodeTarget)
         }
@@ -317,6 +323,7 @@ struct MediaDetailView: View {
                 case .overrides: showingOverridesEditor = false
                 case .artwork: showingArtworkPicker = false
                 case .addToShelf: showingAddToShelf = false
+                case .manageSeasons: showingManageSeasons = false
                 case .reencode: reencodeTarget = nil
                 case .release:
                     showingReleaseSearch = false
@@ -373,6 +380,14 @@ struct MediaDetailView: View {
         case let .addToShelf(item):
             AddToShelfSheet(item: item) {
                 managementNotice = String(localized: "Shelf updated.")
+            }
+            .environment(model)
+        case let .manageSeasons(item):
+            ManageSeasonsSheet(
+                libraryId: item.id, seasons: manageSeasonInfos, current: currentSeasonDraft(item)
+            ) {
+                managementNotice = String(localized: "Seasons updated.")
+                Task { await reloadEpisodes() }
             }
             .environment(model)
         case let .menuRelease(target):
