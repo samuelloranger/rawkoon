@@ -14,6 +14,11 @@ export type ResolveGrabEpisodeResult =
   | { ok: true; episodeId: number | null; corrected: boolean }
   | { ok: false; reason: string };
 
+/** Whether a release covers more than one episode (a second marker or a range). */
+export function isMultiEpisodeRelease(title: string): boolean {
+  return parseReleaseStructure(title).episodes.length > 1;
+}
+
 /**
  * Decide which LibraryEpisode a show grab should be linked to.
  *
@@ -26,16 +31,14 @@ export type ResolveGrabEpisodeResult =
  *
  * - No requested episode: link a single-episode release (one SxxExx that is a
  *   known episode) to that episode; anything else stays unlinked (pack).
- * - Release SxxExx unparseable or season-only: keep the requested episode.
+ * - Release is a pack (season-only, multi-season, integrale, or an episode
+ *   range): unlinked, keyed by season and imported whole.
+ * - Release SxxExx unparseable: keep the requested episode.
  * - Release SxxExx matches the requested episode: keep it.
  * - Release SxxExx points at another known episode of the same show: correct to
  *   that episode.
  * - Release SxxExx points at an episode not in the library: reject the grab.
  */
-/** Whether a release covers more than one episode (a second marker or a range). */
-export function isMultiEpisodeRelease(title: string): boolean {
-  return parseReleaseStructure(title).episodes.length > 1;
-}
 
 export function resolveGrabEpisodeId(opts: {
   requested: GrabEpisodeRef | null;
