@@ -227,6 +227,10 @@ export async function searchAndGrab(opts: {
         ) {
           continue;
         }
+      } else if (!completeSeasons && season != null && episodeId == null) {
+        // A season search must not take an episode release or another season's pack.
+        const se = parseReleaseSeasonEpisode(title);
+        if (se && (se.season !== season || se.episode != null)) continue;
       }
 
       // For episode grabs, require the release's SxxExx to match the episode.

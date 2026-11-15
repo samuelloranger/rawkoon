@@ -205,6 +205,16 @@ describe("searchAndGrab for one season", () => {
     expect(grabRelease).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "Show.Name.S02E06.1080p.WEB-DL",
+    "Show.Name.S02E01-E04.1080p.WEB-DL",
+    "Show.Name.S01.1080p.WEB-DL",
+  ])("rejects %s as a season 2 pack", async (title) => {
+    freeTitles = [title];
+    expect((await seasonSearch(2)).grabbed).toBe(false);
+    expect(grabRelease).not.toHaveBeenCalled();
+  });
+
   it("keeps a plain season pack keyed to its season", async () => {
     freeTitles = ["Show.Name.S02.1080p.WEB-DL"];
     expect((await seasonSearch(2)).grabbed).toBe(true);
