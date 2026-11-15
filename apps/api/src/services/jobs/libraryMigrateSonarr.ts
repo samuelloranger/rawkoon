@@ -197,7 +197,6 @@ export async function migrateFromSonarr(
               title: ep.title || null,
               airDate: ep.airDate ? new Date(ep.airDate) : null,
               status: epStatusToSet,
-              monitored,
             },
           });
           progress.sonarr.imported_episodes++;

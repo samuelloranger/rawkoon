@@ -93,17 +93,16 @@ describe("approveRequest season choice", () => {
     });
   });
 
-  it("falls back to the settings defaults when nothing was chosen", async () => {
+  it("approves every season when nothing was chosen, whatever the default mode", async () => {
     state.settingsExtra = {
       defaultSeasonMode: "future",
       defaultMonitorNewSeasons: false,
     };
     state.requests = [showRequest()];
     await approveRequest(1, 1, "admin-1");
-    // "future" forces the new-season flag on.
     expect(lastChoice()).toEqual({
-      choice: { seasonMode: "future", seasons: undefined },
-      monitorNewSeasons: true,
+      choice: { seasonMode: "all", seasons: undefined },
+      monitorNewSeasons: false,
     });
   });
 

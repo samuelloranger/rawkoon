@@ -145,27 +145,37 @@ export async function requestersMayChooseSeasons(): Promise<boolean> {
   return row?.requestersChooseSeasons ?? true;
 }
 
-/** The season choice an approval applies: the admin's own, else the request's, else the defaults. */
-export function resolveApprovalSeasons(
+/**
+ * The season input an approval resolves: the admin's own, else the request's.
+ * A request without a choice means every season, never the add-dialog default.
+ */
+export function approvalSeasonInput(
   req: { seasonMode: string | null; seasons: number[] },
   input: {
     seasonMode?: SeasonMode;
     seasons?: number[];
     monitorNewSeasons?: boolean;
   },
-) {
-  // An admin's own mode replaces the requester's choice; seasons never carry across modes.
-  const override =
-    input.seasonMode !== undefined || input.seasons !== undefined;
-  return resolveSeasonChoiceWithSettings({
-    seasonMode: override
-      ? input.seasonMode
-      : (req.seasonMode as SeasonMode | null),
-    seasons: override
-      ? input.seasons
-      : req.seasons.length > 0
-        ? req.seasons
-        : undefined,
+): Parameters<typeof resolveSeasonChoice>[0] {
+  if (input.seasonMode !== undefined || input.seasons !== undefined) {
+    // Seasons sent alone can only mean a pick.
+    return {
+      seasonMode: input.seasonMode ?? "pick",
+      seasons: input.seasons,
+      monitorNewSeasons: input.monitorNewSeasons,
+    };
+  }
+  return {
+    seasonMode: (req.seasonMode as SeasonMode | null) ?? "all",
+    seasons: req.seasons.length > 0 ? req.seasons : undefined,
     monitorNewSeasons: input.monitorNewSeasons,
-  });
+  };
+}
+
+/** The season choice an approval applies, merged over the settings defaults. */
+export function resolveApprovalSeasons(
+  req: Parameters<typeof approvalSeasonInput>[0],
+  input: Parameters<typeof approvalSeasonInput>[1],
+) {
+  return resolveSeasonChoiceWithSettings(approvalSeasonInput(req, input));
 }

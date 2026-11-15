@@ -16,8 +16,12 @@ mock.module("@rawkoon/api/db", () => ({
   },
 }));
 
-const { applySeasonChoice, planMonitoredEpisodes, resolveSeasonChoice } =
-  await import("./seasonMonitoring");
+const {
+  applySeasonChoice,
+  approvalSeasonInput,
+  planMonitoredEpisodes,
+  resolveSeasonChoice,
+} = await import("./seasonMonitoring");
 
 const NOW = new Date("2026-06-01T00:00:00Z");
 const past = new Date("2026-01-01T00:00:00Z");
@@ -130,5 +134,29 @@ describe("resolveSeasonChoice", () => {
     expect(
       resolveSeasonChoice({ seasonMode: "all", seasons: [1] }, null),
     ).toHaveProperty("error");
+  });
+});
+
+describe("approvalSeasonInput", () => {
+  it("treats a request without a choice as every season", () => {
+    const input = approvalSeasonInput({ seasonMode: null, seasons: [] }, {});
+    expect(
+      resolveSeasonChoice(input, { defaultSeasonMode: "latest" }),
+    ).toMatchObject({ choice: { seasonMode: "all" } });
+  });
+
+  it("keeps the requester's pick", () => {
+    expect(
+      approvalSeasonInput({ seasonMode: "pick", seasons: [2] }, {}),
+    ).toMatchObject({ seasonMode: "pick", seasons: [2] });
+  });
+
+  it("reads seasons sent without a mode as a pick", () => {
+    expect(
+      approvalSeasonInput(
+        { seasonMode: "pick", seasons: [1] },
+        { seasons: [1, 2] },
+      ),
+    ).toMatchObject({ seasonMode: "pick", seasons: [1, 2] });
   });
 });
