@@ -164,3 +164,45 @@ describe("searchAndGrab AI judge", () => {
     expect(grabRelease.mock.calls[1]![0].releaseTitle).toContain(".1.");
   });
 });
+
+describe("searchAndGrab for a movie", () => {
+  const movieRelease = (title: string) => ({ ...release(1, 10), title });
+  const searchMovie = () =>
+    searchAndGrab({
+      mediaId: 1,
+      mediaType: "movie",
+      searchQuery: "Scream 2022",
+      qualityProfileId: null,
+    });
+
+  beforeEach(() => {
+    grabRelease.mockClear();
+    grabRelease.mockImplementation(async () => ({ grabbed: true }));
+    findUniqueMedia.mockImplementation(async () => ({
+      title: "Scream",
+      year: 2022,
+      type: "movie",
+      searchTitle: null,
+      originalTitle: null,
+    }));
+  });
+
+  it.each([
+    "Scream.7.2026.MULTi.1080p.WEBRip",
+    "Scream.1996.MULTi.1080p.BluRay",
+    "Scream.S01E05.1080p.WEB",
+  ])("rejects %s for Scream (2022)", async (title) => {
+    searchReleases = [movieRelease(title)];
+    expect((await searchMovie()).grabbed).toBe(false);
+    expect(grabRelease).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Scream.2022.MULTi.1080p.WEB",
+    "Scream.2021.MULTi.1080p.WEB",
+    "Scream.MULTi.1080p.WEB",
+  ])("accepts %s for Scream (2022)", async (title) => {
+    searchReleases = [movieRelease(title)];
+    expect((await searchMovie()).grabbed).toBe(true);
+  });
+});

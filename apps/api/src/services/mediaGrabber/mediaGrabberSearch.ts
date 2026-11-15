@@ -6,7 +6,10 @@ import { dropBlocklistedTitles } from "@rawkoon/api/services/mediaGrabber/mediaG
 import { pickAiRow } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAiPick";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { tieredSearch } from "@rawkoon/api/services/indexerManager/searchStrategy";
-import { parseReleaseSeasonSpan } from "@rawkoon/shared/utils/releaseStructure";
+import {
+  parseReleaseSeasonSpan,
+  parseReleaseStructure,
+} from "@rawkoon/shared/utils/releaseStructure";
 import {
   isMultiSeasonRelease,
   multiSeasonReleaseCovers,
@@ -205,6 +208,19 @@ export async function searchAndGrab(opts: {
       // Reject releases whose title doesn't begin with an expected show/movie
       // title (freetext indexer results are noisy for short titles like "FROM").
       if (!releaseMatchesExpectedTitles(title, matchTitles)) continue;
+
+      // A movie search must not take a TV release, or a sequel or remake from another year.
+      if (media?.type === "movie") {
+        const structure = parseReleaseStructure(title);
+        if (structure.season != null) continue;
+        if (
+          structure.year != null &&
+          media.year != null &&
+          Math.abs(structure.year - media.year) > 1
+        ) {
+          continue;
+        }
+      }
 
       // A complete-series pack must name every wanted season, or the rest stays unfetched.
       if (completeSeasons && !releaseCoversSeasons(title, completeSeasons)) {
