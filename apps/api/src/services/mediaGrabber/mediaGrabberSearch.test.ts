@@ -2,7 +2,7 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 
 const findUniqueMedia = mock(async () => ({
   title: "Show",
-  year: 2020,
+  year: 2020 as number | null,
   type: "tv",
   searchTitle: null,
   originalTitle: null,
@@ -202,6 +202,7 @@ describe("searchAndGrab for a movie", () => {
     "Scream.2021.MULTi.1080p.WEB",
     "Scream.MULTi.1080p.WEB",
     "Scream.2022.Remastered.2025.1080p.BluRay",
+    "Scream.1920x1080.BluRay",
   ])("accepts %s for Scream (2022)", async (title) => {
     searchReleases = [movieRelease(title)];
     expect((await searchMovie()).grabbed).toBe(true);
@@ -212,7 +213,8 @@ describe("searchAndGrab for a movie", () => {
     ["Blade Runner 2049", 2017, "Blade.Runner.2049.2017.1080p.BluRay"],
     ["Wonder Woman 1984", 2020, "Wonder.Woman.1984.1080p.WEB"],
     ["1981", 2009, "1981.2009.VFQ.1080p.WEBRip"],
-  ])("accepts a release of %s (%i) named %s", async (movie, year, title) => {
+    ["Scream", null, "Scream.1996.MULTi.1080p.BluRay"],
+  ])("accepts a release of %s (%p) named %s", async (movie, year, title) => {
     findUniqueMedia.mockImplementation(async () => ({
       title: movie,
       year,

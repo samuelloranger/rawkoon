@@ -80,7 +80,8 @@ export function releaseMatchesExpectedTitles(
   );
 }
 
-const YEAR_TOKEN = /(?<!\d)(?:19|20)\d{2}(?!\d)/g;
+// Bounded by non-alphanumerics, so "1920x1080" and "2000kbps" are not years.
+const YEAR_TOKEN = /(?<![\dA-Za-z])(?:19|20)\d{2}(?![\dA-Za-z])/g;
 
 /**
  * A movie release fits when any year it names, other than years in the title
