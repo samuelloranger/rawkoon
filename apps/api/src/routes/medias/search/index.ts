@@ -105,13 +105,13 @@ export async function downloadInteractiveSearchRelease(
     let episodeId = body.episode_id;
     // Same as the URL grab: an episode release is keyed to its episode, not the searched season.
     if (mediaType === "show") {
-      const resolved = await resolveShowGrabEpisode(
+      const episodeResolution = await resolveShowGrabEpisode(
         mediaId,
         episodeId,
         releaseTitle,
       );
-      if (!resolved.ok) return badRequest(resolved.reason);
-      episodeId = resolved.episodeId;
+      if (!episodeResolution.ok) return badRequest(episodeResolution.reason);
+      episodeId = episodeResolution.episodeId;
     }
 
     const result = await grabRelease({
