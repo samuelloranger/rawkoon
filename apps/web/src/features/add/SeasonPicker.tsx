@@ -114,7 +114,7 @@ function SeasonStrip({
                 S{s.number}
               </span>
               <span className="-mt-1 text-[11.5px] text-neutral-400">
-                {s.year ?? t("addDialog.soon")}
+                {t("addDialog.soon")}
               </span>
             </div>
           );

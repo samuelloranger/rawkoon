@@ -162,6 +162,7 @@ function HeroCarousel({
   const [detail, setDetail] = useState<TmdbMediaSearchItem | null>(null);
   const [added, setAdded] = useState<Set<number>>(() => new Set());
   const { add, request, isAdding } = useAddFlow();
+  const [busy, setBusy] = useState(false);
   const searchOnAddEnabled = useSearchOnAddEnabled();
   const { data: user } = useCurrentUser();
 
@@ -214,7 +215,8 @@ function HeroCarousel({
     : [];
 
   const onAdd = async (searchOnAdd?: boolean) => {
-    if (!item) return;
+    if (!item || busy) return;
+    setBusy(true);
     const tmdbId = item.tmdb_id;
     // Adding to the library is admin-only; everyone else files a request, as on iOS.
     const done = user?.is_admin
@@ -236,6 +238,7 @@ function HeroCarousel({
           poster_url: item.poster_url,
           year: item.year,
         });
+    setBusy(false);
     if (done) setAdded((prev) => new Set(prev).add(tmdbId));
   };
 
@@ -322,7 +325,7 @@ function HeroCarousel({
                         <button
                           type="button"
                           onClick={() => onAdd()}
-                          disabled={isAdding}
+                          disabled={isAdding || busy}
                           className={`${buttonBase} bg-primary-500 text-neutral-950 hover:bg-primary-400 disabled:opacity-60 ${showSearchHint ? "rounded-r-none pr-4" : ""}`}
                         >
                           {t("dashboard.hero.add")}
@@ -330,7 +333,7 @@ function HeroCarousel({
                         {showSearchHint && (
                           <AddOnlyMenu
                             onAddOnly={() => onAdd(false)}
-                            disabled={isAdding}
+                            disabled={isAdding || busy}
                             className="h-10 rounded-r-full border-l border-white/25 bg-primary-500 px-2.5 text-neutral-950 hover:bg-primary-400"
                           />
                         )}

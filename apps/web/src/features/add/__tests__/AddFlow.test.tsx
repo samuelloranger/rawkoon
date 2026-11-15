@@ -49,6 +49,7 @@ const seasons = [
   { season_number: 3, name: "S3", episode_count: null, air_date: "2999-01-01" },
 ];
 
+const seasonsFail = vi.hoisted(() => ({ on: false }));
 function makeFetcher() {
   return vi.fn((url: string, _options?: unknown) => {
     if (url.includes("post-processing/settings"))
@@ -64,8 +65,10 @@ function makeFetcher() {
       });
     if (url.includes("quality-profiles"))
       return Promise.resolve({ profiles: state.profiles });
-    if (url.includes("modal-data") || url.includes("/medias/"))
+    if (url.includes("modal-data") || url.includes("/medias/")) {
+      if (seasonsFail.on) return Promise.reject(new Error("tmdb down"));
       return Promise.resolve({ details: { seasons } });
+    }
     return Promise.resolve({ item: { id: 77 }, id: 5 });
   });
 }
@@ -155,6 +158,7 @@ beforeEach(() => {
   state.profiles = [profile(1, "1080p"), profile(2, "2160p")];
   books.profiles = [];
   books.addBook.mockClear();
+  seasonsFail.on = false;
 });
 
 describe("add dialog", () => {
@@ -253,6 +257,67 @@ describe("add dialog", () => {
     expect(screen.queryByTestId("season-strip")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByText(/addDialog.chip.all/));
     expect(await screen.findByTestId("season-strip")).toBeInTheDocument();
+  });
+});
+
+describe("when the seasons can't be loaded", () => {
+  it("still adds a show, with no season fields", async () => {
+    seasonsFail.on = true;
+    const fetcher = mount();
+    fireEvent.click(screen.getByText("add-show"));
+    expect(
+      await screen.findByText("addDialog.seasonsUnavailable"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("season-strip")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "addDialog.add" }));
+    await waitFor(() => expect(posted(fetcher, "/api/library")).toBeDefined());
+    expect(posted(fetcher, "/api/library")?.body).toEqual({
+      tmdb_id: 11,
+      type: "show",
+      quality_profile_id: 1,
+      search_on_add: true,
+    });
+  });
+
+  it("still lets a requester request every season", async () => {
+    seasonsFail.on = true;
+    const fetcher = mount();
+    fireEvent.click(screen.getByText("request-show"));
+    const btn = await screen.findByRole("button", {
+      name: "addDialog.requestAll",
+    });
+    await waitFor(() => expect(btn).toBeEnabled());
+    fireEvent.click(btn);
+    await waitFor(() => expect(posted(fetcher, "/api/requests")).toBeDefined());
+    expect(posted(fetcher, "/api/requests")?.body).not.toHaveProperty(
+      "season_mode",
+    );
+  });
+});
+
+describe("double clicks", () => {
+  const count = (fetcher: ReturnType<typeof makeFetcher>, url: string) =>
+    fetcher.mock.calls.filter(
+      ([u, o]) => u === url && (o as { method?: string })?.method === "POST",
+    ).length;
+
+  it("two quick adds of one title join a single prompt", async () => {
+    const fetcher = mount();
+    fireEvent.click(screen.getByText("add-movie"));
+    fireEvent.click(screen.getByText("add-movie"));
+    await screen.findByText("addDialog.title title:A Film");
+    fireEvent.click(screen.getByRole("button", { name: "addDialog.add" }));
+    await waitFor(() => expect(posted(fetcher, "/api/library")).toBeDefined());
+    expect(count(fetcher, "/api/library")).toBe(1);
+  });
+
+  it("two quick one-tap requests send one request", async () => {
+    flags.requesters_choose_seasons = false;
+    const fetcher = mount();
+    fireEvent.click(screen.getByText("request-movie"));
+    fireEvent.click(screen.getByText("request-movie"));
+    await waitFor(() => expect(posted(fetcher, "/api/requests")).toBeDefined());
+    expect(count(fetcher, "/api/requests")).toBe(1);
   });
 });
 

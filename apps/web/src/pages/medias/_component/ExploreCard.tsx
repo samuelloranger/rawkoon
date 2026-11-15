@@ -30,6 +30,7 @@ export function ExploreCard({
   const { request } = useAddFlow();
   const isAdmin = useCurrentUser().data?.is_admin === true;
   const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const queryClient = useQueryClient();
   const fetcher = useFetcher();
 
@@ -76,15 +77,16 @@ export function ExploreCard({
       await addTitle(item);
       return;
     }
-    setRequested(
-      await request({
-        tmdb_id: item.tmdb_id,
-        type: item.media_type === "tv" ? "show" : "movie",
-        title: item.title,
-        poster_url: item.poster_url,
-        year: item.release_year,
-      }),
-    );
+    setRequesting(true);
+    const sent = await request({
+      tmdb_id: item.tmdb_id,
+      type: item.media_type === "tv" ? "show" : "movie",
+      title: item.title,
+      poster_url: item.poster_url,
+      year: item.release_year,
+    });
+    setRequesting(false);
+    setRequested(sent);
   };
 
   const showImage = Boolean(item.poster_url) && !imgError;
@@ -148,7 +150,7 @@ export function ExploreCard({
           <button
             type="button"
             onClick={handleAdd}
-            disabled={isAdding || requested}
+            disabled={isAdding || requesting || requested}
             aria-label={`${isAdmin ? "Add" : "Request"} ${item.title}`}
             className="absolute top-2 right-2 z-20 flex size-6 items-center justify-center rounded-full bg-primary-500 opacity-0 ring-1 ring-black/30 transition-opacity duration-200 group-hover:opacity-100 hover:bg-primary-400 disabled:opacity-40"
           >

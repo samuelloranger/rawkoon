@@ -139,11 +139,12 @@ export function useDiscoverDeck() {
   const current = queue[0] ?? null;
 
   const addCurrent = useCallback(
-    (searchOnAdd?: boolean) => {
-      if (!current) return;
+    // Resolves true when the card left the deck, false when the add or request was dismissed or failed.
+    async (searchOnAdd?: boolean): Promise<boolean> => {
+      if (!current) return false;
       const item = current;
       // Waits for the tray (or the instant add) before the card leaves the deck.
-      void (async () => {
+      return (async () => {
         if (!isAdmin) {
           const sent = await request({
             tmdb_id: item.tmdb_id,
@@ -152,24 +153,24 @@ export function useDiscoverDeck() {
             poster_url: item.poster_url,
             year: item.release_year,
           });
-          if (!sent) return;
+          if (!sent) return false;
           toast.success(t("requests.requestedToast", { title: item.title }));
           // A request can't be withdrawn from the deck, so it advances without undo.
           setLast(null);
           setQueue((q) => q.slice(1));
-          return;
+          return true;
         }
         const added = await add(
           { ...item, can_add: true },
           { compact: true, ...(searchOnAdd === false ? { searchOnAdd } : {}) },
         );
-        if (added) {
-          advance({
-            kind: "add",
-            item,
-            libraryId: Promise.resolve(added.item.id),
-          });
-        }
+        if (!added) return false;
+        advance({
+          kind: "add",
+          item,
+          libraryId: Promise.resolve(added.item.id),
+        });
+        return true;
       })();
     },
     [current, isAdmin, t, add, request, advance],

@@ -3647,6 +3647,8 @@
       "defaultSeasons": "Default seasons",
       "defaultSeasonsHint": "Used for new shows when nobody picks.",
       "newSeasonsHint": "The starting value for each new show."
-    }
+    },
+    "seasonsUnavailable": "Seasons couldn't be loaded. The default seasons will be used.",
+    "seasonsUnavailableRequest": "Seasons couldn't be loaded, so the request covers every season."
   }
 }

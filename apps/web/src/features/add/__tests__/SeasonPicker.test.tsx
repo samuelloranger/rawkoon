@@ -57,6 +57,15 @@ describe("season strip", () => {
     ).toHaveAttribute("data-lit", "true");
   });
 
+  it("labels the announced season Soon, not a year", () => {
+    render(<SeasonPicker seasons={seasons} choice={base} onChange={vi.fn()} />);
+    const s4 = screen
+      .getByTestId("season-strip")
+      .querySelector("[aria-label='addDialog.seasonLabel n:4']");
+    expect(s4).toHaveTextContent("addDialog.soon");
+    expect(s4).not.toHaveTextContent("2999");
+  });
+
   it("future mode switch is locked on and the modes are pressable chips", () => {
     const onChange = vi.fn();
     render(

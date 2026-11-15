@@ -3647,6 +3647,8 @@
       "defaultSeasons": "Saisons par défaut",
       "defaultSeasonsHint": "Utilisées pour les nouvelles séries quand personne ne choisit.",
       "newSeasonsHint": "La valeur de départ pour chaque nouvelle série."
-    }
+    },
+    "seasonsUnavailable": "Impossible de charger les saisons. Les saisons par défaut seront utilisées.",
+    "seasonsUnavailableRequest": "Impossible de charger les saisons; la demande couvre donc toutes les saisons."
   }
 }

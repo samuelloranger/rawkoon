@@ -46,20 +46,25 @@ export function RequestSeasonsSheet({
   onClose,
 }: {
   media: RequestMedia;
-  onSubmit: (seasons: RequestSeasons) => Promise<boolean>;
+  /** null = no season data, so the request covers every season. */
+  onSubmit: (seasons: RequestSeasons | null) => Promise<boolean>;
   onClose: (sent?: boolean) => void;
 }) {
   const { t } = useTranslation("common");
-  const seasons = useShowSeasons(media.tmdb_id);
+  const { seasons, failed } = useShowSeasons(media.tmdb_id);
   const [choice, setChoice] = useState<SeasonChoice>(DEFAULT_CHOICE);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     setBusy(true);
-    const ok = await onSubmit({
-      season_mode: choice.mode,
-      ...(choice.mode === "pick" ? { seasons: choice.picked } : {}),
-    });
+    const ok = await onSubmit(
+      seasons
+        ? {
+            season_mode: choice.mode,
+            ...(choice.mode === "pick" ? { seasons: choice.picked } : {}),
+          }
+        : null,
+    );
     setBusy(false);
     if (ok) onClose(true);
   };
@@ -81,13 +86,15 @@ export function RequestSeasonsSheet({
         />
       ) : (
         <p className="text-sm text-neutral-400">
-          {t("addDialog.loadingSeasons")}
+          {failed
+            ? t("addDialog.seasonsUnavailableRequest")
+            : t("addDialog.loadingSeasons")}
         </p>
       )}
       <button
         type="button"
         className={`${PRIMARY_BTN} w-full`}
-        disabled={busy || !seasons || !isChoiceValid(choice)}
+        disabled={busy || (!seasons && !failed) || !isChoiceValid(choice)}
         onClick={() => void submit()}
       >
         {label ? t(label.key, label.values) : t("addDialog.requestAll")}

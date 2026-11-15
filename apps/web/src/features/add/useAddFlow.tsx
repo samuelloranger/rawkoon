@@ -16,7 +16,6 @@ import type {
   BookDiscoveryBook,
   BookEditionKind,
   CreateMediaRequestBody,
-  SeasonMode,
   TmdbMediaSearchItem,
 } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
@@ -130,6 +129,16 @@ export function AddFlowProvider({ children }: { children: ReactNode }) {
     fn?.(value as never);
   }, []);
 
+  // A second click on the same title joins the first instead of racing it.
+  const inflight = useRef(new Map<string, Promise<unknown>>());
+  const dedupe = useCallback(<T,>(key: string, run: () => Promise<T>) => {
+    const existing = inflight.current.get(key);
+    if (existing) return existing as Promise<T>;
+    const p = run().finally(() => inflight.current.delete(key));
+    inflight.current.set(key, p);
+    return p;
+  }, []);
+
   const flags = useCallback(
     () => queryClient.fetchQuery(featuresQuery).catch(() => null),
     [queryClient],
@@ -154,37 +163,41 @@ export function AddFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const add = useCallback<AddFlow["add"]>(
-    async (item, opts) => {
-      if (addMut.isPending || !item.can_add) return null;
-      const instant = () =>
-        runAdd(
-          item,
-          opts?.searchOnAdd === false ? { search_on_add: false } : {},
-          opts?.silent,
+    (item, opts) =>
+      dedupe(`add:${item.media_type}:${item.tmdb_id}`, async () => {
+        if (addMut.isPending || !item.can_add) return null;
+        const instant = () =>
+          runAdd(
+            item,
+            opts?.searchOnAdd === false ? { search_on_add: false } : {},
+            opts?.silent,
+          );
+        const f = await flags();
+        if (!f?.ask_before_adding) return instant();
+        const profiles = await queryClient
+          .fetchQuery({
+            ...qualityProfilesListQuery(fetcher),
+            staleTime: 30_000,
+          })
+          .catch(() => null);
+        // One movie profile leaves nothing to choose.
+        if (
+          !profiles ||
+          (item.media_type === "movie" && profiles.profiles.length < 2)
+        )
+          return instant();
+        await queryClient
+          .fetchQuery({
+            ...mediaPostProcessingSettingsQuery(fetcher),
+            staleTime: 30_000,
+          })
+          .catch(() => null);
+        return open<AddToLibraryResponse | null>(
+          { kind: "title", item, opts: opts ?? {} },
+          null,
         );
-      const f = await flags();
-      if (!f?.ask_before_adding) return instant();
-      const profiles = await queryClient
-        .fetchQuery({ ...qualityProfilesListQuery(fetcher), staleTime: 30_000 })
-        .catch(() => null);
-      // One movie profile leaves nothing to choose.
-      if (
-        !profiles ||
-        (item.media_type === "movie" && profiles.profiles.length < 2)
-      )
-        return instant();
-      await queryClient
-        .fetchQuery({
-          ...mediaPostProcessingSettingsQuery(fetcher),
-          staleTime: 30_000,
-        })
-        .catch(() => null);
-      return open<AddToLibraryResponse | null>(
-        { kind: "title", item, opts: opts ?? {} },
-        null,
-      );
-    },
-    [addMut.isPending, flags, queryClient, fetcher, runAdd, open],
+      }),
+    [addMut.isPending, dedupe, flags, queryClient, fetcher, runAdd, open],
   );
 
   const sendRequest = useCallback(
@@ -207,13 +220,14 @@ export function AddFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const request = useCallback<AddFlow["request"]>(
-    async (media) => {
-      const f = await flags();
-      if (media.type === "show" && f?.requesters_choose_seasons)
-        return open<boolean>({ kind: "request", media }, false);
-      return sendRequest(media);
-    },
-    [flags, open, sendRequest],
+    (media) =>
+      dedupe(`req:${media.type}:${media.tmdb_id}`, async () => {
+        const f = await flags();
+        if (media.type === "show" && f?.requesters_choose_seasons)
+          return open<boolean>({ kind: "request", media }, false);
+        return sendRequest(media);
+      }),
+    [dedupe, flags, open, sendRequest],
   );
 
   const runAddBook = useCallback(
@@ -247,13 +261,17 @@ export function AddFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const addBook = useCallback<AddFlow["addBook"]>(
-    async (source, display) => {
-      const f = await flags();
-      if (!f?.ask_before_adding)
-        return runAddBook(source, { kinds: ["ebook"], profileId: null });
-      return open<boolean>({ kind: "book", source, display }, false);
-    },
-    [flags, open, runAddBook],
+    (source, display) =>
+      dedupe(
+        `book:${source.kind === "search" ? source.google_volume_id : source.book.isbn13}`,
+        async () => {
+          const f = await flags();
+          if (!f?.ask_before_adding)
+            return runAddBook(source, { kinds: ["ebook"], profileId: null });
+          return open<boolean>({ kind: "book", source, display }, false);
+        },
+      ),
+    [dedupe, flags, open, runAddBook],
   );
 
   const value = useMemo(
@@ -277,10 +295,7 @@ export function AddFlowProvider({ children }: { children: ReactNode }) {
         <RequestSeasonsSheet
           media={active.media}
           onSubmit={(season) =>
-            sendRequest({
-              ...active.media,
-              ...(season as { season_mode: SeasonMode; seasons?: number[] }),
-            })
+            sendRequest({ ...active.media, ...(season ?? {}) })
           }
           onClose={finish}
         />

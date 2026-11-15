@@ -119,11 +119,15 @@ describe("useDiscoverDeck", () => {
 
     it("adds through the compact tray for an admin and advances with undo", async () => {
       const result = await mount(true);
-      act(() => result.current.addCurrent());
+      let advanced = false;
+      await act(async () => {
+        advanced = await result.current.addCurrent();
+      });
       expect(addMock).toHaveBeenCalledWith(
         expect.objectContaining({ tmdb_id: 1, media_type: "movie" }),
         { compact: true },
       );
+      expect(advanced).toBe(true);
       expect(requestMock).not.toHaveBeenCalled();
       await waitFor(() => expect(result.current.current?.tmdb_id).toBe(2));
       expect(result.current.canUndo).toBe(true);
@@ -132,14 +136,21 @@ describe("useDiscoverDeck", () => {
     it("keeps the card when the admin dismisses the tray", async () => {
       const result = await mount(true);
       addMock.mockResolvedValueOnce(null);
-      act(() => result.current.addCurrent());
-      await waitFor(() => expect(addMock).toHaveBeenCalled());
+      let advanced = false;
+      await act(async () => {
+        advanced = await result.current.addCurrent();
+      });
+      expect(advanced).toBe(false);
       expect(result.current.current?.tmdb_id).toBe(1);
     });
 
     it("files a request for a non-admin and advances without undo", async () => {
       const result = await mount(false);
-      act(() => result.current.addCurrent());
+      let advanced = false;
+      await act(async () => {
+        advanced = await result.current.addCurrent();
+      });
+      expect(advanced).toBe(true);
       expect(requestMock).toHaveBeenCalledWith({
         tmdb_id: 1,
         type: "movie",
@@ -157,8 +168,11 @@ describe("useDiscoverDeck", () => {
     it("keeps the card when the request is cancelled or fails", async () => {
       const result = await mount(false);
       requestMock.mockResolvedValueOnce(false);
-      act(() => result.current.addCurrent());
-      await waitFor(() => expect(requestMock).toHaveBeenCalled());
+      let advanced = false;
+      await act(async () => {
+        advanced = await result.current.addCurrent();
+      });
+      expect(advanced).toBe(false);
       expect(result.current.current?.tmdb_id).toBe(1);
       expect(toast.success).not.toHaveBeenCalled();
       isAdmin = true;

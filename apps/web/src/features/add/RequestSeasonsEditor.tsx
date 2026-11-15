@@ -52,12 +52,14 @@ function Panel({
   onApply: (choice: SeasonChoice) => void;
 }) {
   const { t } = useTranslation("common");
-  const seasons = useShowSeasons(tmdbId);
+  const { seasons, failed } = useShowSeasons(tmdbId);
   const [draft, setDraft] = useState(initial);
   if (!seasons)
     return (
       <p className="text-sm text-neutral-400">
-        {t("addDialog.loadingSeasons")}
+        {failed
+          ? t("addDialog.seasonsUnavailable")
+          : t("addDialog.loadingSeasons")}
       </p>
     );
   return (

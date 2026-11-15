@@ -47,7 +47,9 @@ export function AddTitleDialog({
   const settings = settingsData?.settings;
   const profiles = profilesData?.profiles ?? [];
   const isShow = item.media_type === "tv";
-  const seasons = useShowSeasons(isShow ? item.tmdb_id : 0);
+  const { seasons, failed: seasonsFailed } = useShowSeasons(
+    isShow ? item.tmdb_id : 0,
+  );
 
   const defaultProfile =
     (isShow
@@ -72,12 +74,15 @@ export function AddTitleDialog({
   const [expanded, setExpanded] = useState(!compact);
   const [busy, setBusy] = useState(false);
 
-  const valid = isChoiceValid(choice) && (!isShow || seasons !== undefined);
+  const valid =
+    isChoiceValid(choice) &&
+    (!isShow || seasons !== undefined || seasonsFailed);
   const submit = async () => {
     setBusy(true);
     const response = await onSubmit({
       ...(profileId != null ? { quality_profile_id: profileId } : {}),
-      ...(isShow ? choiceToBody(choice) : {}),
+      // Without season data the server applies its defaults.
+      ...(isShow && seasons ? choiceToBody(choice) : {}),
       search_on_add: search,
     });
     setBusy(false);
@@ -165,7 +170,12 @@ export function AddTitleDialog({
     >
       {quality}
       {isShow && (
-        <SeasonSection seasons={seasons} choice={choice} onChange={setChoice} />
+        <SeasonSection
+          seasons={seasons}
+          failed={seasonsFailed}
+          choice={choice}
+          onChange={setChoice}
+        />
       )}
       <div>
         <ToggleRow
@@ -194,14 +204,22 @@ export function AddTitleDialog({
 
 function SeasonSection({
   seasons,
+  failed,
   choice,
   onChange,
 }: {
   seasons: PlanSeason[] | undefined;
+  failed: boolean;
   choice: SeasonChoice;
   onChange: (c: SeasonChoice) => void;
 }) {
   const { t } = useTranslation("common");
+  if (!seasons && failed)
+    return (
+      <p className="text-sm text-neutral-400">
+        {t("addDialog.seasonsUnavailable")}
+      </p>
+    );
   if (!seasons)
     return (
       <p className="text-sm text-neutral-400">
