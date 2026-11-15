@@ -7,6 +7,7 @@ import type {
 import { queryKeys } from "@/lib/queryKeys";
 import { renderWithProviders } from "@/test-utils/render";
 import { HomeHero } from "@/pages/_component/HomeHero";
+import { AddFlowProvider } from "@/features/add/useAddFlow";
 import en from "@/locales/en/common.json";
 import fr from "@/locales/fr/common.json";
 
@@ -54,6 +55,18 @@ vi.mock("motion/react", async () => {
   };
 });
 
+// The dialog stays off here: these tests cover the hero's own add and request paths.
+vi.mock("@/lib/routing/useFeatures", () => ({
+  featuresQuery: {
+    queryKey: ["system", "features"],
+    queryFn: async () => ({
+      books_enabled: false,
+      ask_before_adding: false,
+      requesters_choose_seasons: false,
+    }),
+  },
+}));
+
 const auth = vi.hoisted(() => ({ isAdmin: false }));
 vi.mock("@/lib/auth/useAuth", () => ({
   useCurrentUser: () => ({ data: { id: 1, is_admin: auth.isAdmin } }),
@@ -96,7 +109,12 @@ const render = (payload: DashboardHeroResponse | Error) => {
               : { item: {} },
         ),
   );
-  return renderWithProviders(<HomeHero userName="Sam" />, { fetcher });
+  return renderWithProviders(
+    <AddFlowProvider>
+      <HomeHero userName="Sam" />
+    </AddFlowProvider>,
+    { fetcher },
+  );
 };
 
 const mockReducedMotion = (matches: boolean) =>
@@ -136,7 +154,12 @@ describe("HomeHero now watching", () => {
             : { item: {} },
       ),
     );
-    return renderWithProviders(<HomeHero userName="Sam" />, { fetcher });
+    return renderWithProviders(
+      <AddFlowProvider>
+        <HomeHero userName="Sam" />
+      </AddFlowProvider>,
+      { fetcher },
+    );
   };
 
   it("leads with a Now watching slide while someone is watching", async () => {

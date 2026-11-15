@@ -11,7 +11,7 @@ import { useQuickSearch } from "@/lib/search/useSearch";
 import { useFeatures } from "@/lib/routing/useFeatures";
 import { useTmdbMediaSearch } from "@/features/medias/hooks/useTmdbMediaSearch";
 import { useBookProviderSearch } from "@/pages/books/_hooks/useBooks";
-import { AddBookDialog } from "@/pages/books/_component/AddBookDialog";
+import { useAddFlow } from "@/features/add/useAddFlow";
 import { BookRequestAction } from "@/pages/books/_component/BookRequestAction";
 import { ExploreCardDetailDialog } from "@/pages/medias/_component/ExploreCardDetailDialog";
 import { displayLibraryStatus } from "@/utils/libraryStatusPresentation";
@@ -232,7 +232,7 @@ function useDebounced(value: string, ms: number): string {
 function BooksGroup({ query }: { query: string }) {
   const { t } = useTranslation("common");
   const { data: me } = useCurrentUser();
-  const [adding, setAdding] = useState(false);
+  const { addBook } = useAddFlow();
   const settled = useDebounced(query, BOOKS_DEBOUNCE_MS);
   const search = useBookProviderSearch(
     settled,
@@ -260,13 +260,24 @@ function BooksGroup({ query }: { query: string }) {
               key={book.google_volume_id}
               book={book}
               isAdmin={me?.is_admin === true}
-              onAdd={() => setAdding(true)}
+              onAdd={() =>
+                void addBook(
+                  {
+                    kind: "search",
+                    google_volume_id: book.google_volume_id,
+                    isbn13: book.isbn13,
+                  },
+                  {
+                    title: book.title,
+                    author: book.authors.join(", ") || null,
+                    coverUrl: book.cover_url,
+                    year: book.published_year,
+                  },
+                ).then((added) => added && void search.refetch())
+              }
             />
           ))}
         </ul>
-      )}
-      {adding && (
-        <AddBookDialog initialQuery={query} onClose={() => setAdding(false)} />
       )}
     </Group>
   );

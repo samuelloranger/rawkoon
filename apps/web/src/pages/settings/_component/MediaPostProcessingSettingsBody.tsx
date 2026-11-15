@@ -5,6 +5,8 @@ import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ToggleRow } from "@/features/add/SeasonPicker";
+import { cn } from "@/lib/utils";
 import { FormInput } from "@/components/ui/form-field";
 import { useLibraryScan } from "@/features/medias/hooks/useLibraryScan";
 import { useReindexLanguages } from "@/features/medias/hooks/useReindexLanguages";
@@ -125,6 +127,10 @@ export function MediaPostProcessingSettingsBody({
         defaultShowQualityProfileId: z.string(),
         defaultBookQualityProfileId: z.string(),
         searchOnAdd: z.enum(["on", "off"]),
+        askBeforeAdding: z.boolean(),
+        requestersChooseSeasons: z.boolean(),
+        defaultSeasonMode: z.enum(["all", "future", "latest"]),
+        defaultMonitorNewSeasons: z.boolean(),
         rssPollIntervalMinutes: z.string(),
       }),
     [],
@@ -154,6 +160,10 @@ export function MediaPostProcessingSettingsBody({
       defaultBookQualityProfileId:
         settings.default_book_quality_profile_id?.toString() ?? "",
       searchOnAdd: settings.search_on_add ? "on" : "off",
+      askBeforeAdding: settings.ask_before_adding,
+      requestersChooseSeasons: settings.requesters_choose_seasons,
+      defaultSeasonMode: settings.default_season_mode,
+      defaultMonitorNewSeasons: settings.default_monitor_new_seasons,
       rssPollIntervalMinutes: String(settings.rss_poll_interval_minutes),
     },
   });
@@ -194,6 +204,10 @@ export function MediaPostProcessingSettingsBody({
             ? null
             : parseInt(data.defaultBookQualityProfileId, 10),
         search_on_add: data.searchOnAdd === "on",
+        ask_before_adding: data.askBeforeAdding,
+        requesters_choose_seasons: data.requestersChooseSeasons,
+        default_season_mode: data.defaultSeasonMode,
+        default_monitor_new_seasons: data.defaultMonitorNewSeasons,
         release_check_cron: releaseCheck.cron,
         rss_poll_interval_minutes: parseInt(data.rssPollIntervalMinutes, 10),
       });
@@ -391,6 +405,84 @@ export function MediaPostProcessingSettingsBody({
               />
             )}
           />
+        </CardSection>
+
+        {/* ── The add dialog ─────────────────────────────────────────── */}
+        <CardSection title={t("addDialog.settings.title")}>
+          <div className="divide-y divide-border">
+            <Controller
+              control={control}
+              name="askBeforeAdding"
+              render={({ field }) => (
+                <ToggleRow
+                  title={t("addDialog.settings.ask")}
+                  hint={t("addDialog.settings.askHint")}
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="requestersChooseSeasons"
+              render={({ field }) => (
+                <ToggleRow
+                  title={t("addDialog.settings.requesters")}
+                  hint={t("addDialog.settings.requestersHint")}
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <div className="py-2.5">
+              <div className="font-medium text-neutral-50">
+                {t("addDialog.settings.defaultSeasons")}
+              </div>
+              <div className="text-[13px] text-neutral-400">
+                {t("addDialog.settings.defaultSeasonsHint")}
+              </div>
+              <Controller
+                control={control}
+                name="defaultSeasonMode"
+                render={({ field }) => (
+                  <div
+                    role="group"
+                    aria-label={t("addDialog.settings.defaultSeasons")}
+                    className="mt-2 flex flex-wrap gap-1.5"
+                  >
+                    {(["all", "future", "latest"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={field.value === m}
+                        onClick={() => field.onChange(m)}
+                        className={cn(
+                          "focus-ring rounded-full border px-[13px] py-1.5 text-sm transition-colors",
+                          field.value === m
+                            ? "border-primary-400 bg-primary-400 font-semibold text-neutral-950"
+                            : "border-border text-neutral-100 hover:border-border-strong",
+                        )}
+                      >
+                        {t(`addDialog.modes.${m}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              />
+            </div>
+            <Controller
+              control={control}
+              name="defaultMonitorNewSeasons"
+              render={({ field }) => (
+                <ToggleRow
+                  title={t("addDialog.newSeasons")}
+                  hint={t("addDialog.settings.newSeasonsHint")}
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </div>
         </CardSection>
 
         {/* ── Adding a title ─────────────────────────────────────────── */}

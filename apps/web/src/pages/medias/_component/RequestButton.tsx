@@ -1,25 +1,24 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Send } from "lucide-react";
-import { useCreateRequest } from "@/pages/activity/requests/_hooks/useRequests";
+import { useAddFlow, type RequestMedia } from "@/features/add/useAddFlow";
 
-interface Props {
-  media: {
-    tmdb_id: number;
-    type: "movie" | "show";
-    title: string;
-    poster_url: string | null;
-    year: number | null;
-  };
-}
-
-export function RequestButton({ media }: Props) {
+export function RequestButton({ media }: { media: RequestMedia }) {
   const { t } = useTranslation("common");
-  const { mutate, isPending, isSuccess } = useCreateRequest();
+  const { request } = useAddFlow();
+  const [state, setState] = useState<"idle" | "pending" | "done">("idle");
+  const isPending = state === "pending";
+  const isSuccess = state === "done";
+
+  const onClick = async () => {
+    setState("pending");
+    setState((await request(media)) ? "done" : "idle");
+  };
 
   return (
     <button
       type="button"
-      onClick={() => mutate(media)}
+      onClick={() => void onClick()}
       disabled={isPending || isSuccess}
       className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-neutral-950 transition-[background-color] hover:bg-primary-500 active:bg-primary-700 disabled:opacity-50"
     >

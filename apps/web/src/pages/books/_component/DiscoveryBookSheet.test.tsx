@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders, screen, fireEvent } from "@/test-utils/render";
 import type { BookDiscoveryBook } from "@rawkoon/shared/types";
 
-const mutate = vi.fn();
+const addBook = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const auth = vi.hoisted(() => ({ isAdmin: true }));
 vi.mock("@/lib/auth/useAuth", () => ({
   useCurrentUser: () => ({ data: { id: "u", is_admin: auth.isAdmin } }),
@@ -18,8 +18,8 @@ vi.mock("@/pages/activity/requests/_hooks/useRequests", () => ({
   }),
 }));
 
-vi.mock("../_hooks/useBookDiscovery", () => ({
-  useAddDiscoveryBook: () => ({ mutate, isPending: false, isSuccess: false }),
+vi.mock("@/features/add/useAddFlow", () => ({
+  useAddFlow: () => ({ addBook }),
 }));
 
 import { DiscoveryBookSheet } from "./DiscoveryBookSheet";
@@ -94,16 +94,23 @@ describe("DiscoveryBookSheet", () => {
   });
 
   it("adds the whole book (server picks volume vs metadata)", () => {
-    mutate.mockClear();
+    addBook.mockClear();
     renderWithProviders(<DiscoveryBookSheet book={base} onClose={vi.fn()} />);
     fireEvent.click(screen.getByText("books.explore.add"));
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ isbn13: "9780000000001", volumeId: "vol-1" }),
+    expect(addBook).toHaveBeenCalledWith(
+      {
+        kind: "discovery",
+        book: expect.objectContaining({
+          isbn13: "9780000000001",
+          volumeId: "vol-1",
+        }),
+      },
+      expect.objectContaining({ title: "Livre A" }),
     );
   });
 
   it("still offers Add with an ISBN but no Google volume", () => {
-    mutate.mockClear();
+    addBook.mockClear();
     renderWithProviders(
       <DiscoveryBookSheet
         book={{ ...base, volumeId: null }}
@@ -111,8 +118,15 @@ describe("DiscoveryBookSheet", () => {
       />,
     );
     fireEvent.click(screen.getByText("books.explore.add"));
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ isbn13: "9780000000001", volumeId: null }),
+    expect(addBook).toHaveBeenCalledWith(
+      {
+        kind: "discovery",
+        book: expect.objectContaining({
+          isbn13: "9780000000001",
+          volumeId: null,
+        }),
+      },
+      expect.anything(),
     );
   });
 

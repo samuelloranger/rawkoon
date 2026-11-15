@@ -26,6 +26,19 @@ export function DiscoverDeck() {
   const searchOnAddEnabled = useSearchOnAddEnabled();
 
   const [inFlight, setInFlight] = useState(false);
+  // Remounts the card after a dismissed add so a flown-off card comes back.
+  const [cardEpoch, setCardEpoch] = useState(0);
+  const add = useCallback(
+    (searchOnAdd?: boolean) => {
+      setInFlight(true);
+      void deck.addCurrent(searchOnAdd).then((advanced) => {
+        if (advanced) return;
+        setInFlight(false);
+        setCardEpoch((n) => n + 1);
+      });
+    },
+    [deck],
+  );
 
   // Sync ref to deck.current's TMDB ID to reset the guard when the card changes
   const currentId = deck.current?.tmdb_id ?? null;
@@ -38,11 +51,14 @@ export function DiscoverDeck() {
   const onSwipe = useCallback(
     (dir: SwipeDir) => {
       if (inFlight || !deck.current) return;
+      if (dir === "right") {
+        add();
+        return;
+      }
       setInFlight(true);
-      if (dir === "right") void deck.addCurrent();
-      else void deck.dismissCurrent();
+      void deck.dismissCurrent();
     },
-    [deck, inFlight],
+    [deck, inFlight, add],
   );
 
   // Keyboard: ← dismiss, → / Enter add.
@@ -52,8 +68,7 @@ export function DiscoverDeck() {
       if (inFlight || !deck.current) return;
 
       if (e.key === "ArrowRight" || e.key === "Enter") {
-        setInFlight(true);
-        deck.addCurrent();
+        add();
       } else if (e.key === "ArrowLeft") {
         setInFlight(true);
         deck.dismissCurrent();
@@ -61,7 +76,7 @@ export function DiscoverDeck() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [deck, inFlight]);
+  }, [deck, inFlight, add]);
 
   if (deck.status === "not_configured") return <DiscoverNotConfigured />;
   if (deck.status === "error") return <DiscoverError />;
@@ -112,7 +127,7 @@ export function DiscoverDeck() {
 
         {deck.current ? (
           <div
-            key={deck.current.id}
+            key={`${deck.current.id}:${cardEpoch}`}
             className="absolute inset-0 z-10 animate-[discover-in_0.3s_ease-out]"
           >
             <DiscoverCard
@@ -144,13 +159,11 @@ export function DiscoverDeck() {
         requestMode={!deck.isAdmin}
         onAdd={() => {
           if (inFlight || !deck.current) return;
-          setInFlight(true);
-          void deck.addCurrent();
+          add();
         }}
         onAddOnly={() => {
           if (inFlight || !deck.current) return;
-          setInFlight(true);
-          void deck.addCurrent(false);
+          add(false);
         }}
         onUndo={() => void deck.undo()}
       />

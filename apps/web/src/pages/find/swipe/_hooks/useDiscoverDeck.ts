@@ -9,12 +9,10 @@ import type {
 import { useFetcher } from "@/lib/api/context";
 import { MEDIAS_ENDPOINTS } from "@/lib/endpoints";
 import { useCurrentUser } from "@/lib/auth/useAuth";
-import { useCreateRequest } from "@/pages/activity/requests/_hooks/useRequests";
-import { useAddToLibrary } from "@/features/medias/hooks/useAddToLibrary";
+import { useAddFlow } from "@/features/add/useAddFlow";
 import { useAddToWatchlist } from "@/features/medias/hooks/useAddToWatchlist";
 import { useRemoveFromLibrary } from "@/features/medias/hooks/useRemoveFromLibrary";
 import { useRemoveFromWatchlist } from "@/features/medias/hooks/useRemoveFromWatchlist";
-import { useLiveSearchToast } from "@/features/medias/hooks/useLiveSearchToast";
 import { mergeBatch } from "./mergeBatch";
 import { useDismissMedia } from "./useDismissMedia";
 import { useUndismissMedia } from "./useUndismissMedia";
@@ -50,9 +48,7 @@ export function useDiscoverDeck() {
 
   const { data: user } = useCurrentUser();
   const isAdmin = user?.is_admin === true;
-  const createRequest = useCreateRequest();
-  const addToLibrary = useAddToLibrary();
-  const liveSearchToast = useLiveSearchToast();
+  const { add, request } = useAddFlow();
   const addToWatchlist = useAddToWatchlist();
   const removeFromLibrary = useRemoveFromLibrary();
   const removeFromWatchlist = useRemoveFromWatchlist();
@@ -143,66 +139,41 @@ export function useDiscoverDeck() {
   const current = queue[0] ?? null;
 
   const addCurrent = useCallback(
-    (searchOnAdd?: boolean) => {
-      if (!current) return;
+    // Resolves true when the card left the deck, false when the add or request was dismissed or failed.
+    async (searchOnAdd?: boolean): Promise<boolean> => {
+      if (!current) return false;
       const item = current;
-      // Adding to the library is admin-only; everyone else files a request.
-      if (!isAdmin) {
-        void createRequest
-          .mutateAsync({
+      // Waits for the tray (or the instant add) before the card leaves the deck.
+      return (async () => {
+        if (!isAdmin) {
+          const sent = await request({
             tmdb_id: item.tmdb_id,
             type: libraryType(item.media_type),
             title: item.title,
             poster_url: item.poster_url,
             year: item.release_year,
-          })
-          .then(() =>
-            toast.success(t("requests.requestedToast", { title: item.title })),
-          )
-          .catch((e) => {
-            // A pending request already exists, which is what the user wanted.
-            if ((e as { status?: number })?.status === 409) {
-              toast.success(
-                t("requests.requestedToast", { title: item.title }),
-              );
-              return;
-            }
-            rollback(item, t("requests.requestFailed", { title: item.title }));
           });
-        // A request can't be withdrawn from the deck, so it advances without undo.
-        setLast(null);
-        setQueue((q) => q.slice(1));
-        return;
-      }
-      // Add in the background and advance the deck now; the server queues the search.
-      const libraryId = addToLibrary
-        .mutateAsync({
-          tmdb_id: item.tmdb_id,
-          type: libraryType(item.media_type),
-          ...(searchOnAdd === false ? { search_on_add: false } : {}),
-        })
-        .then((r) => {
-          liveSearchToast.announceAdd(r, item.title);
-          return r.item.id;
-        })
-        .catch((e) => {
-          rollback(item, `Couldn't add "${item.title}"`);
-          throw e;
+          if (!sent) return false;
+          toast.success(t("requests.requestedToast", { title: item.title }));
+          // A request can't be withdrawn from the deck, so it advances without undo.
+          setLast(null);
+          setQueue((q) => q.slice(1));
+          return true;
+        }
+        const added = await add(
+          { ...item, can_add: true },
+          { compact: true, ...(searchOnAdd === false ? { searchOnAdd } : {}) },
+        );
+        if (!added) return false;
+        advance({
+          kind: "add",
+          item,
+          libraryId: Promise.resolve(added.item.id),
         });
-      // Swallow late rejection so it doesn't surface as an unhandled rejection.
-      libraryId.catch(() => {});
-      advance({ kind: "add", item, libraryId });
+        return true;
+      })();
     },
-    [
-      current,
-      isAdmin,
-      t,
-      createRequest,
-      addToLibrary,
-      advance,
-      rollback,
-      liveSearchToast,
-    ],
+    [current, isAdmin, t, add, request, advance],
   );
 
   const watchlistCurrent = useCallback(() => {

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFetcher } from "@/lib/api/context";
 import { queryKeys } from "@/lib/queryKeys";
+import { featuresQuery } from "@/lib/routing/useFeatures";
 import { LIBRARY_ENDPOINTS } from "@/lib/endpoints";
 import type {
   MediaPostProcessingSettingsResponse,
@@ -21,6 +22,8 @@ export function useUpdateMediaPostProcessingSettings() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.library.postProcessingSettings(),
       });
+      // The public flags mirror the add-dialog switches.
+      queryClient.invalidateQueries({ queryKey: featuresQuery.queryKey });
     },
   });
 }
