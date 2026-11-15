@@ -2,7 +2,7 @@ import { describe, it, expect, mock, beforeEach } from "bun:test";
 
 const findUniqueMedia = mock(async () => ({
   title: "Show",
-  year: 2020,
+  year: 2020 as number | null,
   type: "tv",
   searchTitle: null,
   originalTitle: null,
@@ -162,5 +162,67 @@ describe("searchAndGrab AI judge", () => {
     expect(grabRelease).toHaveBeenCalledTimes(2);
     expect(grabRelease.mock.calls[1]![0]).toMatchObject({ aiPicked: false });
     expect(grabRelease.mock.calls[1]![0].releaseTitle).toContain(".1.");
+  });
+});
+
+describe("searchAndGrab for a movie", () => {
+  const movieRelease = (title: string) => ({ ...release(1, 10), title });
+  const searchMovie = () =>
+    searchAndGrab({
+      mediaId: 1,
+      mediaType: "movie",
+      searchQuery: "Scream 2022",
+      qualityProfileId: null,
+    });
+
+  beforeEach(() => {
+    grabRelease.mockClear();
+    grabRelease.mockImplementation(async () => ({ grabbed: true }));
+    findUniqueMedia.mockImplementation(async () => ({
+      title: "Scream",
+      year: 2022,
+      type: "movie",
+      searchTitle: null,
+      originalTitle: null,
+    }));
+  });
+
+  it.each([
+    "Scream.7.2026.MULTi.1080p.WEBRip",
+    "Scream.1996.MULTi.1080p.BluRay",
+    "Scream.S01E05.1080p.WEB",
+  ])("rejects %s for Scream (2022)", async (title) => {
+    searchReleases = [movieRelease(title)];
+    expect((await searchMovie()).grabbed).toBe(false);
+    expect(grabRelease).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Scream.2022.MULTi.1080p.WEB",
+    "Scream.2021.MULTi.1080p.WEB",
+    "Scream.MULTi.1080p.WEB",
+    "Scream.2022.Remastered.2025.1080p.BluRay",
+    "Scream.1920x1080.BluRay",
+  ])("accepts %s for Scream (2022)", async (title) => {
+    searchReleases = [movieRelease(title)];
+    expect((await searchMovie()).grabbed).toBe(true);
+  });
+
+  it.each([
+    ["Blade Runner 2049", 2017, "Blade.Runner.2049.1080p.BluRay"],
+    ["Blade Runner 2049", 2017, "Blade.Runner.2049.2017.1080p.BluRay"],
+    ["Wonder Woman 1984", 2020, "Wonder.Woman.1984.1080p.WEB"],
+    ["1981", 2009, "1981.2009.VFQ.1080p.WEBRip"],
+    ["Scream", null, "Scream.1996.MULTi.1080p.BluRay"],
+  ])("accepts a release of %s (%p) named %s", async (movie, year, title) => {
+    findUniqueMedia.mockImplementation(async () => ({
+      title: movie,
+      year,
+      type: "movie",
+      searchTitle: null,
+      originalTitle: null,
+    }));
+    searchReleases = [movieRelease(title)];
+    expect((await searchMovie()).grabbed).toBe(true);
   });
 });
