@@ -48,6 +48,7 @@ import {
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import {
   releaseMatchesExpectedTitles,
+  releaseYearFits,
   resolveSearchTitles,
 } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 
@@ -211,15 +212,8 @@ export async function searchAndGrab(opts: {
 
       // A movie search must not take a TV release, or a sequel or remake from another year.
       if (media?.type === "movie") {
-        const structure = parseReleaseStructure(title);
-        if (structure.season != null) continue;
-        if (
-          structure.year != null &&
-          media.year != null &&
-          Math.abs(structure.year - media.year) > 1
-        ) {
-          continue;
-        }
+        if (parseReleaseStructure(title).season != null) continue;
+        if (!releaseYearFits(title, media.year, matchTitles)) continue;
       }
 
       // A complete-series pack must name every wanted season, or the rest stays unfetched.
