@@ -137,10 +137,25 @@ describe("resolveGrabEpisodeId", () => {
     expect(r).toEqual({ ok: true, episodeId: 110, corrected: false });
   });
 
-  it("keeps the requested episode for a season-only (pack) release title", () => {
+  it.each([
+    "Bellefleur.S03.FRENCH.1080p.WEB",
+    "Bellefleur.Integrale.Saison.3.FRENCH.1080p",
+    "Bellefleur.S01-S03.MULTi.1080p.WEB",
+    "Bellefleur.Integrale.MULTi.1080p.WEB",
+    "Bellefleur.S03E01-E10.1080p.WEB",
+  ])("keys a pack grabbed from an episode as a pack: %s", (releaseTitle) => {
     const r = resolveGrabEpisodeId({
       requested: EPISODES[2],
-      releaseTitle: "Bellefleur.S03.FRENCH.1080p.WEB",
+      releaseTitle,
+      episodesBySeasonEpisode: map,
+    });
+    expect(r).toEqual({ ok: true, episodeId: null, corrected: false });
+  });
+
+  it("keeps the requested episode for an unparseable release title", () => {
+    const r = resolveGrabEpisodeId({
+      requested: EPISODES[2],
+      releaseTitle: "Bellefleur.FRENCH.1080p.WEB",
       episodesBySeasonEpisode: map,
     });
     expect(r).toEqual({ ok: true, episodeId: 112, corrected: false });
@@ -157,6 +172,28 @@ describe("resolveGrabSeason", () => {
         releaseTitle: "Show.S02.1080p",
       }),
     ).toBe(2);
+  });
+
+  it("keys a pack to the season it names, not the caller's", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: null,
+        season: 3,
+        releaseTitle: "Show.S01.1080p.WEB-DL",
+      }),
+    ).toBe(1);
+  });
+
+  it("keeps the caller's season when the title names none", () => {
+    expect(
+      resolveGrabSeason({
+        mediaType: "show",
+        episodeId: null,
+        season: 3,
+        releaseTitle: "Show.Name.FRENCH.1080p.WEB-DL",
+      }),
+    ).toBe(3);
   });
 
   it("infers season from a pack title when the caller omits it", () => {

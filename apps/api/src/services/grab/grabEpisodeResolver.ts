@@ -14,6 +14,11 @@ export type ResolveGrabEpisodeResult =
   | { ok: true; episodeId: number | null; corrected: boolean }
   | { ok: false; reason: string };
 
+/** Whether a release covers more than one episode (a second marker or a range). */
+export function isMultiEpisodeRelease(title: string): boolean {
+  return parseReleaseStructure(title).episodes.length > 1;
+}
+
 /**
  * Decide which LibraryEpisode a show grab should be linked to.
  *
@@ -26,16 +31,14 @@ export type ResolveGrabEpisodeResult =
  *
  * - No requested episode: link a single-episode release (one SxxExx that is a
  *   known episode) to that episode; anything else stays unlinked (pack).
- * - Release SxxExx unparseable or season-only: keep the requested episode.
+ * - Release is a pack (season-only, multi-season, integrale, or an episode
+ *   range): unlinked, keyed by season and imported whole.
+ * - Release SxxExx unparseable: keep the requested episode.
  * - Release SxxExx matches the requested episode: keep it.
  * - Release SxxExx points at another known episode of the same show: correct to
  *   that episode.
  * - Release SxxExx points at an episode not in the library: reject the grab.
  */
-/** Whether a release covers more than one episode (a second marker or a range). */
-export function isMultiEpisodeRelease(title: string): boolean {
-  return parseReleaseStructure(title).episodes.length > 1;
-}
 
 export function resolveGrabEpisodeId(opts: {
   requested: GrabEpisodeRef | null;
@@ -56,11 +59,15 @@ export function resolveGrabEpisodeId(opts: {
     return { ok: true, episodeId: match?.id ?? null, corrected: false };
   }
 
-  // Unparseable, or a season-only match (episode == null): can't reconcile, so
-  // trust the requested episode rather than block a legitimate grab.
-  if (!se || se.episode == null) {
-    return { ok: true, episodeId: requested.id, corrected: false };
-  }
+  // A pack grabbed from an episode is still a pack: keyed by season and imported whole.
+  const isPack = se
+    ? se.episode == null || isMultiEpisodeRelease(releaseTitle)
+    : isMultiSeasonRelease(releaseTitle) ||
+      singleSeasonNamed(releaseTitle) != null;
+  if (isPack) return { ok: true, episodeId: null, corrected: false };
+
+  // Unparseable: can't reconcile, so trust the requested episode rather than block the grab.
+  if (!se) return { ok: true, episodeId: requested.id, corrected: false };
 
   if (se.season === requested.season && se.episode === requested.episode) {
     return { ok: true, episodeId: requested.id, corrected: false };
@@ -92,16 +99,15 @@ export function resolveGrabSeason(opts: {
   releaseTitle: string;
 }): number | null {
   if (opts.episodeId != null) return null;
+  if (opts.mediaType !== "show") return opts.season ?? null;
   // A held pack replayed under its season's target must still record show-level and pass the show-wide guard.
-  if (opts.mediaType === "show" && isMultiSeasonRelease(opts.releaseTitle))
-    return null;
-  if (opts.season != null) return opts.season;
-  if (opts.mediaType !== "show") return null;
+  if (isMultiSeasonRelease(opts.releaseTitle)) return null;
   // A multi-season pack is show-level, not season N's: it must not collide with S01's own pack.
-  if (parseReleaseSeasonSpan(opts.releaseTitle)) return null;
-  return (
+  if (parseReleaseSeasonSpan(opts.releaseTitle)) return opts.season ?? null;
+  // The season the release names beats the caller's: a pack can be grabbed from another season's panel.
+  const named =
     parseReleaseSeasonEpisode(opts.releaseTitle)?.season ??
     // "Intégrale Saison 2" parses as a whole-series label but is one season.
-    singleSeasonNamed(opts.releaseTitle)
-  );
+    singleSeasonNamed(opts.releaseTitle);
+  return named ?? opts.season ?? null;
 }
