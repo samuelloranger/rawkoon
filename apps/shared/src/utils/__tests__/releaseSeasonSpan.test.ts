@@ -21,6 +21,8 @@ describe("parseReleaseSeasonSpan", () => {
     "Show.Name.S01-720p.WEB",
     "Show.Name.Integrale.MULTi.1080p.WEB",
     "Show Name Season 3 1080p",
+    "Show.Name.Season.1.A.Dark.Tale.1080p",
+    "Show.Name.Season.2.A.1080p.WEB",
   ])("finds no range in %s", (name) => {
     expect(parseReleaseSeasonSpan(name)).toBeNull();
   });

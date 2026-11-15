@@ -58,7 +58,7 @@ export function resolveGrabEpisodeId(opts: {
 
   // A pack grabbed from an episode is still a pack: keyed by season and imported whole.
   const isPack = se
-    ? se.episode == null
+    ? se.episode == null || isMultiEpisodeRelease(releaseTitle)
     : isMultiSeasonRelease(releaseTitle) ||
       singleSeasonNamed(releaseTitle) != null;
   if (isPack) return { ok: true, episodeId: null, corrected: false };
@@ -96,16 +96,15 @@ export function resolveGrabSeason(opts: {
   releaseTitle: string;
 }): number | null {
   if (opts.episodeId != null) return null;
+  if (opts.mediaType !== "show") return opts.season ?? null;
   // A held pack replayed under its season's target must still record show-level and pass the show-wide guard.
-  if (opts.mediaType === "show" && isMultiSeasonRelease(opts.releaseTitle))
-    return null;
-  if (opts.season != null) return opts.season;
-  if (opts.mediaType !== "show") return null;
+  if (isMultiSeasonRelease(opts.releaseTitle)) return null;
   // A multi-season pack is show-level, not season N's: it must not collide with S01's own pack.
-  if (parseReleaseSeasonSpan(opts.releaseTitle)) return null;
-  return (
+  if (parseReleaseSeasonSpan(opts.releaseTitle)) return opts.season ?? null;
+  // The season the release names beats the caller's: a pack can be grabbed from another season's panel.
+  const named =
     parseReleaseSeasonEpisode(opts.releaseTitle)?.season ??
     // "Intégrale Saison 2" parses as a whole-series label but is one season.
-    singleSeasonNamed(opts.releaseTitle)
-  );
+    singleSeasonNamed(opts.releaseTitle);
+  return named ?? opts.season ?? null;
 }
