@@ -1,17 +1,11 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { searchLibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
 import { refreshLibraryMovieDigitalDate } from "@rawkoon/api/services/libraryTmdbRefresh";
-import { isNoMissRefusal } from "@rawkoon/api/services/grab/grabRefusal";
 import { MAX_LIBRARY_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import {
   isGrabSearchDue,
   recordMovieMiss,
 } from "@rawkoon/api/services/grab/grabAttempts";
-import {
-  publishSearchResult,
-  searchResultFrom,
-} from "@rawkoon/api/services/searchResult";
 import {
   APP_DISPLAY_TIMEZONE,
   localDateYmd,
@@ -88,31 +82,14 @@ export async function checkMovieReleases(): Promise<void> {
       if (digital > todayCutoff) continue;
       if (!isGrabSearchDue(m)) continue;
 
-      const { queries } = resolveSearchTitles({
-        title: m.title,
-        searchTitle: m.searchTitle,
-        originalTitle: m.originalTitle,
-      });
-      const result = await searchAndGrabWithTitleFallback({
-        trigger: "scheduled",
-        mediaId: m.id,
-        mediaType: "movie",
-        titleBaseQueries: queries,
-        suffix: m.year ? ` ${m.year}` : "",
-        qualityProfileId: m.qualityProfileId,
-      });
+      const { result, countsAsMiss } = await searchLibraryTarget(
+        m,
+        { kind: "movie" },
+        { trigger: "scheduled" },
+      );
 
-      await publishSearchResult(searchResultFrom(m.id, result));
-
-      // A grab held by the profile's delay isn't a miss; don't burn an attempt.
-      if (result.grabbed || result.delayed) continue;
-      // A full disk is not the release's fault and clears on its own; keep the item wanted.
-      // Another grab already running for it is not a miss either.
-      if (
-        isNoMissRefusal(result.refusal) ||
-        result.refusal === "already_active"
-      )
-        continue;
+      // Grabs, delay holds, a full disk and an already-running grab are not misses.
+      if (!countsAsMiss || result.grabbed) continue;
 
       await recordMovieMiss(m, result.reason);
     } catch (e) {

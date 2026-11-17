@@ -1,7 +1,6 @@
 import { APP_PATHS } from "@rawkoon/shared/constants";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
-import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
 import type { ClaimedJob } from "@rawkoon/api/services/transcode/repo";
 import type { TranscodeNotifier } from "@rawkoon/api/services/transcode/dispatcher";
 
@@ -9,7 +8,7 @@ function gb(bytes: bigint): string {
   return `${(Number(bytes) / 1e9).toFixed(1)} GB`;
 }
 
-async function toAdmins(
+const toAdmins = (
   build: (locale: string | null) => {
     title: string;
     body: string;
@@ -17,25 +16,14 @@ async function toAdmins(
   },
   preferenceKey: "library_downloaded" | "library_failed",
   mediaId: number | null,
-): Promise<void> {
-  for (const admin of await getAdminNotificationTargets()) {
-    const msg = build(admin.locale);
-    try {
-      await createAndQueueNotification(
-        admin.id,
-        msg.title,
-        msg.body,
-        msg.type,
-        APP_PATHS.settingsReencode,
-        mediaId != null ? { media_id: mediaId } : undefined,
-        undefined,
-        { preferenceKey, skipPreferenceCheck: false },
-      );
-    } catch (e) {
-      console.warn("[transcode] notification failed:", e);
-    }
-  }
-}
+) =>
+  notifyAdmins({
+    build,
+    preferenceKey,
+    url: APP_PATHS.settingsReencode,
+    metadata: mediaId != null ? { media_id: mediaId } : undefined,
+    logTag: "transcode",
+  });
 
 export const transcodeNotifier: TranscodeNotifier = {
   async jobFailed(job: ClaimedJob, error: string) {

@@ -11,19 +11,11 @@ import {
   grabRelease,
   preflightGrab,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
-import {
-  searchAndGrab,
-  searchAndGrabWithTitleFallback,
-} from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
 import type {
   LanguageFallbackSummary,
   SearchResultPayload,
 } from "@rawkoon/shared/types";
-import {
-  publishSearchResult,
-  searchResultFrom,
-} from "@rawkoon/api/services/searchResult";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { searchLibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
 import {
   countDownloadingEpisodes,
   enqueueAutoUpgrade,
@@ -204,30 +196,11 @@ export const libraryGrabRoutes = new Hono<Env>()
       // Manual search resets counter + status so users can always retry.
       await resetMovieForManualSearch(id);
 
-      const explicit = body.search_query?.trim();
-      const result = explicit
-        ? await searchAndGrab({
-            trigger: "manual_search",
-            mediaId: id,
-            mediaType: "movie",
-            searchQuery: explicit,
-            qualityProfileId: media.qualityProfileId,
-          })
-        : await searchAndGrabWithTitleFallback({
-            trigger: "manual_search",
-            mediaId: id,
-            mediaType: "movie",
-            titleBaseQueries: resolveSearchTitles({
-              title: media.title,
-              searchTitle: media.searchTitle,
-              originalTitle: media.originalTitle,
-            }).queries,
-            suffix: media.year ? ` ${media.year}` : "",
-            qualityProfileId: media.qualityProfileId,
-          });
-
-      const searchResult = searchResultFrom(id, result);
-      await publishSearchResult(searchResult);
+      const { result, payload: searchResult } = await searchLibraryTarget(
+        media,
+        { kind: "movie" },
+        { trigger: "manual_search", query: body.search_query?.trim() },
+      );
 
       if (result.grabbed) {
         return ok({
@@ -273,35 +246,16 @@ export const libraryGrabRoutes = new Hono<Env>()
         // Manual search resets counter + status so users can always retry.
         await resetEpisodeForManualSearch(episodeId);
 
-        const s = String(ep.season).padStart(2, "0");
-        const e = String(ep.episode).padStart(2, "0");
-        const explicit = body.search_query?.trim();
-        const result = explicit
-          ? await searchAndGrab({
-              trigger: "manual_search",
-              mediaId,
-              episodeId,
-              mediaType: "tv",
-              searchQuery: explicit,
-              qualityProfileId: media.qualityProfileId,
-            })
-          : await searchAndGrabWithTitleFallback({
-              trigger: "manual_search",
-              mediaId,
-              episodeId,
-              mediaType: "tv",
-              titleBaseQueries: resolveSearchTitles({
-                title: media.title,
-                searchTitle: media.searchTitle,
-                originalTitle: media.originalTitle,
-              }).queries,
-              suffix: ` S${s}E${e}`,
-              qualityProfileId: media.qualityProfileId,
-            });
-
-        // An episode outcome says nothing about the show as a whole, so it is not stored.
-        const searchResult = searchResultFrom(mediaId, result);
-        await publishSearchResult(searchResult, { persist: false });
+        const { result, payload: searchResult } = await searchLibraryTarget(
+          media,
+          {
+            kind: "episode",
+            episodeId,
+            season: ep.season,
+            episode: ep.episode,
+          },
+          { trigger: "manual_search", query: body.search_query?.trim() },
+        );
 
         if (result.grabbed) {
           return ok({
@@ -364,33 +318,11 @@ export const libraryGrabRoutes = new Hono<Env>()
           return badRequest("No wanted episodes in this season");
         }
 
-        const s = String(season).padStart(2, "0");
-        const explicit = body.search_query?.trim();
-        const result = explicit
-          ? await searchAndGrab({
-              trigger: "manual_search",
-              mediaId,
-              season,
-              mediaType: "tv",
-              searchQuery: explicit,
-              qualityProfileId: media.qualityProfileId,
-            })
-          : await searchAndGrabWithTitleFallback({
-              trigger: "manual_search",
-              mediaId,
-              season,
-              mediaType: "tv",
-              titleBaseQueries: resolveSearchTitles({
-                title: media.title,
-                searchTitle: media.searchTitle,
-                originalTitle: media.originalTitle,
-              }).queries,
-              suffix: ` S${s}`,
-              qualityProfileId: media.qualityProfileId,
-            });
-
-        const searchResult = searchResultFrom(mediaId, result, season);
-        await publishSearchResult(searchResult);
+        const { result, payload: searchResult } = await searchLibraryTarget(
+          media,
+          { kind: "season", season },
+          { trigger: "manual_search", query: body.search_query?.trim() },
+        );
 
         if (result.grabbed) {
           return ok({

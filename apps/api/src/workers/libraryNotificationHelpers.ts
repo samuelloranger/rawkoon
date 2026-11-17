@@ -4,11 +4,6 @@ import {
   formatSeasonEpisode,
   showLabel,
 } from "@rawkoon/api/services/notification/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
-import {
-  createAndQueueNotification,
-  type CreateNotificationOptions,
-} from "@rawkoon/api/workers/notificationService";
 
 type MediaContext = {
   mediaId: number;
@@ -80,41 +75,4 @@ export function subjectMetadata(
     ...(opts.detail ? { detail: opts.detail } : {}),
     ...(opts.isUpgrade ? { is_upgrade: true } : {}),
   };
-}
-
-export async function notifyAdmins(
-  build: (locale: string | null) => {
-    title: string;
-    body: string;
-    type: string;
-    url: string;
-  },
-  opts: {
-    imageUrl?: string | null;
-    metadata?: Record<string, unknown>;
-    notifyOptions?: CreateNotificationOptions;
-    logTag: string;
-  },
-): Promise<void> {
-  const admins = await getAdminNotificationTargets();
-  for (const admin of admins) {
-    const msg = build(admin.locale);
-    try {
-      await createAndQueueNotification(
-        admin.id,
-        msg.title,
-        msg.body,
-        msg.type,
-        msg.url,
-        opts.metadata,
-        opts.imageUrl ?? undefined,
-        {
-          ...opts.notifyOptions,
-          skipPreferenceCheck: false,
-        },
-      );
-    } catch (e) {
-      console.warn(`[${opts.logTag}] Failed for user ${admin.id}:`, e);
-    }
-  }
 }

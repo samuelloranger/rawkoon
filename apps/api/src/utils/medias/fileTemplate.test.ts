@@ -53,6 +53,31 @@ describe("fileTemplate", () => {
     expect(out).toContain("S03");
     expect(out).toContain("E07");
   });
+
+  // Import passes extname() (".mkv") while rescan passes "mkv"; both must render the same name.
+  it("renders {ext} the same with or without the leading dot", () => {
+    const movie = {
+      title: "Heat",
+      year: 1995,
+      resolution: null,
+      source: null,
+      codec: null,
+    };
+    expect(
+      renderMovieTemplate("{title}.{ext}", { ...movie, ext: ".mkv" }),
+    ).toBe(renderMovieTemplate("{title}.{ext}", { ...movie, ext: "mkv" }));
+    expect(
+      renderEpisodeTemplate("{show} {episode:2}.{ext}", {
+        show: "My Show",
+        season: 1,
+        episode: 2,
+        title: "Pilot",
+        resolution: null,
+        source: null,
+        ext: ".mkv",
+      }),
+    ).toBe("My Show 02.mkv");
+  });
 });
 
 describe("path templates stay byte-identical for real titles", () => {
