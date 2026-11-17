@@ -41,7 +41,7 @@
     "@biomejs/biome": "^2.6.5",
     "knip": "^6.44.1",
     "typescript": "^7.0.2",
-    "vitepress": "1.6.4"
+    "vitepress": "2.0.0-alpha.21"
   },
   "version": "1.49.0"
 }

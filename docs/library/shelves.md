@@ -5,7 +5,7 @@ description: *Christmas movies*, *Pixar*, *James Bond*, or the Marvel films in
 story order. Shelves are curated once and browsed on the TV, where they get a
 destination of their own next to Movies, Shows and Collections.
 
-![The shelves page, with one cover card per shelf](screenshots/shelves-list.webp)
+![The shelves page, with one cover card per shelf](../screenshots/shelves-list.webp)
 
 ## Who can edit
 
@@ -24,7 +24,7 @@ and outside that window only administrators see it.
 
 ## Edit a shelf
 
-![The shelf editor: its settings on the left, its titles in order on the right](screenshots/shelves-editor.webp)
+![The shelf editor: its settings on the left, its titles in order on the right](../screenshots/shelves-editor.webp)
 
 - **Name and description** are what the TV shows above the shelf's titles.
 - **Order** decides how the TV lists them: by hand (the order here, with the
