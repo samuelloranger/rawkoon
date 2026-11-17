@@ -75,6 +75,7 @@ enum NotificationDestination: Identifiable, Equatable, Sendable {
     /// Parses a web SPA path (such as `/library/42?season=2&tab=management`)
     /// into a native destination. Returns `nil` for an empty/missing url or any
     /// path this app doesn't have a screen for.
+    // swiftlint:disable:next cyclomatic_complexity
     static func resolve(url: String?) -> NotificationDestination? {
         switch NotificationRoute.parse(url) {
         case let .media(libraryId, season, episode, focusManagement)?:

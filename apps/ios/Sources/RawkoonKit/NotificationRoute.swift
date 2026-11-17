@@ -73,6 +73,7 @@ public enum NotificationRoute: Equatable, Sendable {
     }
 
     /// The pages whose route depends on the path alone.
+    // swiftlint:disable:next cyclomatic_complexity
     private static func pageRoute(_ head: String, _ second: String?) -> NotificationRoute? {
         switch (head, second) {
         case ("activity", nil), ("notifications", nil): .inbox
