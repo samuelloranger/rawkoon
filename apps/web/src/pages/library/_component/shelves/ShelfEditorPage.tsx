@@ -1,80 +1,29 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  GripVertical,
-  Plus,
-  Rows3,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  ShelfDetail,
-  ShelfEntryView,
-  ShelfOrderMode,
-} from "@rawkoon/shared/types";
+import type { ShelfDetail, ShelfEntryView } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
 import { useAuth } from "@/lib/auth/useAuth";
 import { SHELVES_ENDPOINTS } from "@/lib/endpoints";
 import { queryKeys } from "@/lib/queryKeys";
-import { cn } from "@/lib/utils";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingState } from "@/components/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Dialog } from "@/components/dialog";
-import { GroupHeader } from "./GroupHeader";
 import { useLiveReorder } from "./useLiveReorder";
 import { RemovedEntries } from "./RemovedEntries";
 import { AddTitlesDialog } from "./AddTitlesDialog";
-import { ShelfCoverEditor } from "./ShelfCoverEditor";
-import { MonthDayField } from "./MonthDayField";
-import { CHRISTMAS_WINDOW } from "./monthDay";
-import { moveEntry, setGroupFrom, startsGroup } from "./shelfOrder";
+import { moveEntry, setGroupFrom } from "./shelfOrder";
 import { readShelfEntries, useShelfMutation } from "./useShelfMutation";
 import { ShelfCover } from "./ShelfCover";
 import { ShelfRulesSection } from "./ShelfRulesSection";
-
-type Draft = {
-  name: string;
-  description: string;
-  orderMode: ShelfOrderMode;
-  homeRow: boolean;
-  visibleFrom: string | null;
-  visibleTo: string | null;
-  coverStyle: "mosaic" | "backdrop" | "upload";
-  coverTmdbId: number | null;
-  coverType: "movie" | "show" | null;
-  coverUrl: string | null;
-};
-
-const draftOf = (shelf: ShelfDetail): Draft => ({
-  name: shelf.name,
-  description: shelf.description ?? "",
-  orderMode: shelf.order_mode,
-  homeRow: shelf.home_row,
-  visibleFrom: shelf.visible_from,
-  visibleTo: shelf.visible_to,
-  coverStyle: shelf.cover.style,
-  coverTmdbId: shelf.cover_tmdb_id,
-  coverType: shelf.cover_type,
-  coverUrl: shelf.cover.style === "backdrop" ? shelf.cover.backdrop_url : null,
-});
+import { DeleteShelfDialog } from "./DeleteShelfDialog";
+import { ShelfEntriesList } from "./ShelfEntriesList";
+import { ShelfSettingsForm } from "./ShelfSettingsForm";
+import { draftOf, type Draft } from "./shelfDraft";
 
 /** Library → Shelves → one shelf: its settings, and its titles in display order. */
 export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
@@ -332,154 +281,17 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         <div className="space-y-4">
           <ShelfCover shelf={detail} />
           {isAdmin ? (
-            <div className="space-y-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="shelf-name"
-                  className="text-xs font-medium text-neutral-400"
-                >
-                  {t("shelves.name")}
-                </label>
-                <Input
-                  id="shelf-name"
-                  value={draft.name}
-                  maxLength={120}
-                  onChange={(event) => patchDraft({ name: event.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="shelf-description"
-                  className="text-xs font-medium text-neutral-400"
-                >
-                  {t("shelves.description")}
-                </label>
-                <Textarea
-                  id="shelf-description"
-                  value={draft.description}
-                  rows={3}
-                  maxLength={2000}
-                  onChange={(event) =>
-                    patchDraft({ description: event.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-neutral-400">
-                  {t("shelves.orderMode")}
-                </p>
-                <Select
-                  value={draft.orderMode}
-                  onValueChange={(value) =>
-                    patchDraft({ orderMode: value as ShelfOrderMode })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">
-                      {t("shelves.order.manual")}
-                    </SelectItem>
-                    <SelectItem value="release">
-                      {t("shelves.order.release")}
-                    </SelectItem>
-                    <SelectItem value="rating">
-                      {t("shelves.order.rating")}
-                    </SelectItem>
-                    <SelectItem value="added">
-                      {t("shelves.order.added")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-neutral-200">
-                    {t("shelves.homeRow")}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {t("shelves.homeRowHint")}
-                  </p>
-                </div>
-                <Switch
-                  checked={draft.homeRow}
-                  onCheckedChange={(checked) =>
-                    patchDraft({ homeRow: checked })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-neutral-200">
-                  {t("shelves.window")}
-                </p>
-                <p className="text-xs text-neutral-500">
-                  {t("shelves.windowHint")}
-                </p>
-                <div className="grid grid-cols-1 gap-3">
-                  <MonthDayField
-                    label={t("shelves.from")}
-                    value={draft.visibleFrom}
-                    onChange={(value) => patchDraft({ visibleFrom: value })}
-                  />
-                  <MonthDayField
-                    label={t("shelves.to")}
-                    value={draft.visibleTo}
-                    onChange={(value) => patchDraft({ visibleTo: value })}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    patchDraft({
-                      visibleFrom: CHRISTMAS_WINDOW.from,
-                      visibleTo: CHRISTMAS_WINDOW.to,
-                    })
-                  }
-                >
-                  {t("shelves.christmasPreset")}
-                </Button>
-              </div>
-              <ShelfCoverEditor
-                shelfId={shelfId}
-                style={draft.coverStyle}
-                tmdbId={draft.coverTmdbId}
-                type={draft.coverType}
-                entries={entries}
-                uploadedUrl={
-                  detail.cover.style === "upload" ? detail.cover.url : null
-                }
-                coverUrl={draft.coverUrl}
-                onChange={patchDraft}
-                onUploaded={async (shelf) => {
-                  // The upload response is the freshest copy; the list refetch follows
-                  queryClient.setQueryData(queryKeys.shelves.detail(shelfId), {
-                    shelf,
-                  });
-                  // The upload saved the cover server-side; drop the draft's backdrop pick with it
-                  const saved = draftOf(shelf);
-                  patchDraft({
-                    coverStyle: saved.coverStyle,
-                    coverTmdbId: saved.coverTmdbId,
-                    coverType: saved.coverType,
-                    coverUrl: saved.coverUrl,
-                  });
-                  await invalidate();
-                }}
-              />
-              <Button
-                size="sm"
-                disabled={
-                  !dirty || save.isPending || draft.name.trim().length === 0
-                }
-                onClick={() => save.mutate(draft)}
-                className="w-full"
-              >
-                {save.isPending ? t("shelves.saving") : t("shelves.save")}
-              </Button>
-            </div>
+            <ShelfSettingsForm
+              shelfId={shelfId}
+              detail={detail}
+              draft={draft}
+              patchDraft={patchDraft}
+              entries={entries}
+              dirty={dirty}
+              saving={save.isPending}
+              onSave={() => save.mutate(draft)}
+              invalidate={invalidate}
+            />
           ) : null}
         </div>
 
@@ -495,123 +307,15 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
                 : t("shelves.entriesEmpty")}
             </p>
           ) : (
-            <ul className="divide-y divide-neutral-800 rounded-xl border border-neutral-800">
-              {shown.map((entry, index) => (
-                <Fragment key={entry.id}>
-                  {startsGroup(shown, index) && (
-                    <GroupHeader
-                      label={entry.group_label ?? ""}
-                      editable={isAdmin}
-                      onRename={(label) => setGroup(entry.id, label)}
-                    />
-                  )}
-                  <li
-                    {...reorder.rowProps(entry, index)}
-                    className={cn(
-                      "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:flex-nowrap",
-                      reorder.dragging === entry.id &&
-                        "relative z-10 opacity-50 ring-1 ring-primary-400",
-                    )}
-                  >
-                    {isAdmin && (
-                      <span
-                        aria-hidden
-                        className="cursor-grab text-neutral-500"
-                      >
-                        <GripVertical size={15} />
-                      </span>
-                    )}
-                    <span className="w-6 shrink-0 text-right text-xs tabular-nums text-neutral-500">
-                      {index + 1}
-                    </span>
-                    <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
-                      {entry.poster_url ? (
-                        <img
-                          draggable={false}
-                          src={entry.poster_url}
-                          alt=""
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1 basis-32">
-                      <p className="truncate text-sm text-neutral-100">
-                        {entry.title}
-                        {entry.season != null ? ` · S${entry.season}` : ""}
-                      </p>
-                      <p className="text-xs text-neutral-500">
-                        {[entry.year, t(`shelves.type.${entry.type}`)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                        {entry.in_library
-                          ? ` · ${t("shelves.inLibrary")}`
-                          : ` · ${t("shelves.notInLibrary")}`}
-                      </p>
-                      {isAdmin && entry.source === "rule" && (
-                        <p
-                          className="mt-0.5 text-xs text-neutral-500"
-                          title={entry.reason?.join(", ")}
-                        >
-                          <span className="mr-1.5 rounded-full bg-neutral-800 px-2 py-0.5 text-neutral-300">
-                            {t("shelves.rules.badge")}
-                          </span>
-                          {entry.reason?.join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                    {isAdmin && (
-                      <div className="flex w-full shrink-0 items-center justify-end sm:w-auto">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={t("shelves.moveEarlier", {
-                            title: entry.title,
-                          })}
-                          disabled={index === 0}
-                          onClick={() => moveTo(entry.id, index - 1)}
-                        >
-                          <ArrowUp size={15} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={t("shelves.moveLater", {
-                            title: entry.title,
-                          })}
-                          disabled={index === entries.length - 1}
-                          onClick={() => moveTo(entry.id, index + 1)}
-                        >
-                          <ArrowDown size={15} />
-                        </Button>
-                        {!startsGroup(shown, index) && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label={t("shelves.groupStart", {
-                              title: entry.title,
-                            })}
-                            onClick={() =>
-                              setGroup(entry.id, t("shelves.groupNew"))
-                            }
-                          >
-                            <Rows3 size={15} />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={t("shelves.removeEntry")}
-                          onClick={() => removeEntry.mutate(entry.id)}
-                        >
-                          <X size={15} />
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                </Fragment>
-              ))}
-            </ul>
+            <ShelfEntriesList
+              shown={shown}
+              count={entries.length}
+              reorder={reorder}
+              isAdmin={isAdmin}
+              moveTo={moveTo}
+              setGroup={setGroup}
+              onRemove={(entryId) => removeEntry.mutate(entryId)}
+            />
           )}
           {isAdmin && (
             <RemovedEntries
@@ -629,34 +333,13 @@ export function ShelfEditorPage({ shelfId }: { shelfId: number }) {
         onClose={() => setAddOpen(false)}
       />
 
-      <Dialog
+      <DeleteShelfDialog
         isOpen={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        title={t("shelves.deleteTitle")}
-      >
-        <div className="space-y-4 px-1 pb-2 text-left">
-          <p className="text-sm text-neutral-300">
-            {t("shelves.deleteBody", { name: detail.name })}
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDeleteOpen(false)}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={removeShelf.isPending}
-              onClick={() => removeShelf.mutate()}
-            >
-              {t("shelves.delete")}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        name={detail.name}
+        pending={removeShelf.isPending}
+        onConfirm={() => removeShelf.mutate()}
+      />
     </PageLayout>
   );
 }
