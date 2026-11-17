@@ -151,9 +151,9 @@ export function MediaPosterCard({
         <div className="absolute top-1.5 right-1.5 z-20">{topRightContent}</div>
       )}
 
-      {/* Glass panel — always visible at bottom */}
-      <div className="absolute inset-x-0 bottom-0 z-20">
-        <div className="bg-black/30 px-2.5 pt-2 pb-2.5 backdrop-blur-xl">
+      {/* Glass panel; rounded like the card, whose clip misses the blurred layer. */}
+      <div className="absolute inset-x-0 bottom-0 z-20 rounded-b-2xl">
+        <div className="rounded-b-2xl bg-black/30 px-2.5 pt-2 pb-2.5 backdrop-blur-xl">
           <p className="text-[11px] font-semibold text-white truncate leading-snug">
             {title}
           </p>
