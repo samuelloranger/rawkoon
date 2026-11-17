@@ -187,7 +187,7 @@ export async function grabTarget(
           return { grabbed: true, releaseTitle };
         }
       }
-      return fail(
+      return await fail(
         sent.error instanceof Error
           ? sent.error.message
           : sent.via === "magnet"
@@ -196,10 +196,15 @@ export async function grabTarget(
       );
     }
 
-    await prisma.downloadHistory.update({
-      where: { id: dhRow.id },
-      data: { torrentHash: sent.hash },
-    });
+    queuedTitle = releaseTitle;
+    await prisma.downloadHistory
+      .update({ where: { id: dhRow.id }, data: { torrentHash: sent.hash } })
+      .catch((e) =>
+        console.warn(
+          `${a.logPrefix} hash write failed for DH ${dhRow.id} (torrent already queued):`,
+          e,
+        ),
+      );
 
     try {
       await a.markGrabbed();
@@ -211,7 +216,6 @@ export async function grabTarget(
       );
     }
 
-    queuedTitle = releaseTitle;
     await a.announce(dhRow.id, releaseTitle);
     return { grabbed: true, releaseTitle };
   } catch (e) {

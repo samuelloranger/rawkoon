@@ -25,6 +25,7 @@ const s = {
   adopts: true,
   mediaStatusError: null as Error | null,
   notifyError: null as Error | null,
+  hashWriteError: null as Error | null,
   announced: 0,
 };
 
@@ -65,6 +66,7 @@ mock.module("@rawkoon/api/db", () => ({
         return { id: 99 };
       },
       update: async (a: Call) => {
+        if (a.data?.torrentHash && s.hashWriteError) throw s.hashWriteError;
         s.dhUpdates.push(a);
         return {};
       },
@@ -194,6 +196,7 @@ for (const [kind, grab] of Object.entries(kinds)) {
       s.adopts = true;
       s.mediaStatusError = null;
       s.notifyError = null;
+      s.hashWriteError = null;
       s.announced = 0;
     });
 
@@ -254,6 +257,13 @@ for (const [kind, grab] of Object.entries(kinds)) {
       expect(await grab()).toEqual({ grabbed: true, releaseTitle: "Rel" });
       expect(s.dhUpdates.some((u) => u.data?.failed)).toBe(false);
       expect(s.dhUpdates.some((u) => u.data?.torrentHash === "abc")).toBe(true);
+      expect(s.announced).toBe(1);
+    });
+
+    it("still counts as grabbed and marks the target when the hash write fails", async () => {
+      s.hashWriteError = new Error("hash write failed");
+      expect(await grab()).toEqual({ grabbed: true, releaseTitle: "Rel" });
+      expect(s.dhUpdates.some((u) => u.data?.failed)).toBe(false);
       expect(s.announced).toBe(1);
     });
   });
