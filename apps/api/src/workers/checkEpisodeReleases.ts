@@ -1,8 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { searchLibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
 import { activeShowGrabCovers } from "@rawkoon/api/services/activeShowGrab";
-import { isNoMissRefusal } from "@rawkoon/api/services/grab/grabRefusal";
 import { MAX_LIBRARY_GRAB_ATTEMPTS } from "@rawkoon/api/constants/libraryGrab";
 import {
   isGrabSearchDue,
@@ -14,17 +12,6 @@ import {
   localDateYmd,
   toUtcMidnightDate,
 } from "@rawkoon/shared/utils/date";
-
-function episodeSuffix(season: number, episode: number): string {
-  const s = String(season).padStart(2, "0");
-  const e = String(episode).padStart(2, "0");
-  return ` S${s}E${e}`;
-}
-
-function seasonPackSuffix(season: number): string {
-  const s = String(season).padStart(2, "0");
-  return ` S${s}`;
-}
 
 export async function checkEpisodeReleases(): Promise<void> {
   // airDate is a calendar day (Postgres DATE) meant to be read in the app's
@@ -110,31 +97,16 @@ export async function checkEpisodeReleases(): Promise<void> {
     const mediaId = Number(mediaIdStr);
     const season = Number(seasonStr);
     const media = groupEps[0].media;
-    const { queries } = resolveSearchTitles({
-      title: media.title,
-      searchTitle: media.searchTitle,
-      originalTitle: media.originalTitle,
-    });
 
     try {
-      const result = await searchAndGrabWithTitleFallback({
-        trigger: "scheduled",
-        mediaId,
-        season,
-        mediaType: "tv",
-        titleBaseQueries: queries,
-        suffix: seasonPackSuffix(season),
-        qualityProfileId: media.qualityProfileId,
-      });
+      // The scheduled episode checks never published outcomes; keep it so.
+      const { result, countsAsMiss } = await searchLibraryTarget(
+        media,
+        { kind: "season", season },
+        { trigger: "scheduled", publish: false },
+      );
 
-      // A grab held by the profile's delay isn't a miss; don't burn an attempt.
-      if (result.grabbed || result.delayed) continue;
-      // A full disk is not the release's fault and clears on its own; keep them wanted.
-      if (
-        isNoMissRefusal(result.refusal) ||
-        result.refusal === "already_active"
-      )
-        continue;
+      if (!countsAsMiss || result.grabbed) continue;
 
       await recordSeasonPackMiss(mediaId, season, groupEps, result.reason);
     } catch (e) {
@@ -151,28 +123,18 @@ export async function checkEpisodeReleases(): Promise<void> {
 
   for (const ep of individualEpisodes) {
     try {
-      const { queries } = resolveSearchTitles({
-        title: ep.media.title,
-        searchTitle: ep.media.searchTitle,
-        originalTitle: ep.media.originalTitle,
-      });
-      const result = await searchAndGrabWithTitleFallback({
-        trigger: "scheduled",
-        mediaId: ep.media.id,
-        episodeId: ep.id,
-        mediaType: "tv",
-        titleBaseQueries: queries,
-        suffix: episodeSuffix(ep.season, ep.episode),
-        qualityProfileId: ep.media.qualityProfileId,
-      });
+      const { result, countsAsMiss } = await searchLibraryTarget(
+        ep.media,
+        {
+          kind: "episode",
+          episodeId: ep.id,
+          season: ep.season,
+          episode: ep.episode,
+        },
+        { trigger: "scheduled", publish: false },
+      );
 
-      // A grab held by the profile's delay isn't a miss; don't burn an attempt.
-      if (result.grabbed || result.delayed) continue;
-      if (
-        isNoMissRefusal(result.refusal) ||
-        result.refusal === "already_active"
-      )
-        continue;
+      if (!countsAsMiss || result.grabbed) continue;
 
       await recordEpisodeMiss(
         { id: ep.id, mediaId: ep.media.id, searchAttempts: ep.searchAttempts },

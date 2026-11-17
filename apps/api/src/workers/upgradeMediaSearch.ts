@@ -1,6 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { searchLibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
+import type { LibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
 
 export async function upgradeMediaSearch({
   mediaId,
@@ -25,13 +25,9 @@ export async function upgradeMediaSearch({
     return;
   }
 
-  const mediaType = media.type === "movie" ? "movie" : "tv";
-  const { queries } = resolveSearchTitles({
-    title: media.title,
-    searchTitle: media.searchTitle,
-    originalTitle: media.originalTitle,
-  });
-  let suffix = "";
+  // Year is deliberately not selected: upgrade searches never carried one.
+  let target: LibraryTarget =
+    media.type === "movie" ? { kind: "movie" } : { kind: "show" };
 
   if (episodeId != null) {
     const ep = await prisma.libraryEpisode.findUnique({
@@ -46,21 +42,19 @@ export async function upgradeMediaSearch({
       return;
     }
 
-    const season = String(ep.season).padStart(2, "0");
-    const episode = String(ep.episode).padStart(2, "0");
-    suffix = ` S${season}E${episode}`;
+    target = {
+      kind: "episode",
+      episodeId,
+      season: ep.season,
+      episode: ep.episode,
+    };
   }
 
-  const result = await searchAndGrabWithTitleFallback({
-    trigger: "upgrade",
-    mediaId,
-    episodeId: episodeId ?? undefined,
-    mediaType,
-    titleBaseQueries: queries,
-    suffix,
-    qualityProfileId: media.qualityProfileId,
-    isUpgrade: true,
-  });
+  const { result } = await searchLibraryTarget(
+    { ...media, id: mediaId },
+    target,
+    { trigger: "upgrade", isUpgrade: true, publish: false },
+  );
 
   if (!result.grabbed) {
     console.warn(

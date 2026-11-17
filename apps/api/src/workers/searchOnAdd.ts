@@ -1,6 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
-import { searchAndGrabWithTitleFallback } from "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch";
-import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
+import { searchLibraryTarget } from "@rawkoon/api/services/searchLibraryTarget";
 import { refreshLibraryMovieDigitalDate } from "@rawkoon/api/services/libraryTmdbRefresh";
 import {
   airedEpisodeCutoff,
@@ -10,13 +9,11 @@ import {
   type SearchScope,
 } from "@rawkoon/api/services/searchOnAdd";
 import { activeShowGrabCover } from "@rawkoon/api/services/activeShowGrab";
-import { isNoMissRefusal } from "@rawkoon/api/services/grab/grabRefusal";
 import type { SearchResultPayload } from "@rawkoon/shared/types";
 import {
   GENERIC_ERROR_REASON,
   notReleasedResult,
   publishSearchResult,
-  searchResultFrom,
 } from "@rawkoon/api/services/searchResult";
 
 type SearchTarget = {
@@ -27,8 +24,6 @@ type SearchTarget = {
   year: number | null;
   qualityProfileId: number | null;
 };
-
-const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /**
  * Looks for a release right after a title is added. Same scoring/grab path as
@@ -99,19 +94,18 @@ async function searchCompleteSeries(media: SearchTarget): Promise<void> {
   const seasons = await completeSeriesSeasons(media.id);
   if (seasons) {
     try {
-      const { queries } = resolveSearchTitles(media);
-      const pack = await searchAndGrabWithTitleFallback({
-        trigger: "scheduled",
-        mediaId: media.id,
-        mediaType: "tv",
-        titleBaseQueries: queries,
-        suffix: "",
-        completeSeasons: seasons,
-        qualityProfileId: media.qualityProfileId,
-      });
+      const {
+        result: pack,
+        payload,
+        blocked,
+      } = await searchLibraryTarget(
+        media,
+        { kind: "show", completeSeasons: seasons },
+        { trigger: "scheduled", publish: false },
+      );
       // A full disk won't improve by searching season by season either.
-      if (pack.grabbed || pack.delayed || isNoMissRefusal(pack.refusal)) {
-        await publishSearchResult(searchResultFrom(media.id, pack));
+      if (pack.grabbed || pack.delayed || blocked) {
+        await publishSearchResult(payload);
         return;
       }
     } catch (e) {
@@ -148,16 +142,7 @@ async function searchMovie(
     return;
   }
 
-  const { queries } = resolveSearchTitles(media);
-  const result = await searchAndGrabWithTitleFallback({
-    trigger: "scheduled",
-    mediaId: media.id,
-    mediaType: "movie",
-    titleBaseQueries: queries,
-    suffix: media.year ? ` ${media.year}` : "",
-    qualityProfileId: media.qualityProfileId,
-  });
-  await publishSearchResult(searchResultFrom(media.id, result));
+  await searchLibraryTarget(media, { kind: "movie" }, { trigger: "scheduled" });
 }
 
 /** One result for the whole call: a grab beats a held grab, which beats a miss. */
@@ -217,7 +202,6 @@ async function searchShow(
   }
 
   const results: SearchResultPayload[] = [];
-  const { queries } = resolveSearchTitles(media);
   seasonLoop: for (const [season, all] of seasons) {
     if (cover?.(season)) continue;
     const wanted = all.filter(
@@ -240,18 +224,18 @@ async function searchShow(
     // A fully aired, untouched season is looked for as a pack first.
     if (wanted.length === all.length) {
       try {
-        const pack = await searchAndGrabWithTitleFallback({
-          trigger: "scheduled",
-          mediaId: media.id,
-          season,
-          mediaType: "tv",
-          titleBaseQueries: queries,
-          suffix: ` S${pad2(season)}`,
-          qualityProfileId: media.qualityProfileId,
-        });
-        results.push(searchResultFrom(media.id, pack));
+        const {
+          result: pack,
+          payload,
+          blocked,
+        } = await searchLibraryTarget(
+          media,
+          { kind: "season", season },
+          { trigger: "scheduled", publish: false },
+        );
+        results.push(payload);
         // A held grab or a full disk won't improve by searching episode by episode.
-        if (pack.grabbed || pack.delayed || isNoMissRefusal(pack.refusal)) {
+        if (pack.grabbed || pack.delayed || blocked) {
           continue;
         }
       } catch (e) {
@@ -264,17 +248,18 @@ async function searchShow(
 
     for (const ep of wanted) {
       try {
-        const result = await searchAndGrabWithTitleFallback({
-          trigger: "scheduled",
-          mediaId: media.id,
-          episodeId: ep.id,
-          mediaType: "tv",
-          titleBaseQueries: queries,
-          suffix: ` S${pad2(ep.season)}E${pad2(ep.episode)}`,
-          qualityProfileId: media.qualityProfileId,
-        });
-        results.push(searchResultFrom(media.id, result));
-        if (!result.grabbed && isNoMissRefusal(result.refusal)) {
+        const { payload, blocked } = await searchLibraryTarget(
+          media,
+          {
+            kind: "episode",
+            episodeId: ep.id,
+            season: ep.season,
+            episode: ep.episode,
+          },
+          { trigger: "scheduled", publish: false },
+        );
+        results.push(payload);
+        if (blocked) {
           break seasonLoop;
         }
       } catch (e) {
