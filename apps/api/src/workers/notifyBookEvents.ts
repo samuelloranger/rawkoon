@@ -6,13 +6,17 @@ import {
   notificationCopy,
   truncateReleaseTitle,
 } from "@rawkoon/api/services/notification/notificationCopy";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
-import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
 
 const KIND_LABEL: Record<string, "bookKindEbook" | "bookKindAudiobook"> = {
   ebook: "bookKindEbook",
   audiobook: "bookKindAudiobook",
 };
+
+const lifecycleKeyFor = (downloadHistoryId: number | null) =>
+  downloadHistoryId != null
+    ? downloadLifecycleKey(downloadHistoryId)
+    : undefined;
 
 async function editionContext(editionId: number): Promise<{
   bookId: number;
@@ -53,54 +57,6 @@ async function editionContext(editionId: number): Promise<{
   };
 }
 
-async function notifyAdmins(opts: {
-  build: (locale: string | null) => {
-    title: string;
-    body: string;
-    type: string;
-    url: string;
-  };
-  imageUrl?: string | null;
-  metadata?: Record<string, unknown>;
-  preferenceKey:
-    | "book_downloaded"
-    | "book_grabbed"
-    | "book_failed"
-    | "book_search_skipped"
-    | "book_author_releases";
-  /** The grab this notice belongs to; its stages share one notification. */
-  downloadHistoryId?: number | null;
-  push?: boolean;
-  updateOnly?: boolean;
-  logTag: string;
-}): Promise<void> {
-  const admins = await getAdminNotificationTargets();
-  for (const admin of admins) {
-    const msg = opts.build(admin.locale);
-    try {
-      await createAndQueueNotification(
-        admin.id,
-        msg.title,
-        msg.body,
-        msg.type,
-        msg.url,
-        opts.metadata,
-        opts.imageUrl ?? undefined,
-        {
-          preferenceKey: opts.preferenceKey,
-          push: opts.push,
-          updateOnly: opts.updateOnly,
-          ...(opts.downloadHistoryId != null
-            ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
-            : {}),
-        },
-      );
-    } catch (e) {
-      console.warn(`[${opts.logTag}] Failed for user ${admin.id}:`, e);
-    }
-  }
-}
-
 export async function notifyAdminsBookGrabbed(
   editionId: number,
   releaseTitle: string,
@@ -134,7 +90,7 @@ export async function notifyAdminsBookGrabbed(
     preferenceKey: "book_grabbed",
     // A grab shows in the app; only the download it leads to reaches devices.
     push: false,
-    downloadHistoryId,
+    lifecycleKey: lifecycleKeyFor(downloadHistoryId),
     logTag: "notifyAdminsBookGrabbed",
   });
 }
@@ -170,7 +126,7 @@ export async function notifyAdminsBookDownloaded(
       subject: ctx.title,
     },
     preferenceKey: "book_downloaded",
-    downloadHistoryId,
+    lifecycleKey: lifecycleKeyFor(downloadHistoryId),
     ...(quiet ? { push: false, updateOnly: true } : {}),
     logTag: "notifyAdminsBookDownloaded",
   });
@@ -211,7 +167,7 @@ export async function notifyAdminsBookImportFailed(
       detail: reason,
     },
     preferenceKey: "book_failed",
-    downloadHistoryId,
+    lifecycleKey: lifecycleKeyFor(downloadHistoryId),
     logTag: "notifyAdminsBookImportFailed",
   });
 }

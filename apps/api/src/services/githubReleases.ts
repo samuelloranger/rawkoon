@@ -2,7 +2,6 @@ import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
 import { loadConfig } from "@rawkoon/api/config";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
-import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
 import { getAppVersion } from "@rawkoon/api/services/versionService";
 import type {
   GitHubRelease,
@@ -11,7 +10,7 @@ import type {
   GitHubReleasesResponse,
   RefreshGitHubReleasesResponse,
 } from "@rawkoon/shared/types";
-import { getAdminNotificationTargets } from "@rawkoon/api/services/notification/notificationPreferences";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
 
@@ -138,50 +137,42 @@ async function notifyAdminsForNewReleases(
 
   if (releasesAheadOfCurrentVersion.length === 0) return;
 
-  const admins = await getAdminNotificationTargets();
-  if (admins.length === 0) return;
-
-  await Promise.all(
-    admins.map((admin) => {
-      const title =
+  await notifyAdmins({
+    build: (locale) => ({
+      title:
         releasesAheadOfCurrentVersion.length === 1
-          ? notificationCopy(admin.locale, "githubReleaseTitleSingle", {
+          ? notificationCopy(locale, "githubReleaseTitleSingle", {
               tag: releasesAheadOfCurrentVersion[0].tag_name,
             })
-          : notificationCopy(admin.locale, "githubReleaseTitleMany", {
+          : notificationCopy(locale, "githubReleaseTitleMany", {
               count: releasesAheadOfCurrentVersion.length,
-            });
-      const body =
+            }),
+      body:
         releasesAheadOfCurrentVersion.length === 1
-          ? notificationCopy(admin.locale, "githubReleaseBodySingle", {
+          ? notificationCopy(locale, "githubReleaseBodySingle", {
               name:
                 releasesAheadOfCurrentVersion[0].name ||
                 releasesAheadOfCurrentVersion[0].tag_name,
             })
-          : notificationCopy(admin.locale, "githubReleaseBodyMany", {
+          : notificationCopy(locale, "githubReleaseBodyMany", {
               tags: releasesAheadOfCurrentVersion
                 .map((release) => release.tag_name)
                 .join(", "),
-            });
-      return createAndQueueNotification(
-        admin.id,
-        title,
-        body,
-        "github-release",
-        APP_PATHS.settingsUpdates,
-        {
-          current_version: getAppVersion(),
-          releases: releasesAheadOfCurrentVersion.map((release) => ({
-            id: release.id,
-            tag_name: release.tag_name,
-            html_url: release.html_url,
-          })),
-        },
-        undefined,
-        { preferenceKey: "github_release" },
-      );
+            }),
     }),
-  );
+    type: "github-release",
+    url: APP_PATHS.settingsUpdates,
+    metadata: {
+      current_version: getAppVersion(),
+      releases: releasesAheadOfCurrentVersion.map((release) => ({
+        id: release.id,
+        tag_name: release.tag_name,
+        html_url: release.html_url,
+      })),
+    },
+    preferenceKey: "github_release",
+    logTag: "githubReleases",
+  });
 }
 
 export async function getCachedGitHubReleases(): Promise<GitHubReleasesResponse> {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 type Row = {
   id: number;
@@ -84,9 +84,17 @@ mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
 }));
 
-mock.module("@rawkoon/api/workers/notifyLibraryGrabSkipped", () => ({
+// Spread and restore the real module: mock.module is process-wide and other files import it.
+const realNotify = {
+  ...(await import("@rawkoon/api/workers/notifyLibraryEvents")),
+};
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
+  ...realNotify,
   notifyAdminsLibraryGrabSkipped: notifySkipped,
 }));
+afterAll(() => {
+  mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => realNotify);
+});
 
 const { processPendingReleases } = await import("./processPendingReleases");
 

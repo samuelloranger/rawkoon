@@ -1,6 +1,6 @@
 import type { DownloadClientType } from "@rawkoon/api/services/downloadClient/types";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
-import { notifyAdmins } from "@rawkoon/api/workers/libraryNotificationHelpers";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
 
 const CLIENT_NAMES: Record<DownloadClientType, string> = {
   qbittorrent: "qBittorrent",
@@ -12,8 +12,8 @@ const CLIENT_NAMES: Record<DownloadClientType, string> = {
 export async function notifyAdminsDownloadClientOffline(
   client: DownloadClientType,
 ): Promise<void> {
-  await notifyAdmins(
-    (locale) => ({
+  await notifyAdmins({
+    build: (locale) => ({
       type: "download_client_offline",
       title: notificationCopy(locale, "downloadClientOfflineTitle"),
       body: notificationCopy(locale, "downloadClientOfflineBody", {
@@ -21,9 +21,7 @@ export async function notifyAdminsDownloadClientOffline(
       }),
       url: "/settings/connections",
     }),
-    {
-      notifyOptions: { preferenceKey: "download_client_offline" },
-      logTag: "notifyAdminsDownloadClientOffline",
-    },
-  );
+    ...{ preferenceKey: "download_client_offline" },
+    logTag: "notifyAdminsDownloadClientOffline",
+  });
 }

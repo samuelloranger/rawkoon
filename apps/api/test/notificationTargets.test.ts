@@ -63,17 +63,13 @@ function installNotificationTargetMocks() {
 
 installNotificationTargetMocks();
 
-const { notifyAdminsMediaDownloaded } = await import(
-  "@rawkoon/api/workers/notifyMediaDownloaded"
-);
-const { notifyAdminsLibraryGrabSkipped } = await import(
-  "@rawkoon/api/workers/notifyLibraryGrabSkipped"
-);
-const { notifyAdminsPostProcessFailed } = await import(
-  "@rawkoon/api/workers/notifyPostProcessFailed"
-);
-const { notifyAdminsLibraryGrabbed, notifyAdminsLibraryDownloadFailed } =
-  await import("@rawkoon/api/workers/notifyLibraryEvents");
+const {
+  notifyAdminsMediaDownloaded,
+  notifyAdminsLibraryGrabSkipped,
+  notifyAdminsPostProcessFailed,
+  notifyAdminsLibraryGrabbed,
+  notifyAdminsLibraryDownloadFailed,
+} = await import("@rawkoon/api/workers/notifyLibraryEvents");
 
 describe("library notification targets", () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@ import {
   LIBRARY_SLOW_GRAB_INTERVAL_MS,
   MAX_LIBRARY_GRAB_ATTEMPTS,
 } from "@rawkoon/api/constants/libraryGrab";
-import { notifyAdminsLibraryGrabSkipped } from "@rawkoon/api/workers/notifyLibraryGrabSkipped";
+import { notifyAdminsLibraryGrabSkipped } from "@rawkoon/api/workers/notifyLibraryEvents";
 
 const capReason = (reason: string) =>
   `No matching release after ${MAX_LIBRARY_GRAB_ATTEMPTS} attempts (${reason})`;

@@ -5,11 +5,11 @@ import {
   notificationCopy,
   truncateReleaseTitle,
 } from "@rawkoon/api/services/notification/notificationCopy";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
 import { downloadLifecycleKey } from "@rawkoon/api/services/notification/notificationLifecycle";
 import {
   loadEpisodeContext,
   loadMediaContext,
-  notifyAdmins,
   seasonCode,
   subjectMetadata,
 } from "@rawkoon/api/workers/libraryNotificationHelpers";
@@ -43,8 +43,8 @@ export async function notifyAdminsMediaDownloaded(
       ? await loadEpisodeContext(parsed.episodeId)
       : null;
 
-  await notifyAdmins(
-    (locale) => {
+  await notifyAdmins({
+    build: (locale) => {
       if (media.type === "movie") {
         return {
           type: "library_media_downloaded",
@@ -116,37 +116,31 @@ export async function notifyAdminsMediaDownloaded(
         url: buildLibraryNotificationUrl(media.mediaId),
       };
     },
-    {
-      imageUrl: media.posterUrl,
-      metadata: {
-        ...subjectMetadata(media, {
-          code:
-            episode?.code ??
-            ((parsed.episodeCount ?? 0) > 0 ? seasonCode(parsed.season) : null),
-          detail: episode ? episodeDisplayName(episode.title) : null,
-          isUpgrade: parsed.isUpgrade,
-        }),
-        ...(episode ? { latest_code: episode.code, show: media.label } : {}),
-        ...(!episode && (parsed.episodeCount ?? 0) > 1
-          ? { episode_count: parsed.episodeCount }
-          : {}),
-      },
-      notifyOptions:
-        parsed.downloadHistoryId != null
-          ? {
-              lifecycleKey: downloadLifecycleKey(parsed.downloadHistoryId),
-              preferenceKey: "library_downloaded",
-              ...(parsed.quiet ? { push: false, updateOnly: true } : {}),
-            }
-          : episode
-            ? {
-                groupKey: `library_downloaded:${media.mediaId}`,
-                preferenceKey: "library_downloaded",
-              }
-            : { preferenceKey: "library_downloaded" },
-      logTag: "notifyAdminsMediaDownloaded",
+    imageUrl: media.posterUrl,
+    metadata: {
+      ...subjectMetadata(media, {
+        code:
+          episode?.code ??
+          ((parsed.episodeCount ?? 0) > 0 ? seasonCode(parsed.season) : null),
+        detail: episode ? episodeDisplayName(episode.title) : null,
+        isUpgrade: parsed.isUpgrade,
+      }),
+      ...(episode ? { latest_code: episode.code, show: media.label } : {}),
+      ...(!episode && (parsed.episodeCount ?? 0) > 1
+        ? { episode_count: parsed.episodeCount }
+        : {}),
     },
-  );
+    preferenceKey: "library_downloaded",
+    ...(parsed.downloadHistoryId != null
+      ? {
+          lifecycleKey: downloadLifecycleKey(parsed.downloadHistoryId),
+          ...(parsed.quiet ? { push: false, updateOnly: true } : {}),
+        }
+      : episode
+        ? { groupKey: `library_downloaded:${media.mediaId}` }
+        : {}),
+    logTag: "notifyAdminsMediaDownloaded",
+  });
 }
 
 export async function notifyAdminsLibraryGrabbed(opts: {
@@ -164,8 +158,8 @@ export async function notifyAdminsLibraryGrabbed(opts: {
     opts.episodeId != null ? await loadEpisodeContext(opts.episodeId) : null;
   const release = truncateReleaseTitle(opts.releaseTitle);
 
-  await notifyAdmins(
-    (locale) => {
+  await notifyAdmins({
+    build: (locale) => {
       if (media.type === "movie") {
         return {
           type: "library_media_grabbed",
@@ -222,27 +216,23 @@ export async function notifyAdminsLibraryGrabbed(opts: {
         url: buildLibraryNotificationUrl(media.mediaId),
       };
     },
-    {
-      imageUrl: media.posterUrl,
-      metadata: {
-        ...subjectMetadata(media, {
-          code: episode?.code ?? seasonCode(opts.season),
-          detail: release,
-          isUpgrade: opts.isUpgrade,
-        }),
-        release,
-      },
-      // A grab shows in the app; only the download it leads to reaches devices.
-      notifyOptions: {
-        preferenceKey: "library_grabbed",
-        push: false,
-        ...(opts.downloadHistoryId != null
-          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
-          : {}),
-      },
-      logTag: "notifyAdminsLibraryGrabbed",
+    imageUrl: media.posterUrl,
+    metadata: {
+      ...subjectMetadata(media, {
+        code: episode?.code ?? seasonCode(opts.season),
+        detail: release,
+        isUpgrade: opts.isUpgrade,
+      }),
+      release,
     },
-  );
+    // A grab shows in the app; only the download it leads to reaches devices.
+    preferenceKey: "library_grabbed",
+    push: false,
+    ...(opts.downloadHistoryId != null
+      ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+      : {}),
+    logTag: "notifyAdminsLibraryGrabbed",
+  });
 }
 
 export async function notifyAdminsLibraryDownloadFailed(opts: {
@@ -258,8 +248,8 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
   const episode =
     opts.episodeId != null ? await loadEpisodeContext(opts.episodeId) : null;
 
-  await notifyAdmins(
-    (locale) => ({
+  await notifyAdmins({
+    build: (locale) => ({
       type: "library_download_failed",
       title: notificationCopy(locale, "libraryDownloadFailedTitle", {
         code: episode?.code ?? "",
@@ -275,21 +265,17 @@ export async function notifyAdminsLibraryDownloadFailed(opts: {
           : undefined,
       ),
     }),
-    {
-      imageUrl: media.posterUrl,
-      metadata: subjectMetadata(media, {
-        code: episode?.code,
-        detail: opts.reason,
-      }),
-      notifyOptions: {
-        preferenceKey: "library_failed",
-        ...(opts.downloadHistoryId != null
-          ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
-          : {}),
-      },
-      logTag: "notifyAdminsLibraryDownloadFailed",
-    },
-  );
+    imageUrl: media.posterUrl,
+    metadata: subjectMetadata(media, {
+      code: episode?.code,
+      detail: opts.reason,
+    }),
+    preferenceKey: "library_failed",
+    ...(opts.downloadHistoryId != null
+      ? { lifecycleKey: downloadLifecycleKey(opts.downloadHistoryId) }
+      : {}),
+    logTag: "notifyAdminsLibraryDownloadFailed",
+  });
 }
 
 export async function notifyAdminsPostProcessFailed(
@@ -299,21 +285,17 @@ export async function notifyAdminsPostProcessFailed(
   episodeId?: number | null,
 ): Promise<void> {
   if (mediaId == null) {
-    await notifyAdmins(
-      (locale) => ({
+    await notifyAdmins({
+      build: (locale) => ({
         type: "library_post_process_failed",
         title: notificationCopy(locale, "libraryPostProcessFailedTitle"),
         body: `Download #${downloadHistoryId}: ${reason}`,
         url: "/library",
       }),
-      {
-        notifyOptions: {
-          preferenceKey: "library_failed",
-          lifecycleKey: downloadLifecycleKey(downloadHistoryId),
-        },
-        logTag: "notifyAdminsPostProcessFailed",
-      },
-    );
+      preferenceKey: "library_failed",
+      lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+      logTag: "notifyAdminsPostProcessFailed",
+    });
     return;
   }
 
@@ -322,8 +304,8 @@ export async function notifyAdminsPostProcessFailed(
   const episode =
     episodeId != null ? await loadEpisodeContext(episodeId) : null;
 
-  await notifyAdmins(
-    (locale) => ({
+  await notifyAdmins({
+    build: (locale) => ({
       type: "library_post_process_failed",
       title: notificationCopy(locale, "libraryPostProcessFailedTitle"),
       body: notificationCopy(locale, "libraryPostProcessFailedBody", {
@@ -337,16 +319,12 @@ export async function notifyAdminsPostProcessFailed(
           : undefined,
       ),
     }),
-    {
-      imageUrl: media.posterUrl,
-      metadata: subjectMetadata(media, { code: episode?.code, detail: reason }),
-      notifyOptions: {
-        preferenceKey: "library_failed",
-        lifecycleKey: downloadLifecycleKey(downloadHistoryId),
-      },
-      logTag: "notifyAdminsPostProcessFailed",
-    },
-  );
+    imageUrl: media.posterUrl,
+    metadata: subjectMetadata(media, { code: episode?.code, detail: reason }),
+    preferenceKey: "library_failed",
+    lifecycleKey: downloadLifecycleKey(downloadHistoryId),
+    logTag: "notifyAdminsPostProcessFailed",
+  });
 }
 
 export async function notifyAdminsLibraryGrabSkipped(opts: {
@@ -362,8 +340,8 @@ export async function notifyAdminsLibraryGrabSkipped(opts: {
   const episode =
     opts.episodeId != null ? await loadEpisodeContext(opts.episodeId) : null;
 
-  await notifyAdmins(
-    (locale) => {
+  await notifyAdmins({
+    build: (locale) => {
       if (opts.scope === "movie") {
         return {
           type: "library_grab_skipped",
@@ -411,23 +389,9 @@ export async function notifyAdminsLibraryGrabSkipped(opts: {
         ),
       };
     },
-    {
-      imageUrl: media.posterUrl,
-      notifyOptions: { preferenceKey: "library_grab_skipped" },
-      logTag: "notifyAdminsLibraryGrabSkipped",
-    },
-  );
-}
-
-/** @deprecated Pass structured opts instead of a raw body string. */
-export async function notifyAdminsLibraryGrabSkippedLegacy(
-  body: string,
-  mediaId: number,
-): Promise<void> {
-  await notifyAdminsLibraryGrabSkipped({
-    mediaId,
-    reason: body,
-    scope: "movie",
+    imageUrl: media.posterUrl,
+    preferenceKey: "library_grab_skipped",
+    logTag: "notifyAdminsLibraryGrabSkipped",
   });
 }
 
@@ -443,8 +407,8 @@ export async function notifyAdminsLibraryAttentionAlert(opts: {
   const episode =
     opts.episodeId != null ? await loadEpisodeContext(opts.episodeId) : null;
 
-  await notifyAdmins(
-    (locale) => ({
+  await notifyAdmins({
+    build: (locale) => ({
       type: "library_attention",
       title: notificationCopy(locale, "libraryAttentionTitle"),
       body: notificationCopy(locale, "libraryAttentionBody", {
@@ -459,10 +423,8 @@ export async function notifyAdminsLibraryAttentionAlert(opts: {
             : undefined,
       ),
     }),
-    {
-      imageUrl: media.posterUrl,
-      notifyOptions: { preferenceKey: "library_attention" },
-      logTag: "notifyAdminsLibraryAttentionAlert",
-    },
-  );
+    imageUrl: media.posterUrl,
+    preferenceKey: "library_attention",
+    logTag: "notifyAdminsLibraryAttentionAlert",
+  });
 }
