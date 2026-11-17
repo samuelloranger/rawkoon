@@ -32,15 +32,13 @@
     "db:generate": "bun run --filter @rawkoon/api db:generate",
     "db:studio": "bun run --filter @rawkoon/api db:studio",
     "rotate-secret": "bun run --filter @rawkoon/api rotate-secret",
-    "db:refresh-collation": "sh -c 'DB_NAME=${DB_NAME:-rawkoon}; DB_USER=${DB_USER:-rawkoon}; echo \"Refreshing template1 collation version...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE template1 REFRESH COLLATION VERSION;\"; echo \"Refreshing database collation version for database: $DB_NAME...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE $DB_NAME REFRESH COLLATION VERSION;\"; echo \"Done.\"'",
-    "prepare": "husky"
+    "db:refresh-collation": "sh -c 'DB_NAME=${DB_NAME:-rawkoon}; DB_USER=${DB_USER:-rawkoon}; echo \"Refreshing template1 collation version...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE template1 REFRESH COLLATION VERSION;\"; echo \"Refreshing database collation version for database: $DB_NAME...\"; docker compose exec -T db psql -U \"$DB_USER\" -d postgres -c \"ALTER DATABASE $DB_NAME REFRESH COLLATION VERSION;\"; echo \"Done.\"'"
   },
   "workspaces": [
     "apps/*"
   ],
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
-    "husky": "^9.1.7",
     "knip": "^6.44.1",
     "typescript": "^7.0.2",
     "vitepress": "1.6.4"
