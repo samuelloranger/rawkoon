@@ -121,7 +121,7 @@ export const productionOutcomeEffects: OutcomeEffects = {
   importLanded: landed,
   mediaDownloaded: async (p) => {
     const { notifyAdminsMediaDownloaded } = await import(
-      "@rawkoon/api/workers/notifyMediaDownloaded"
+      "@rawkoon/api/workers/notifyLibraryEvents"
     );
     await notifyAdminsMediaDownloaded(p);
   },

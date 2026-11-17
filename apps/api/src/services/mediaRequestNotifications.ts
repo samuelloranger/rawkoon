@@ -2,10 +2,8 @@ import { APP_PATHS } from "@rawkoon/shared/constants";
 import { prisma } from "@rawkoon/api/db";
 import { allAiredEpisodesDownloaded } from "@rawkoon/api/services/library/showAvailability";
 import { createAndQueueNotification } from "@rawkoon/api/workers/notificationService";
-import {
-  getAdminNotificationTargets,
-  getNotificationTarget,
-} from "@rawkoon/api/services/notification/notificationPreferences";
+import { notifyAdmins } from "@rawkoon/api/services/notification/notifyAdmins";
+import { getNotificationTarget } from "@rawkoon/api/services/notification/notificationPreferences";
 import { notificationCopy } from "@rawkoon/api/services/notification/notificationCopy";
 import { buildLibraryNotificationUrl } from "@rawkoon/shared/utils";
 
@@ -36,24 +34,21 @@ export async function notifyAdminsRequestPending(
   year: number | null,
   posterUrl: string | null,
 ): Promise<void> {
-  const admins = await getAdminNotificationTargets();
   const label = requestTitleLabel(title, year);
-  await Promise.all(
-    admins.map((admin) =>
-      createAndQueueNotification(
-        admin.id,
-        notificationCopy(admin.locale, "requestPendingTitle", {
-          kind: requestKindLabel(admin.locale, type),
-        }),
-        notificationCopy(admin.locale, "requestPendingBody", { title: label }),
-        "request_pending",
-        APP_PATHS.activityRequests,
-        { requestId, subject: title },
-        posterUrl ?? undefined,
-        { preferenceKey: "request_pending" },
-      ),
-    ),
-  );
+  await notifyAdmins({
+    build: (locale) => ({
+      title: notificationCopy(locale, "requestPendingTitle", {
+        kind: requestKindLabel(locale, type),
+      }),
+      body: notificationCopy(locale, "requestPendingBody", { title: label }),
+    }),
+    type: "request_pending",
+    url: APP_PATHS.activityRequests,
+    metadata: { requestId, subject: title },
+    imageUrl: posterUrl,
+    preferenceKey: "request_pending",
+    logTag: "notifyAdminsRequestPending",
+  });
 }
 
 /**

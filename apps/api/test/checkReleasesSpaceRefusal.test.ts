@@ -6,7 +6,7 @@ const realSearch = {
   ...(await import("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch")),
 };
 const realNotify = {
-  ...(await import("@rawkoon/api/workers/notifyLibraryGrabSkipped")),
+  ...(await import("@rawkoon/api/workers/notifyLibraryEvents")),
 };
 const realRefresh = {
   ...(await import("@rawkoon/api/services/libraryTmdbRefresh")),
@@ -36,7 +36,7 @@ mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberSearch", () => ({
     return grabResult;
   },
 }));
-mock.module("@rawkoon/api/workers/notifyLibraryGrabSkipped", () => ({
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
   ...realNotify,
   notifyAdminsLibraryGrabSkipped: async (a: unknown) => {
     notifications.push(a);
@@ -113,10 +113,7 @@ afterAll(() => {
     "@rawkoon/api/services/mediaGrabber/mediaGrabberSearch",
     () => realSearch,
   );
-  mock.module(
-    "@rawkoon/api/workers/notifyLibraryGrabSkipped",
-    () => realNotify,
-  );
+  mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => realNotify);
   mock.module("@rawkoon/api/services/libraryTmdbRefresh", () => realRefresh);
 });
 

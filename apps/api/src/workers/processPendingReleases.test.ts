@@ -84,7 +84,7 @@ mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
 }));
 
-mock.module("@rawkoon/api/workers/notifyLibraryGrabSkipped", () => ({
+mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => ({
   notifyAdminsLibraryGrabSkipped: notifySkipped,
 }));
 

@@ -8,7 +8,6 @@ export function makeNotifyLibraryEventsMock() {
     notifyAdminsLibraryDownloadFailed: mock(async (..._: unknown[]) => {}),
     notifyAdminsPostProcessFailed: mock(async (..._: unknown[]) => {}),
     notifyAdminsLibraryGrabSkipped: mock(async (..._: unknown[]) => {}),
-    notifyAdminsLibraryGrabSkippedLegacy: mock(async (..._: unknown[]) => {}),
     notifyAdminsLibraryAttentionAlert: mock(async (..._: unknown[]) => {}),
   };
   return fns;
