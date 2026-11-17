@@ -28,11 +28,21 @@ export async function checkFreeSpaceForGrab(opts: {
 
     // Same roots the downloads scanner uses: the configured downloads path, else
     // the parent of this media type's library path.
-    const isMovie = opts.mediaType === "movie";
+    const { mediaType: t } = opts;
+    const bookPath =
+      t === "ebook"
+        ? settings.booksLibraryPath
+        : t === "audiobook"
+          ? settings.audiobooksLibraryPath
+          : undefined;
     const roots = deriveDownloadsScanRoots({
       downloadsPath: settings.downloadsPath,
-      moviesLibraryPath: isMovie ? settings.moviesLibraryPath : null,
-      showsLibraryPath: isMovie ? null : settings.showsLibraryPath,
+      moviesLibraryPath:
+        t === "movie" ? settings.moviesLibraryPath : (bookPath ?? null),
+      showsLibraryPath:
+        t === "movie" || bookPath !== undefined
+          ? null
+          : settings.showsLibraryPath,
     });
     const path = roots[0];
     if (!path) return null;

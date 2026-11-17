@@ -1,7 +1,7 @@
 import { prisma } from "@rawkoon/api/db";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import type { GrabResult } from "@rawkoon/api/services/mediaGrabber/mediaGrabberConflicts";
-import { checkBlocklist } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
+import { grabTarget } from "@rawkoon/api/services/grab/grabPipeline";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import { emitBookUpdate } from "@rawkoon/api/services/libraryEvents";
 import type { BookEditionKind, BookRelease } from "@rawkoon/shared/types";
@@ -10,7 +10,6 @@ import {
   type BookScoreProfile,
 } from "@rawkoon/api/utils/books/bookReleaseScorer";
 import { notifyAdminsBookGrabbed } from "@rawkoon/api/workers/notifyBookEvents";
-import { addReleaseToDownloadClient } from "./bookDownloadHandoff";
 import { qbCategoryForEditionKind } from "./bookCategories";
 import { pickBookCandidate, type BookPickCandidate } from "./bookAiPick";
 import type { AiTrigger } from "@rawkoon/shared/types";
@@ -235,7 +234,7 @@ export async function searchBookReleases(
 /** Same shape as a media grab's result; books never set a refusal code. */
 export type BookGrabOutcome = GrabResult;
 
-/** The partial unique index enforces one active grab per edition; the pre-check gives a clean message and the P2002 catch closes the race. */
+/** The partial unique index enforces one active grab per edition; the pre-check gives a clean message and the pipeline's P2002 catch closes the race. */
 export async function grabBookRelease(opts: {
   editionId: number;
   downloadUrl: string;
@@ -243,130 +242,89 @@ export async function grabBookRelease(opts: {
   indexer?: string | null;
   isUpgrade?: boolean;
   aiPicked?: boolean;
+  sizeBytes?: number | null;
 }): Promise<BookGrabOutcome> {
   const releaseTitle = opts.releaseTitle.trim();
-  if (!releaseTitle) return { grabbed: false, reason: "Missing release title" };
-
   const ctx = await loadEditionContext(opts.editionId);
   if (!ctx) return { grabbed: false, reason: "Edition not found" };
 
-  const blockReason = await checkBlocklist(releaseTitle, null);
-  if (blockReason) {
-    return { grabbed: false, reason: `Blocklisted: ${blockReason}` };
-  }
-
-  const activeGrab = await prisma.downloadHistory.findFirst({
-    where: { bookEditionId: opts.editionId, completedAt: null, failed: false },
-    select: { id: true },
-    orderBy: { id: "desc" },
-  });
-  if (activeGrab) {
-    return {
-      grabbed: false,
-      reason: `Already downloading (grab #${activeGrab.id})`,
-    };
-  }
-
-  let dhRow: { id: number };
-  try {
-    dhRow = await prisma.downloadHistory.create({
-      data: {
-        bookEditionId: opts.editionId,
-        releaseTitle,
-        indexer: opts.indexer?.trim() || null,
-        downloadUrl: opts.downloadUrl.trim(),
-        isUpgrade: opts.isUpgrade ?? false,
-        aiPicked: opts.aiPicked ?? false,
+  return grabTarget(
+    {
+      logPrefix: "[bookGrabber]",
+      category: qbCategoryForEditionKind(ctx.kind),
+      spaceKind: ctx.kind,
+      findConflict: async () => {
+        const activeGrab = await prisma.downloadHistory.findFirst({
+          where: {
+            bookEditionId: opts.editionId,
+            completedAt: null,
+            failed: false,
+          },
+          select: { id: true },
+          orderBy: { id: "desc" },
+        });
+        return activeGrab
+          ? {
+              grabbed: false,
+              reason: `Already downloading (grab #${activeGrab.id})`,
+            }
+          : null;
       },
-      select: { id: true },
-    });
-  } catch (e) {
-    // ux_download_history_active_book_target — lost the race to a concurrent grab.
-    if ((e as { code?: string }).code === "P2002") {
-      return { grabbed: false, reason: "Already downloading" };
-    }
-    throw e;
-  }
-
-  const handoff = await addReleaseToDownloadClient({
-    downloadUrl: opts.downloadUrl,
-    category: qbCategoryForEditionKind(ctx.kind),
-    tag: `rawkoon-dh-${dhRow.id}`,
-  });
-
-  if (!handoff.ok) {
-    // The client already holds this torrent: take it over, or an edition stays ungrabbable when an earlier attempt outlived its history row.
-    if (handoff.duplicate && handoff.adapter) {
-      const adopted = await tryAdoptDuplicateForBook({
-        adapter: handoff.adapter,
-        dhRowId: dhRow.id,
-        editionId: opts.editionId,
-        kind: ctx.kind,
-        torrentHash: handoff.torrentHash ?? null,
-        releaseTitle,
-        bookTitle: ctx.bookTitle,
-        isUpgrade: opts.isUpgrade,
-      });
-      if (adopted) return { grabbed: true, releaseTitle };
-    }
-
-    await prisma.downloadHistory.update({
-      where: { id: dhRow.id },
-      data: { failed: true, failReason: handoff.reason },
-    });
-    return { grabbed: false, reason: handoff.reason };
-  }
-
-  // The torrent is already in the client here, so a failure past this line must never surface as a failed grab.
-  try {
-    await prisma.downloadHistory.update({
-      where: { id: dhRow.id },
-      data: { torrentHash: handoff.torrentHash },
-    });
-
-    const updated = await prisma.bookEdition.update({
-      where: { id: opts.editionId },
-      data: {
-        // An upgrade keeps its old file; revertToWantedIfNoActiveGrabs relies on this to restore downloaded, not wanted.
-        status: opts.isUpgrade ? "upgrading" : "downloading",
-        searchAttempts: { increment: 1 },
+      historyData: () => ({ bookEditionId: opts.editionId }),
+      raceRefusal: { grabbed: false, reason: "Already downloading" },
+      // The client already holding this torrent is common after an earlier attempt outlived its history row.
+      adopt: async ({ client, dhRowId, torrentHash }) =>
+        !!(await tryAdoptDuplicateForBook({
+          adapter: client,
+          dhRowId,
+          editionId: opts.editionId,
+          kind: ctx.kind,
+          torrentHash,
+          releaseTitle,
+          bookTitle: ctx.bookTitle,
+          isUpgrade: opts.isUpgrade,
+        })),
+      markGrabbed: async () => {
+        const updated = await prisma.bookEdition.update({
+          where: { id: opts.editionId },
+          data: {
+            // An upgrade keeps its old file; revertToWantedIfNoActiveGrabs relies on this to restore downloaded, not wanted.
+            status: opts.isUpgrade ? "upgrading" : "downloading",
+            // Kept (media resets to 0): nothing resets it on revert-to-wanted, so this caps a grab-then-fail loop at MAX_CRON_GRAB_ATTEMPTS.
+            searchAttempts: { increment: 1 },
+          },
+          select: { bookId: true },
+        });
+        emitBookUpdate(updated.bookId);
       },
-      select: { bookId: true },
-    });
-    emitBookUpdate(updated.bookId);
-  } catch (e) {
-    console.warn(
-      `[bookGrabber] Post-handoff update failed for DH ${dhRow.id} (torrent already queued):`,
-      e,
-    );
-  }
-
-  try {
-    await notifyAdminsBookGrabbed(
-      opts.editionId,
-      releaseTitle,
-      opts.isUpgrade ?? false,
-      dhRow.id,
-    );
-  } catch (e) {
-    console.warn("[bookGrabber] grab notification failed:", e);
-  }
-
-  try {
-    await logActivity({
-      type: "book_grab",
-      payload: {
-        editionId: opts.editionId,
-        kind: ctx.kind,
-        bookTitle: ctx.bookTitle,
-        releaseTitle,
+      announce: async (dhRowId) => {
+        try {
+          await notifyAdminsBookGrabbed(
+            opts.editionId,
+            releaseTitle,
+            opts.isUpgrade ?? false,
+            dhRowId,
+          );
+        } catch (e) {
+          console.warn("[bookGrabber] grab notification failed:", e);
+        }
+        try {
+          await logActivity({
+            type: "book_grab",
+            payload: {
+              editionId: opts.editionId,
+              kind: ctx.kind,
+              bookTitle: ctx.bookTitle,
+              releaseTitle,
+            },
+          });
+        } catch {
+          // Activity logging is best-effort; never fail a successful grab on it.
+        }
       },
-    });
-  } catch {
-    // Activity logging is best-effort; never fail a successful grab on it.
-  }
-
-  return { grabbed: true, releaseTitle };
+    },
+    opts,
+  );
 }
 
 export function describeBookRelease(r: BookRelease): BookPickCandidate {
@@ -412,5 +370,6 @@ export async function searchAndGrabBook(
     releaseTitle: best.title,
     indexer: best.indexer,
     aiPicked,
+    sizeBytes: best.size_bytes,
   });
 }
