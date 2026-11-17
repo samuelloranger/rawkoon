@@ -70,7 +70,7 @@ export function renderMovieTemplate(
     resolution: data.resolution,
     source: data.source,
     codec: data.codec,
-    ext: data.ext,
+    ext: data.ext.replace(/^\./, ""),
   });
   return sanitizeFilenamePart(collapseTemplateNoise(stem));
 }
@@ -94,7 +94,7 @@ export function renderEpisodeTemplate(
     title: data.title ?? "Episode",
     resolution: data.resolution,
     source: data.source,
-    ext: data.ext,
+    ext: data.ext.replace(/^\./, ""),
   });
   return sanitizePathTemplateOutput(collapseTemplateNoise(stem));
 }
