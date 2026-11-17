@@ -146,16 +146,13 @@ struct RootTabsView: View {
         }
         .focusedSceneValue(\.rootTabSelection, validSelection)
         .focusedSceneValue(\.showPlayer) { showFullPlayer = true }
+        // `rawkoon://` + any web path opens its native screen, e.g. `rawkoon://settings/health`.
         .onOpenURL { url in
-            guard url.scheme == "rawkoon" else { return }
-            switch url.host {
-            case "home": selection = .home
-            case "discover": selection = .find
-            case "media":
-                guard let link = MediaLink(url: url) else { return }
+            if url.host == "media", let link = MediaLink(url: url) {
                 selection = .home
                 model.pendingMediaLink = link
-            default: break
+            } else if let path = NotificationRoute.webPath(fromAppURL: url) {
+                model.navigate(toNotificationUrl: path)
             }
         }
         .alert(

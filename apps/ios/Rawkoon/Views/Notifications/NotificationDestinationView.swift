@@ -52,15 +52,19 @@ struct NotificationDestinationView: View {
             } else {
                 statusView
             }
-        case .reencode:
-            ReencodeAdminView()
-        case .alerts:
-            SettingsAlertsView()
-        case .updates:
-            ReleasesAdminView()
-        case .downloadClient:
-            DownloadClientEditView()
-        case .requests, .inbox, .calendar, .watchlist:
+        case .queue:
+            ActivityView(initialLane: .queue)
+        case let .shelf(shelfId):
+            ShelfDetailView(shelfId: shelfId)
+        case .swipe:
+            DiscoverView()
+        case let .settings(destination):
+            destination.destination
+        case let .settingsGroup(group):
+            SettingsGroupView(group: group)
+        case .profile:
+            ProfileView()
+        case .requests, .inbox, .calendar, .history, .findShelf, .tab:
             // Tab content: `navigate(toNotificationUrl:)` switches tabs instead of presenting these.
             EmptyView()
         }
@@ -127,7 +131,7 @@ struct NotificationDestinationView: View {
                 bookItem = model.library.first { $0.bookId == bookId }
                 unreachable = bookItem == nil && model.isOffline
             }
-        case .requests, .inbox, .calendar, .watchlist, .reencode, .alerts, .updates, .downloadClient:
+        default:
             break
         }
     }
