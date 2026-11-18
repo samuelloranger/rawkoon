@@ -112,6 +112,9 @@ const HOME_VIDEO_SOURCES = new Set([
   "WEBRip",
 ]);
 
+const THEATER_CAPTURE =
+  /\b(?:HD[-.]?)?(?:CAM|TS|TELESYNC|TC|TELECINE)\b|\bSCREENER\b|\bSCR\b/i;
+
 /** Before its home-release date a movie takes only a home-video release, never a cam or telesync. */
 export function rssMovieReleaseAllowed(
   releaseTitle: string,
@@ -119,5 +122,6 @@ export function rssMovieReleaseAllowed(
   todayCutoff: Date,
 ): boolean {
   if (digitalReleaseDate && digitalReleaseDate <= todayCutoff) return true;
+  if (THEATER_CAPTURE.test(releaseTitle)) return false;
   return HOME_VIDEO_SOURCES.has(parseSource(releaseTitle) ?? "");
 }

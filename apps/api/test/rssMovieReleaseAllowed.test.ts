@@ -29,6 +29,8 @@ describe("rssMovieReleaseAllowed", () => {
       "Title.2026.1080p.HDTS.x265-GRP",
       "Title.2026.HDCAM.x264-GRP",
       "Title.2026.1080p.x264-GRP",
+      "Title.2026.CAM.WEBRip.x264-GRP",
+      "Title.2026.1080p.HDTS.WEB-DL.x264-GRP",
     ]) {
       expect(rssMovieReleaseAllowed(title, due, today)).toBe(false);
     }
