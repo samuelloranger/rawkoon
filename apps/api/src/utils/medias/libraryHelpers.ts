@@ -166,21 +166,26 @@ type TmdbCountryReleases = {
   release_dates: Array<{ type: number; release_date: string }>;
 };
 
-/** First valid date of `type` in the region, then in any other country. */
+/** Earliest valid date of `type` in the region, else the earliest in any country. */
 function firstReleaseOfType(
   results: TmdbCountryReleases[],
   region: string,
   type: number,
 ): Date | null {
-  for (const country of [region, ...results.map((r) => r.iso_3166_1)]) {
-    const entry = results.find((r) => r.iso_3166_1 === country);
-    for (const d of entry?.release_dates ?? []) {
+  const earliest = (entries: TmdbCountryReleases[]): Date | null => {
+    let min: Date | null = null;
+    for (const d of entries.flatMap((r) => r.release_dates)) {
       if (d.type !== type || !d.release_date) continue;
       const dt = new Date(d.release_date);
-      if (!Number.isNaN(dt.getTime())) return dt;
+      if (!Number.isNaN(dt.getTime()) && (!min || dt < min)) min = dt;
     }
-  }
-  return null;
+    return min;
+  };
+  // TMDB lists countries alphabetically, so the first one listed is arbitrary.
+  return (
+    earliest(results.filter((r) => r.iso_3166_1 === region)) ??
+    earliest(results)
+  );
 }
 
 /**

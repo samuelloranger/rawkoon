@@ -1,6 +1,9 @@
 import type { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
-import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
+import {
+  normalizeTitleForMatch,
+  parseSource,
+} from "@rawkoon/api/utils/medias/filenameParser";
 import { resolveSearchTitles } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import {
   parseReleaseSeasonSpan,
@@ -93,4 +96,28 @@ export function titleMatches(
     (parsed.normalizedTitleWithYear != null &&
       titles.has(parsed.normalizedTitleWithYear))
   );
+}
+
+/**
+ * Retail discs and web releases often reach indexers before TMDB's home-release
+ * date, so RSS also matches movies due within this many days.
+ */
+export const RSS_EARLY_MOVIE_DAYS = 30;
+
+const HOME_VIDEO_SOURCES = new Set([
+  "REMUX",
+  "HDLight",
+  "BluRay",
+  "WEB-DL",
+  "WEBRip",
+]);
+
+/** Before its home-release date a movie takes only a home-video release, never a cam or telesync. */
+export function rssMovieReleaseAllowed(
+  releaseTitle: string,
+  digitalReleaseDate: Date | null,
+  todayCutoff: Date,
+): boolean {
+  if (digitalReleaseDate && digitalReleaseDate <= todayCutoff) return true;
+  return HOME_VIDEO_SOURCES.has(parseSource(releaseTitle) ?? "");
 }

@@ -30,6 +30,8 @@ import {
   matchableRssRelease,
   movieMediaContext,
   normalizedTitleSet,
+  RSS_EARLY_MOVIE_DAYS,
+  rssMovieReleaseAllowed,
   titleMatches,
   tvMediaContext,
 } from "@rawkoon/api/workers/rssReleaseMatching";
@@ -92,6 +94,9 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
   }
 
   const todayCutoff = toUtcMidnightDate(localDateYmd(APP_DISPLAY_TIMEZONE));
+  const earlyMovieCutoff = new Date(
+    todayCutoff.getTime() + RSS_EARLY_MOVIE_DAYS * 24 * 60 * 60 * 1000,
+  );
   const nowMinusGrace = new Date(Date.now() - 60 * 60 * 1000);
   const episodeCutoff = toUtcMidnightDate(
     localDateYmd(APP_DISPLAY_TIMEZONE, nowMinusGrace),
@@ -104,10 +109,11 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
         status: "wanted",
         monitored: true,
         files: { none: {} },
-        digitalReleaseDate: { lte: todayCutoff },
+        digitalReleaseDate: { lte: earlyMovieCutoff },
       },
       select: {
         id: true,
+        digitalReleaseDate: true,
         title: true,
         searchTitle: true,
         originalTitle: true,
@@ -271,9 +277,13 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
     } else {
       const match = normalizedMovies.find((m) => {
         if (!titleMatches(m.normalizedTitles, parsed)) return false;
-        if (parsed.year !== null && m.year !== null)
-          return m.year === parsed.year;
-        return true;
+        if (parsed.year !== null && m.year !== null && m.year !== parsed.year)
+          return false;
+        return rssMovieReleaseAllowed(
+          release.title,
+          m.digitalReleaseDate,
+          todayCutoff,
+        );
       });
       if (match) {
         const entry = movieCandidates.get(match.id);
