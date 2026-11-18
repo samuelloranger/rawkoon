@@ -179,6 +179,11 @@ export async function closeAllWorkers(): Promise<void> {
   workers.length = 0;
 }
 
+/** Close every queue connection so a CLI that imported queues can exit. */
+export async function closeAllQueues(): Promise<void> {
+  await Promise.all(Object.values(queues).map((queue) => queue.close()));
+}
+
 function trackJobDurations(worker: Worker, queueName: string): Worker {
   if (!PERF_TIMING_ENABLED) return worker;
   worker.on("completed", (job: Job) => {

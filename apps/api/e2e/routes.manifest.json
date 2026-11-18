@@ -13,6 +13,10 @@
   },
   {
     "method": "GET",
+    "path": "/api/admin/doctor"
+  },
+  {
+    "method": "GET",
     "path": "/api/admin/invitations"
   },
   {

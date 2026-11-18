@@ -88,3 +88,22 @@ it: behind Caddy with <code>trusted_proxies</code>, set
 <code>header_up X-Forwarded-For {client_ip}</code>, or a client behind
 Cloudflare can still spoof the leftmost entry. Download-client polling uses the client URL configured in Settings, so an
 internal Docker address avoids a round trip through the public proxy.
+
+## Troubleshooting: `rawkoon doctor`
+
+The doctor probes every external dependency Rawkoon needs — database,
+migrations, Valkey, scheduled jobs, library paths, free space, hardlink
+support, indexer manager, download client, Jellyfin and TMDB — and prints one
+line per check, with a fix under any check that is not OK.
+
+Run it against a running instance:
+
+    docker compose -f docker-compose.prod.yml exec rawkoon bun run doctor
+
+Admins can also fetch the same report as JSON from
+<code>GET /api/admin/doctor</code>. Each line is either `OK` (healthy),
+`WARN` (works, but something needs attention — for example a pending
+migration or an unset library path) or `FAIL` (broken, with the real cause,
+such as a refused connection or a rejected API key). The exit code is `1`
+when any check fails and `0` otherwise, so scripts can gate on it. In
+development, run it from <code>apps/api</code> with `bun run doctor:dev`.
