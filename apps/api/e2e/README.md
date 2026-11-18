@@ -14,6 +14,9 @@ Spec/plan: `docs/superpowers/specs|plans/2026-09-09-endpoint-verification-harnes
 
 ## Run it
 
+CI runs the sweep in the `test` job against a `postgres:17` service container
+(`.github/workflows/ci.yml`), so a new route without a fixture fails the PR.
+
 Prerequisites: `dev:services` up (Postgres on :5433) and a dedicated **`rawkoon_e2e`**
 database (`createdb rawkoon_e2e` + `prisma migrate deploy` against it).
 

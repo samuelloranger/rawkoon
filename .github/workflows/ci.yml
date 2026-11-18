@@ -60,6 +60,18 @@ jobs:
     runs-on: ubuntu-latest
     # A test process that never exits otherwise holds the job for GitHub's 6h default.
     timeout-minutes: 25
+    # Disposable database for the endpoint sweep; the harness refuses any name not ending in _e2e/_test.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: rawkoon
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: rawkoon_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rawkoon -d rawkoon_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -85,3 +97,15 @@ jobs:
       - name: Relay tests
         timeout-minutes: 3
         run: cd apps/relay && bun run test
+      # Every API route: valid input, invalid input (400) and auth (401/403); fails on an unfixtured route.
+      - name: E2E endpoint sweep
+        timeout-minutes: 5
+        env:
+          DATABASE_URL: postgresql://rawkoon:e2e@localhost:5432/rawkoon_e2e
+          SECRET_KEY: ci-e2e-throwaway-secret-0123456789abcdef
+          BETTER_AUTH_SECRET: ci-e2e-throwaway-secret-0123456789abcdef
+        run: |
+          cd apps/api
+          bunx prisma generate
+          bunx prisma migrate deploy
+          bun run e2e:endpoints
