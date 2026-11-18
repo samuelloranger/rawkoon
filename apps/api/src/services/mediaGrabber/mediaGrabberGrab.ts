@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
 import { logActivity } from "@rawkoon/api/utils/activityLogs";
 import {
@@ -20,6 +21,29 @@ import {
 
 export type { GrabRefusal, GrabResult };
 export { preflightGrab };
+
+/** True when a movie or single episode already has a library file on disk. */
+export async function targetHasFileOnDisk(target: {
+  mediaId: number;
+  episodeId: number | null;
+}): Promise<boolean> {
+  const files = await prisma.mediaFile.findMany({
+    where:
+      target.episodeId != null
+        ? { episodeId: target.episodeId }
+        : { mediaId: target.mediaId, episodeId: null },
+    select: { filePath: true },
+  });
+  for (const f of files) {
+    try {
+      await stat(f.filePath);
+      return true;
+    } catch {
+      // Missing file: the import will treat this target as empty.
+    }
+  }
+  return false;
+}
 
 /**
  * Add a known release URL to the active download client,
@@ -77,6 +101,11 @@ export async function grabRelease(opts: {
       season,
     };
     const qJson = qualityJsonValue(releaseTitle, opts.qualityParsed);
+    // A grab over an existing file replaces it; unflagged, the import would skip it as a duplicate. Packs keep their per-episode import.
+    const isUpgrade =
+      opts.isUpgrade === true ||
+      ((media.type === "movie" || target.episodeId != null) &&
+        (await targetHasFileOnDisk(target)));
 
     return await grabTarget(
       {
@@ -100,10 +129,10 @@ export async function grabRelease(opts: {
             torrentHash,
             releaseTitle,
             qJson,
-            isUpgrade: opts.isUpgrade,
+            isUpgrade,
           })),
         markGrabbed: async () => {
-          const status = opts.isUpgrade ? "upgrading" : "downloading";
+          const status = isUpgrade ? "upgrading" : "downloading";
           if (episodeId != null) {
             await prisma.libraryEpisode.update({
               where: { id: episodeId },
@@ -139,14 +168,14 @@ export async function grabRelease(opts: {
               episodeId: episodeId ?? null,
               season,
               releaseTitle,
-              isUpgrade: opts.isUpgrade,
+              isUpgrade,
             });
           } catch (e) {
             console.warn("[mediaGrabber] grab notification failed:", e);
           }
         },
       },
-      opts,
+      { ...opts, isUpgrade },
     );
   } catch (e) {
     console.warn("[mediaGrabber] grabRelease failed:", e);
