@@ -39,6 +39,26 @@ describe("compareMigrations", () => {
     expect(outcome.fix).toContain("prisma migrate deploy");
   });
 
+  it("treats a resolved-then-redeployed migration as applied, not rolled back", () => {
+    const outcome = compareMigrations(
+      [
+        // `migrate resolve --rolled-back` keeps the old row…
+        {
+          migration_name: "0_init",
+          finished_at: null,
+          rolled_back_at: new Date("2026-11-02T00:00:00Z"),
+        },
+        // …and the next deploy adds a finished row for the same name.
+        finished("0_init"),
+        finished("20260716000000_add_downloads_path"),
+      ],
+      ["0_init", "20260716000000_add_downloads_path"],
+    );
+    expect(outcome.status).toBe("ok");
+    expect(outcome.summary).toBe("All 2 migrations are applied.");
+    expect(outcome.fix).toBeNull();
+  });
+
   it("warns on rolled-back and unfinished rows", () => {
     const rolledBack = {
       migration_name: "0_init",

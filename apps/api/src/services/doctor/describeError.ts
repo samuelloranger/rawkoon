@@ -49,12 +49,11 @@ function causes(error: unknown, depth = 5): unknown[] {
   return chain;
 }
 
-/** Strips user:password from any URL so a cause can never echo credentials. */
+/** Strips user:pass@ and query-string secrets so a cause never echoes one. */
 function redact(text: string): string {
-  return text.replace(
-    /([a-z][a-z0-9+.-]*:\/\/)[^\s@/:]+:[^\s@/]+@/gi,
-    "$1***@",
-  );
+  return text
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s@/:]+:[^\s@/]+@/gi, "$1***@")
+    .replace(/\b(api_key|apikey|access_token|token)=([^&\s"']+)/gi, "$1=***");
 }
 
 function shortMessage(text: string, max = 120): string {

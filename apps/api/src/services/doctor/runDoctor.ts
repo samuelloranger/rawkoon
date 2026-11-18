@@ -3,7 +3,10 @@ import {
   checkHealth,
   type HealthPayload,
 } from "@rawkoon/api/services/healthCheck";
-import { getGrabReadiness } from "@rawkoon/api/services/grab/grabReadiness";
+import {
+  getGrabReadiness,
+  PROBE_TIMEOUT_MS,
+} from "@rawkoon/api/services/grab/grabReadiness";
 import {
   SCHEDULED_JOB_NAMES,
   scheduledTasksQueue,
@@ -36,6 +39,10 @@ import { describeError, endpointLabel, HttpStatusError } from "./describeError";
 
 const DOCTOR_TIMEOUT_MS = 5000;
 
+// Headroom above grabReadiness's own probe budget so its classified
+// "unreachable" drafts win over an outer collapse into "timed out".
+const GRAB_READINESS_TIMEOUT_MS = PROBE_TIMEOUT_MS + 2000;
+
 type Draft = { id: string; title: string } & CheckOutcome;
 
 interface CheckDef {
@@ -44,6 +51,8 @@ interface CheckDef {
   title: string;
   /** Fallback fix when the probe crashes; returned drafts carry their own. */
   fixOnCrash: string | null;
+  /** Per-def bound; defaults to DOCTOR_TIMEOUT_MS. */
+  timeoutMs?: number;
   run: () => Promise<Draft[]>;
 }
 
@@ -57,12 +66,13 @@ class ProbeTimeout extends Error {
 }
 
 /** Bounds one probe so a hung dependency can never stall the report. */
-function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs: number = DOCTOR_TIMEOUT_MS,
+): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new ProbeTimeout(label)),
-      DOCTOR_TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => reject(new ProbeTimeout(label)), timeoutMs);
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -84,7 +94,7 @@ async function runCheck(def: CheckDef): Promise<DoctorCheck[]> {
   const startedAt = Date.now();
   let drafts: Draft[];
   try {
-    drafts = await withTimeout(def.run(), def.title);
+    drafts = await withTimeout(def.run(), def.title, def.timeoutMs);
   } catch (error) {
     // A throwing check is a failed check — the report itself never crashes.
     drafts = [
@@ -329,6 +339,9 @@ function grabReadinessDef(): CheckDef {
   return {
     id: "grab_readiness",
     title: "Grab readiness",
+    // The inner probes bound themselves at PROBE_TIMEOUT_MS; stay above them
+    // so a slow indexer reports unreachable instead of one "timed out" row.
+    timeoutMs: GRAB_READINESS_TIMEOUT_MS,
     fixOnCrash: "Check the indexer manager and download client under Settings.",
     run: async () => {
       // refresh: the doctor probes live instead of reusing a cached result.
@@ -452,8 +465,9 @@ function migrationsDef(): CheckDef {
 
 /**
  * Probes everything Rawkoon depends on and returns one report. All checks run
- * in parallel, each bounded by DOCTOR_TIMEOUT_MS; a throwing (or hanging)
- * check becomes a failed check, never a crashed report.
+ * in parallel, each bounded (DOCTOR_TIMEOUT_MS by default, overridable per
+ * check); a throwing (or hanging) check becomes a failed check, never a
+ * crashed report.
  */
 export async function runDoctor(): Promise<DoctorReport> {
   // Shared probes start immediately; every check that needs one awaits the

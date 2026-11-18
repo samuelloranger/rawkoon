@@ -23,11 +23,13 @@ export function compareMigrations(
 ): CheckOutcome {
   const finished = new Set(rows.filter(isApplied).map((r) => r.migration_name));
   const pending = migrationDirs.filter((dir) => !finished.has(dir));
-  // Prisma can leave several rows for one migration (a failed attempt plus a
-  // rolled-back one); the reader cares about names, not attempt counts.
+  // A `migrate resolve --rolled-back` leaves the old row behind even after a
+  // redeploy adds a finished one; a name with a finished row is healthy.
   const rolledBackOrFailed = [
     ...new Set(
-      rows.filter((row) => !isApplied(row)).map((row) => row.migration_name),
+      rows
+        .filter((row) => !isApplied(row) && !finished.has(row.migration_name))
+        .map((row) => row.migration_name),
     ),
   ];
 

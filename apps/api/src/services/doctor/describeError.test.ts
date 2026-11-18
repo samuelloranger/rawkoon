@@ -72,6 +72,26 @@ describe("describeError", () => {
     expect(described).toContain("redis://***@redis.local:6379/0");
   });
 
+  it("redacts query-string secrets in fallback messages, case-insensitively", () => {
+    const cases = [
+      "request to /3/configuration?api_key=SECRET123 failed",
+      "request to /x?API_KEY=SECRET123&language=en failed",
+      "request to /x?apikey=SECRET123&lang=en failed",
+      "rejected (token=SECRET123)",
+      "request to /x?access_token=SECRET123 failed",
+    ];
+    for (const message of cases) {
+      expect(describeError(new Error(message))).not.toContain("SECRET123");
+    }
+  });
+
+  it("keeps non-secret query params readable", () => {
+    const described = describeError(
+      new Error("GET /3/configuration?language=en&page=1 failed"),
+    );
+    expect(described).toContain("language=en&page=1");
+  });
+
   it("truncates long fallback messages", () => {
     expect(describeError(new Error("x".repeat(500))).length).toBeLessThan(130);
   });
