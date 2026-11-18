@@ -1,4 +1,7 @@
-import { setJsonCache, takeJsonCache } from "@rawkoon/api/services/cache";
+import {
+  setJsonCacheChecked,
+  takeJsonCache,
+} from "@rawkoon/api/services/cache";
 
 /** Confirmations live 5 minutes; the token is 128 bits of CSPRNG output. */
 export const CONFIRM_TTL_SECONDS = 300;
@@ -32,13 +35,12 @@ export function newConfirmToken(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Fails closed: no Valkey means no performed actions. */
+/** Fails closed: no stored binding means no performed actions. */
 export async function storeConfirmBinding(
   token: string,
   binding: ConfirmBinding,
 ): Promise<boolean> {
-  await setJsonCache(confirmKey(token), binding, CONFIRM_TTL_SECONDS);
-  return true;
+  return setJsonCacheChecked(confirmKey(token), binding, CONFIRM_TTL_SECONDS);
 }
 
 /**

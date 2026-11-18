@@ -124,6 +124,18 @@ export async function callTool(
       );
     }
 
+    // Budget before the token take: GETDEL is irreversible, so a refused
+    // action must not burn the confirmation. One count per confirmed attempt;
+    // the summary call above stays free so a forgotten confirmation isn't
+    // punished.
+    const verdict = await checkMcpRateLimit(ctx.keyId, "action");
+    if (!verdict.allowed) {
+      return finish(
+        rateLimitMessage("action", verdict.retryAfterSeconds),
+        true,
+      );
+    }
+
     const binding = await takeConfirmBinding(confirmToken);
     const mismatch =
       binding === null
@@ -136,16 +148,6 @@ export async function callTool(
     if (mismatch) {
       return finish(
         `This confirm_token is ${mismatch}. Start over: call ${tool.name} without a confirm_token, show the new summary to the person, then call again with the fresh token.`,
-        true,
-      );
-    }
-
-    // Only a performed action spends the tight action budget; the summary
-    // call above stays free so a forgotten confirmation isn't punished.
-    const verdict = await checkMcpRateLimit(ctx.keyId, "action");
-    if (!verdict.allowed) {
-      return finish(
-        rateLimitMessage("action", verdict.retryAfterSeconds),
         true,
       );
     }

@@ -112,6 +112,8 @@ mock.module("../src/services/queueService", () => ({
 mock.module("../src/services/cache", () => ({
   getJsonCache: async (_key: string) => null,
   setJsonCache: async (_key: string, _value: unknown, _ttl: number) => {},
+  setJsonCacheChecked: async (_key: string, _value: unknown, _ttl: number) =>
+    true,
   deleteCache: async (_key: string) => {},
   incrCache: async (_key: string, _ttl: number) => 1,
   ttlCache: async (_key: string) => -2,

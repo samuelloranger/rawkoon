@@ -55,6 +55,7 @@ mock.module("@rawkoon/api/db", () => ({
 
 const store = new Map<string, string>();
 const counters = new Map<string, number>();
+let storeConfirmFails = false;
 
 mock.module("@rawkoon/api/services/cache", () => ({
   getJsonCache: async (k: string) => {
@@ -63,6 +64,12 @@ mock.module("@rawkoon/api/services/cache", () => ({
   },
   setJsonCache: async (k: string, v: unknown) => {
     store.set(k, JSON.stringify(v));
+  },
+  // Reports the write honestly so the fail-closed confirm path is reachable.
+  setJsonCacheChecked: async (k: string, v: unknown) => {
+    if (storeConfirmFails) return false;
+    store.set(k, JSON.stringify(v));
+    return true;
   },
   deleteCache: async (k: string) => {
     store.delete(k);
@@ -124,6 +131,7 @@ beforeEach(() => {
   };
   store.clear();
   counters.clear();
+  storeConfirmFails = false;
   dispatched.length = 0;
   respond = async () =>
     Response.json({
@@ -297,8 +305,7 @@ describe("per-key rate limits", () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  it("refuses a performed action over 10/hour", async () => {
-    counters.set("mcp:rl:key-1:action", 10);
+  it("refuses an over-budget action without burning its confirm token", async () => {
     const first = (await (
       await call("request_title", {
         kind: "movie",
@@ -308,17 +315,70 @@ describe("per-key rate limits", () => {
     ).json()) as {
       result: { structuredContent: { confirm_token: string } };
     };
-    const res = await call("request_title", {
+    const token = first.result.structuredContent.confirm_token;
+
+    counters.set("mcp:rl:key-1:action", 10);
+    const refused = await call("request_title", {
+      kind: "movie",
+      tmdb_id: 1,
+      title: "A",
+      confirm_token: token,
+    });
+    const refusedBody = (await refused.json()) as {
+      result: { isError: boolean; content: { text: string }[] };
+    };
+    expect(refusedBody.result.isError).toBe(true);
+    expect(refusedBody.result.content[0].text).toContain("10 actions per hour");
+    expect(dispatched).toHaveLength(0);
+
+    // The token was not consumed (GETDEL comes after the budget check), so
+    // once the window resets the same confirmation still performs.
+    counters.set("mcp:rl:key-1:action", 0);
+    const performed = await call("request_title", {
+      kind: "movie",
+      tmdb_id: 1,
+      title: "A",
+      confirm_token: token,
+    });
+    const performedBody = (await performed.json()) as {
+      result: { isError: boolean };
+    };
+    expect(performedBody.result.isError).toBe(false);
+    expect(dispatched).toHaveLength(1);
+  });
+
+  it("counts the action budget once per performed confirm", async () => {
+    const first = (await (
+      await call("request_title", {
+        kind: "movie",
+        tmdb_id: 1,
+        title: "A",
+      })
+    ).json()) as {
+      result: { structuredContent: { confirm_token: string } };
+    };
+    await call("request_title", {
       kind: "movie",
       tmdb_id: 1,
       title: "A",
       confirm_token: first.result.structuredContent.confirm_token,
     });
+    expect(counters.get("mcp:rl:key-1:action")).toBe(1);
+  });
+
+  it("fails closed when the confirmation cannot be stored", async () => {
+    storeConfirmFails = true;
+    const res = await call("request_title", {
+      kind: "movie",
+      tmdb_id: 1,
+      title: "A",
+    });
     const body = (await res.json()) as {
       result: { isError: boolean; content: { text: string }[] };
     };
     expect(body.result.isError).toBe(true);
-    expect(body.result.content[0].text).toContain("10 actions per hour");
+    expect(body.result.content[0].text).toContain("Could not store");
+    expect(store.size).toBe(0);
     expect(dispatched).toHaveLength(0);
   });
 

@@ -70,6 +70,10 @@ mock.module("@rawkoon/api/services/cache", () => ({
   setJsonCache: async (k: string, v: unknown) => {
     store.set(k, JSON.stringify(v));
   },
+  setJsonCacheChecked: async (k: string, v: unknown) => {
+    store.set(k, JSON.stringify(v));
+    return true;
+  },
   deleteCache: async (k: string) => {
     store.delete(k);
   },
@@ -222,14 +226,57 @@ describe("POST /api/mcp (JSON-RPC transport)", () => {
     expect(res.status).toBe(405);
   });
 
-  it("refuses a body over 64 KiB", async () => {
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "ping",
-      params: { pad: "x".repeat(65 * 1024) },
-    });
+  it("refuses a body over 64 KiB before authenticating", async () => {
+    // No key on purpose: the size refusal must not depend on credentials.
+    const res = await post(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "ping",
+        params: { pad: "x".repeat(65 * 1024) },
+      },
+      { "x-api-key": "" },
+    );
     expect(res.status).toBe(413);
+    const body = (await res.json()) as {
+      error: { code: number; message: string };
+    };
+    expect(body.error.message).toContain("64 KiB");
+  });
+
+  it("rejects a batch longer than 20 messages with -32600", async () => {
+    const res = await post(
+      Array.from({ length: 21 }, (_, i) => ({
+        jsonrpc: "2.0",
+        id: i,
+        method: "ping",
+      })),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as {
+      error: { code: number; message: string };
+    };
+    expect(body.error.code).toBe(-32600);
+    expect(body.error.message).toContain("at most 20");
+  });
+
+  it("accepts a batch of exactly 20 messages", async () => {
+    const res = await post(
+      Array.from({ length: 20 }, (_, i) => ({
+        jsonrpc: "2.0",
+        id: i,
+        method: "ping",
+      })),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as unknown[];
+    expect(body).toHaveLength(20);
+  });
+
+  it("answers 401 before reading the body when the key is missing", async () => {
+    // Auth comes first: a malformed body without a key is a 401, not -32700.
+    const res = await post("{not json", { "x-api-key": "" });
+    expect(res.status).toBe(401);
   });
 });
 

@@ -19,6 +19,10 @@ mock.module("@rawkoon/api/services/cache", () => ({
   setJsonCache: async (k: string, v: unknown) => {
     store.set(k, JSON.stringify(v));
   },
+  setJsonCacheChecked: async (k: string, v: unknown) => {
+    store.set(k, JSON.stringify(v));
+    return true;
+  },
   deleteCache: async (k: string) => {
     store.delete(k);
   },

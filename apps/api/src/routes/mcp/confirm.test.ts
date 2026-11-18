@@ -1,8 +1,10 @@
 import { describe, expect, it, mock } from "bun:test";
 
 // The confirm store is Valkey-backed; an in-memory stand-in keeps the
-// single-use semantics visible in the test.
+// single-use semantics visible in the test. The checked write can be made
+// to fail on demand so the fail-closed path is exercised.
 const store = new Map<string, string>();
+let checkedWriteFails = false;
 mock.module("@rawkoon/api/services/cache", () => ({
   getJsonCache: async (k: string) => {
     const raw = store.get(k);
@@ -10,6 +12,11 @@ mock.module("@rawkoon/api/services/cache", () => ({
   },
   setJsonCache: async (k: string, v: unknown, ttl: number) => {
     store.set(k, JSON.stringify({ v, ttl }));
+  },
+  setJsonCacheChecked: async (k: string, v: unknown, ttl: number) => {
+    if (checkedWriteFails) return false;
+    store.set(k, JSON.stringify({ v, ttl }));
+    return true;
   },
   deleteCache: async (k: string) => {
     store.delete(k);
@@ -48,14 +55,27 @@ describe("confirm tokens", () => {
 
   it("returns the binding once, then nothing", async () => {
     const token = newConfirmToken();
-    await storeConfirmBinding(token, {
-      keyId: "k1",
-      tool: "request_title",
-      args: canonicalJson({ kind: "movie" }),
-    });
+    expect(
+      await storeConfirmBinding(token, {
+        keyId: "k1",
+        tool: "request_title",
+        args: canonicalJson({ kind: "movie" }),
+      }),
+    ).toBe(true);
     const first = await takeConfirmBinding(token);
     expect(first).toMatchObject({ keyId: "k1", tool: "request_title" });
     expect(await takeConfirmBinding(token)).toBeNull();
+  });
+
+  it("reports a failed write so the caller can fail closed", async () => {
+    checkedWriteFails = true;
+    expect(
+      await storeConfirmBinding(newConfirmToken(), {
+        keyId: "k1",
+        tool: "request_title",
+        args: canonicalJson({ kind: "movie" }),
+      }),
+    ).toBe(false);
   });
 
   it("returns null for an unknown token", async () => {

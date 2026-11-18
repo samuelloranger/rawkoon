@@ -53,6 +53,33 @@ export const setJsonCache = async <T>(
   }
 };
 
+/**
+ * Same write as setJsonCache but reports whether it landed. For fail-closed
+ * callers (MCP confirmations): a swallowed error there would hand out a
+ * confirm token that can never be redeemed.
+ */
+export const setJsonCacheChecked = async <T>(
+  key: string,
+  value: T,
+  ttlSeconds: number,
+): Promise<boolean> => {
+  const client = getValkeyClient();
+  if (!client) return false;
+
+  try {
+    await client.send("SET", [
+      key,
+      JSON.stringify(value),
+      "EX",
+      String(ttlSeconds),
+    ]);
+    return true;
+  } catch (error) {
+    console.warn(`Valkey set failed for key ${key}:`, error);
+    return false;
+  }
+};
+
 export const deleteCache = async (key: string): Promise<void> => {
   const client = getValkeyClient();
   if (!client) return;
