@@ -32,7 +32,7 @@ describe("buildMcpSetupCommands", () => {
 
   it("uses the x-api-key header for Claude Code and OpenCode", () => {
     expect(commands[0].command).toBe(
-      `claude mcp add --transport http rawkoon ${URL} --header "x-api-key: ${KEY}"`,
+      `claude mcp add --scope user --transport http rawkoon ${URL} --header "x-api-key: ${KEY}"`,
     );
     expect(commands[1].command).toBe(
       `opencode mcp add rawkoon --global --url ${URL} --header x-api-key=${KEY}`,
