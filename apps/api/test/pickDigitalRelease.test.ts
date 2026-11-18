@@ -30,6 +30,18 @@ describe("pickDigitalRelease", () => {
     expect(got?.toISOString().slice(0, 10)).toBe("2026-06-30");
   });
 
+  it("takes the earliest other country, not the first listed, when the region has none", () => {
+    const got = pickDigitalRelease(
+      [
+        { iso_3166_1: "CA", release_dates: [theatrical("2026-07-17")] },
+        { iso_3166_1: "IL", release_dates: [digital("2026-11-18")] },
+        { iso_3166_1: "US", release_dates: [digital("2026-11-17")] },
+      ],
+      "CA",
+    );
+    expect(got?.toISOString().slice(0, 10)).toBe("2026-11-17");
+  });
+
   it("returns null when there is no digital release at all", () => {
     const got = pickDigitalRelease(
       [{ iso_3166_1: "CA", release_dates: [theatrical("2026-05-13")] }],
