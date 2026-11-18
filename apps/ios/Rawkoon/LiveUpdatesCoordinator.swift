@@ -344,13 +344,21 @@ final class LiveUpdatesCoordinator {
     func navigate(toNotificationUrl url: String?) {
         guard let destination = NotificationDestination.resolve(url: url) else { return }
         // A book link is unopenable while the books feature is off, same as an unresolvable URL.
-        if case .book = destination, appModel?.booksEnabled == false {
+        switch destination {
+        case .book, .findShelf(.bestsellers), .tab(.books):
+            if appModel?.booksEnabled == false {
+                return
+            }
+        default: break
+        }
+        // Before the user loads (a cold launch from a link) the server's 403 is the gate.
+        if destination.isAdminOnly, appModel?.userId != nil, appModel?.isAdmin != true {
             return
         }
-        // Inbox, calendar and watchlist are tab content, not pushed screens.
+        // Activity lanes, Find shelves and tab roots are tab content, not pushed screens.
         if let tab = destination.hostTab {
-            if case .watchlist = destination {
-                appModel?.requestedFindShelf = .watchlist
+            if case let .findShelf(shelf) = destination {
+                appModel?.requestedFindShelf = shelf
             }
             appModel?.requestedActivityLane = destination.activityLane
             appModel?.requestedRootTab = tab
