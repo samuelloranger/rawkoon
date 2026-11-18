@@ -51,6 +51,7 @@ final class NotificationRouteTests: XCTestCase {
     func testTabRoots() {
         XCTAssertEqual(NotificationRoute.parse("/"), .tab(.home))
         XCTAssertEqual(NotificationRoute.parse("/home"), .tab(.home))
+        // A post-processing failure without a title links to `/library`.
         XCTAssertEqual(NotificationRoute.parse("/library"), .tab(.library))
         XCTAssertEqual(NotificationRoute.parse("/discover"), .tab(.find))
     }
@@ -63,6 +64,7 @@ final class NotificationRouteTests: XCTestCase {
         XCTAssertEqual(try path("rawkoon://settings/health"), "/settings/health")
         XCTAssertEqual(try path("rawkoon:///activity/requests"), "/activity/requests")
         XCTAssertEqual(try path("rawkoon://home"), "/home")
+        XCTAssertEqual(try path("rawkoon://Library/42"), "/library/42")
         XCTAssertEqual(try path("rawkoon://"), "/")
         XCTAssertNil(try path("https://example.com/library/42"))
     }

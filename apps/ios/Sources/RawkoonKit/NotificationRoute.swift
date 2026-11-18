@@ -67,7 +67,7 @@ public enum NotificationRoute: Equatable, Sendable {
     public static func webPath(fromAppURL url: URL) -> String? {
         guard url.scheme == "rawkoon",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
-        let segments = [components.host ?? ""] + components.path.split(separator: "/").map(String.init)
+        let segments = [components.host?.lowercased() ?? ""] + components.path.split(separator: "/").map(String.init)
         let path = "/" + segments.filter { !$0.isEmpty }.joined(separator: "/")
         return path + (components.percentEncodedQuery.map { "?\($0)" } ?? "")
     }

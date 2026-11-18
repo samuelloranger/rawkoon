@@ -351,7 +351,8 @@ final class LiveUpdatesCoordinator {
             }
         default: break
         }
-        if destination.isAdminOnly, appModel?.isAdmin != true {
+        // Before the user loads (a cold launch from a link) the server's 403 is the gate.
+        if destination.isAdminOnly, appModel?.userId != nil, appModel?.isAdmin != true {
             return
         }
         // Activity lanes, Find shelves and tab roots are tab content, not pushed screens.
