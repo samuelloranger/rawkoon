@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/dialog";
 import { useGrabReadiness } from "@/features/medias/hooks/useGrabReadiness";
-import { failingChecks } from "@/features/medias/lib/grabReadiness";
+import { hasErrorChecks } from "@/features/medias/lib/grabReadiness";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { SETTINGS_PAGES } from "@/pages/settings/_lib/settingsPages";
 import { SettingsIndex } from "./SettingsIndex";
@@ -16,8 +16,7 @@ export function SettingsLayout() {
   const isAdmin = useCurrentUser().data?.is_admin === true;
   // Same cached query the Health page uses; no extra polling, just a longer stale window.
   const readiness = useGrabReadiness({ enabled: isAdmin, staleTime: 60_000 });
-  const healthAttention =
-    isAdmin && failingChecks(readiness.data?.checks).length > 0;
+  const healthAttention = isAdmin && hasErrorChecks(readiness.data?.checks);
   const [indexOpen, setIndexOpen] = useState(false);
   const current = SETTINGS_PAGES.find(
     (p) => pathname === p.path || pathname.startsWith(`${p.path}/`),

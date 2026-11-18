@@ -74,7 +74,7 @@ describe("describeError", () => {
     );
     const described = describeError(error);
     expect(described).not.toContain("supersecret");
-    expect(described).toContain("redis://***@redis.local:6379/0");
+    expect(described).toContain("redis://redis.local:6379/…");
   });
 
   it("redacts query-string secrets in fallback messages, case-insensitively", () => {
@@ -124,5 +124,54 @@ describe("connectionFailure", () => {
       "auth",
     );
     expect(connectionFailure(new Error("weird"), "x").cause).toBe("unknown");
+  });
+});
+
+describe("secrets in URLs and over-eager classification", () => {
+  it("drops the path, query and userinfo of any URL in free text", () => {
+    const urls = [
+      "https://discord.com/api/webhooks/123456/TOKENSECRET",
+      "https://hooks.slack.com/services/T000/B000/SLACKSECRET",
+      "https://ntfy.example.com/mytopic?auth=NTFYSECRET",
+      "https://user:PASSSECRET@host.example/x",
+    ];
+    for (const url of urls) {
+      const out = describeError(new Error(`Failed to parse URL from ${url}`));
+      expect(out).not.toMatch(/SECRET|123456|mytopic|webhooks/);
+      expect(out).toContain(`${new URL(url).host}/…`);
+    }
+  });
+
+  it("does not invent a status from stray numbers", () => {
+    expect(connectionFailure(new Error("Invalid 500 items"), "x").cause).toBe(
+      "unknown",
+    );
+    const f = connectionFailure(new Error("Unexpected 404 in JSON"), "x");
+    expect(f.cause).toBe("unknown");
+    expect(f.message).not.toContain("HTTP");
+  });
+
+  it("classifies auth words neutrally, without a fabricated status", () => {
+    const f = connectionFailure(
+      new Error("Deluge login rejected: forbidden path"),
+      "x",
+    );
+    expect(f.cause).toBe("auth");
+    expect(f.message).toContain("the server rejected the credentials");
+    expect(f.message).not.toMatch(/HTTP|API key/);
+  });
+
+  it("uses webhook wording for channel dispatch failures", () => {
+    const f = connectionFailure(
+      new Error("discord 401: nope"),
+      "ch",
+      "webhook",
+    );
+    expect(f.cause).toBe("auth");
+    expect(f.message).toContain("webhook URL or token was rejected");
+    expect(f.message).not.toContain("API key");
+    expect(
+      connectionFailure(new Error("slack 404: gone"), "ch", "webhook").message,
+    ).toContain("webhook URL is wrong");
   });
 });

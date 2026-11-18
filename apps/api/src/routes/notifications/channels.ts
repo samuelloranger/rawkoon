@@ -188,7 +188,7 @@ export const notificationChannelsRoutes = new Hono<Env>()
       const msg = err instanceof Error ? err.message : "Dispatch failed";
       // Additive: the 400 and `error` stay for existing clients.
       return Response.json(
-        { error: msg, ...connectionFailure(err, target) },
+        { error: msg, ...connectionFailure(err, target, "webhook") },
         { status: 400 },
       );
     }

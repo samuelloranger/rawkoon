@@ -24,12 +24,19 @@ export function endpointLabel(rawUrl: string): string {
   }
 }
 
-function httpSummary(status: number): string {
+/** "webhook" targets authenticate by URL/token, so their wording never mentions an API key. */
+export type TargetKind = "service" | "webhook";
+
+function httpSummary(status: number, kind: TargetKind = "service"): string {
   if (status === 401 || status === 403) {
-    return `the server rejected the request (HTTP ${status}) — the API key is likely invalid`;
+    return kind === "webhook"
+      ? `the webhook URL or token was rejected (HTTP ${status})`
+      : `the server rejected the request (HTTP ${status}) — the API key is likely invalid`;
   }
   if (status === 404) {
-    return "the server answered 404 — the base URL or path is wrong";
+    return kind === "webhook"
+      ? "the server answered 404 — the webhook URL is wrong or was deleted"
+      : "the server answered 404 — the base URL or path is wrong";
   }
   if (status === 429) {
     return "the server rate-limited the request (HTTP 429)";
@@ -51,9 +58,13 @@ function causes(error: unknown, depth = 5): unknown[] {
   return chain;
 }
 
-/** Strips user:pass@ and query-string secrets so a cause never echoes one. */
+/** Reduces every URL to scheme://host (paths carry webhook tokens) and strips bare key=value secrets. */
 function redact(text: string): string {
   return text
+    .replace(
+      /\b([a-z][a-z0-9+.-]*:\/\/)(?:[^\s@/]*@)?([^\s/?#"'<>)]+)[^\s"'<>)]*/gi,
+      (_m, scheme: string, host: string) => `${scheme}${host}/…`,
+    )
     .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s@/:]+:[^\s@/]+@/gi, "$1***@")
     .replace(/\b(api_key|apikey|access_token|token)=([^&\s"']+)/gi, "$1=***");
 }
@@ -63,11 +74,15 @@ function shortMessage(text: string, max = 120): string {
   return clean.length <= max ? clean : `${clean.slice(0, max - 1)}…`;
 }
 
+// Prefixes our own dispatchers use for "<name> <status>: <body>".
+const STATUS_IN_MESSAGE =
+  /(?:\bHTTP |^(?:ntfy|telegram|discord|gotify|pushover|slack|webhook) )(\d{3})\b/;
+
 type Diagnosis = { cause: ConnectionCause; text: string };
 
-function diagnose(error: unknown): Diagnosis {
+function diagnose(error: unknown, kind: TargetKind = "service"): Diagnosis {
   for (const cause of causes(error)) {
-    if (cause instanceof HttpStatusError) return fromStatus(cause.status);
+    if (cause instanceof HttpStatusError) return fromStatus(cause.status, kind);
     const e = cause as { name?: unknown; message?: unknown; code?: unknown };
     const name = typeof e.name === "string" ? e.name : "";
     const message = typeof e.message === "string" ? e.message : "";
@@ -120,23 +135,23 @@ function diagnose(error: unknown): Diagnosis {
         text: "the request was aborted before it finished",
       };
     }
-    // Adapters flatten HTTP failures into message text ("... failed: HTTP 401", "ntfy 401: ...").
-    const status = /(?:\bHTTP |^\w+ )(\d{3})\b/.exec(message)?.[1];
-    if (status) return fromStatus(Number(status));
+    // Our adapters and dispatchers flatten HTTP failures into text: "... failed: HTTP 401", "ntfy 401: ...".
+    const status = STATUS_IN_MESSAGE.exec(message)?.[1];
+    if (status) return fromStatus(Number(status), kind);
     if (
       /\b(auth(entication)? failed|unauthorized|forbidden)\b/i.test(message)
     ) {
-      return fromStatus(401);
+      return { cause: "auth", text: "the server rejected the credentials" };
     }
   }
   const message = error instanceof Error ? error.message : String(error);
   return { cause: "unknown", text: shortMessage(message) || "unknown error" };
 }
 
-function fromStatus(status: number): Diagnosis {
+function fromStatus(status: number, kind: TargetKind = "service"): Diagnosis {
   return {
     cause: status === 401 || status === 403 ? "auth" : "http",
-    text: httpSummary(status),
+    text: httpSummary(status, kind),
   };
 }
 
@@ -149,8 +164,9 @@ export function describeError(error: unknown): string {
 export function connectionFailure(
   error: unknown,
   target: string,
+  kind: TargetKind = "service",
 ): ConnectionFailure {
-  const { cause, text } = diagnose(error);
+  const { cause, text } = diagnose(error, kind);
   return { cause, message: `Could not connect to ${target}: ${text}` };
 }
 
