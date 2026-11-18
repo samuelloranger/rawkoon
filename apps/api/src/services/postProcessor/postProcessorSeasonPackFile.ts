@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { stat } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
+import { syncAudioLanguageAlert } from "@rawkoon/api/services/libraryAttention/audioLanguageAlert";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import {
   parseFilenameMetadata,
@@ -90,6 +91,15 @@ export async function upsertPackMediaFile(opts: {
     });
   } else {
     await prisma.mediaFile.create({ data: fileData });
+  }
+  if (mi) {
+    await syncAudioLanguageAlert({
+      mediaId: opts.mediaId,
+      episodeId: opts.episodeId,
+      tracks: mi.audioTracks as LibraryAudioTrack[],
+    }).catch((e) =>
+      console.warn("[postProcess] audio language check failed:", e),
+    );
   }
 }
 

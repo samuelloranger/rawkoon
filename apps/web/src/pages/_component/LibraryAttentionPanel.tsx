@@ -20,7 +20,9 @@ import { useRetrySkippedSeason } from "@/features/medias/hooks/useRetrySkippedSe
 type Severity = "fail" | "stall";
 
 function severityOf(kind: LibraryAttentionItem["kind"]): Severity {
-  return kind === "download_failed" || kind === "post_process_error"
+  return kind === "download_failed" ||
+    kind === "post_process_error" ||
+    kind === "audio_language_mismatch"
     ? "fail"
     : "stall";
 }
@@ -41,6 +43,9 @@ const KIND_LABEL_KEY: Record<LibraryAttentionItem["kind"], string> = {
   download_stuck: "dashboard.libraryAttention.kindDownloadStuck",
   grab_skipped: "dashboard.libraryAttention.kindGrabSkipped",
   auto_grab_stalled: "dashboard.libraryAttention.kindAutoGrabStalled",
+  audio_language_mismatch:
+    "dashboard.libraryAttention.kindAudioLanguageMismatch",
+  audio_language_warn: "dashboard.libraryAttention.kindAudioLanguageWarn",
 };
 
 function tvLabel(item: LibraryAttentionItem): string | null {
@@ -181,6 +186,9 @@ function AttentionRow({
           {item.detail ? (
             <p className="mt-1 text-[11px] text-neutral-400 line-clamp-2 break-words">
               {item.detail}
+              {item.kind.startsWith("audio_language_")
+                ? ` ${t("dashboard.libraryAttention.audioLanguageHint")}`
+                : ""}
             </p>
           ) : item.search_attempts != null && item.search_attempts > 0 ? (
             <p className="mt-1 text-[11px] text-neutral-400">

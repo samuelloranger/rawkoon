@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { stat, unlink } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
+import { syncAudioLanguageAlert } from "@rawkoon/api/services/libraryAttention/audioLanguageAlert";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import {
   parseFilenameMetadata,
@@ -332,6 +333,16 @@ export async function postProcess(
     } else {
       const created = await prisma.mediaFile.create({ data: fileData });
       newMediaFileId = created.id;
+    }
+
+    if (mi) {
+      await syncAudioLanguageAlert({
+        mediaId: dh.media!.id,
+        episodeId: dh.episode?.id ?? null,
+        tracks: mi.audioTracks as LibraryAudioTrack[],
+      }).catch((e) =>
+        console.warn("[postProcess] audio language check failed:", e),
+      );
     }
 
     // Delete old files after a successful upgrade placement.
