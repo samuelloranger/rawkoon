@@ -54,6 +54,13 @@ run_migrate_deploy() {
   return "$CODE"
 }
 
+# Dump first when migrations are pending; a failed dump must stop the migration.
+if ! bun --no-env-file src/scripts/preMigrateBackup.ts; then
+  echo "ERROR: not migrating, because the pre-migration database backup failed (see above)."
+  echo "Fix the cause, or set DB_BACKUP_BEFORE_MIGRATE=false to migrate without a backup."
+  exit 1
+fi
+
 echo "Running database migrations..."
 if run_migrate_deploy; then
   echo "Migrations complete."

@@ -67,6 +67,15 @@ RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /
     && apt-get install -y --no-install-recommends ca-certificates openssl curl mediainfo mkvtoolnix ffmpeg intel-media-va-driver-non-free mesa-va-drivers \
     && rm -rf /var/lib/apt/lists/*
 
+# pg_dump/psql 18 from PGDG: Debian only ships 17, and pg_dump refuses a server newer than itself.
+# A 18 client dumps 17 and 18 servers alike. Used by scripts/preMigrateBackup.ts.
+RUN install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy only what's needed for the runtime
 COPY --chown=bun:bun --from=prod-deps /app/node_modules ./node_modules
 COPY --chown=bun:bun --from=builder /app/package.json ./package.json
