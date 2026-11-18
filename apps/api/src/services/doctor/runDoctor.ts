@@ -7,10 +7,8 @@ import {
   getGrabReadiness,
   PROBE_TIMEOUT_MS,
 } from "@rawkoon/api/services/grab/grabReadiness";
-import {
-  SCHEDULED_JOB_NAMES,
-  scheduledTasksQueue,
-} from "@rawkoon/api/services/queueService";
+import { scheduledTasksQueue } from "@rawkoon/api/services/queueService";
+import { buildScheduledJobs } from "@rawkoon/api/services/scheduledJobs";
 import { getAppVersion } from "@rawkoon/api/services/versionService";
 import { getBooksEnabled } from "@rawkoon/api/services/settings/appSettings";
 import {
@@ -310,7 +308,9 @@ function scheduledJobsDef(): CheckDef {
       // Read-only Valkey state: a BullMQ queue never starts workers here.
       const schedulers = await scheduledTasksQueue.getJobSchedulers();
       const registered = new Set(schedulers.map((scheduler) => scheduler.name));
-      const expected = Object.values(SCHEDULED_JOB_NAMES);
+      // Exactly what startup registers — on-demand names like
+      // upgrade-media-search are not schedulers and must not be expected.
+      const expected = buildScheduledJobs().map((job) => job.name);
       const missing = expected.filter((name) => !registered.has(name));
       return [
         draft(
