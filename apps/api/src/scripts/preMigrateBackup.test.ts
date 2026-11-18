@@ -74,3 +74,9 @@ test("pgEnvFromUrl decodes credentials and maps prisma params", () => {
     PGOPTIONS: "-c search_path=app",
   });
 });
+
+test("pgEnvFromUrl refuses a schema it can't pass safely", () => {
+  expect(() =>
+    pgEnvFromUrl("postgresql://u:p@db:5432/app?schema=my-schema"),
+  ).toThrow("unsupported schema name");
+});

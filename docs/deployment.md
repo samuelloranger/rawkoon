@@ -25,6 +25,8 @@ manually without restarting:
 
     docker compose -f docker-compose.prod.yml exec rawkoon bunx prisma migrate deploy
 
+This manual command skips the pre-migration backup described below.
+
 Do not run `bun run db:migrate` inside the container — that script sources a
 repo-root `.env` the image does not ship. Do not run development migration
 commands against production.

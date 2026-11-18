@@ -83,8 +83,12 @@ export function pgEnvFromUrl(databaseUrl: string): Record<string, string> {
   const sslmode = url.searchParams.get("sslmode");
   if (sslmode) env.PGSSLMODE = sslmode;
   const schema = url.searchParams.get("schema");
-  if (schema && /^[A-Za-z0-9_]+$/.test(schema))
+  if (schema) {
+    // Falling back to the default schema would make a populated database look empty.
+    if (!/^[A-Za-z0-9_]+$/.test(schema))
+      throw new Error(`unsupported schema name in DATABASE_URL: "${schema}"`);
     env.PGOPTIONS = `-c search_path=${schema}`;
+  }
   return env;
 }
 
@@ -131,6 +135,21 @@ function main(): void {
   // Nothing applied and no tables: a first boot has no data to lose.
   if (applied.length === 0 && userTables === 0) {
     console.log("Empty database: skipping pre-migration backup.");
+    return;
+  }
+
+  // A failed migration makes every restart retry; dumping each time would rotate out the clean pre-upgrade dump.
+  const failed = hasTable
+    ? Number(
+        psql(
+          "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL",
+        ),
+      )
+    : 0;
+  if (failed > 0) {
+    console.log(
+      "A previous migration did not finish: skipping the backup to keep the existing pre-migration dumps.",
+    );
     return;
   }
 
