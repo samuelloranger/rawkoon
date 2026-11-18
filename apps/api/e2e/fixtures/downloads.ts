@@ -55,4 +55,18 @@ export const downloadsFixtures: FixtureRegistry = {
     admin: true,
     negativeBody: null,
   },
+
+  "GET /api/downloads/pending-releases": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "POST /api/downloads/pending-releases/grab-now": {
+    phase: "action",
+    admin: true,
+    body: () => ({ target_key: "m:999999999" }),
+    negativeBody: { target_key: "movie-1" },
+    // Nothing is held back in a fresh install.
+    expectedStatus: 404,
+  },
 };

@@ -2,7 +2,7 @@
 
 A **framework-agnostic** regression sweep that drives every API endpoint and
 asserts it still accepts valid input, rejects invalid input (HTTP 400), and
-gates auth (401/403). One run is **477 checks** across the fixtured routes,
+gates auth (401/403). One run is **695 checks** across the fixtured routes,
 written to `e2e/results.json`.
 
 It was originally built to verify the `t.`→Zod migration and to prove parity

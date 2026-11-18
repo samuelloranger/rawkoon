@@ -291,4 +291,29 @@ export const adminFixtures: FixtureRegistry = {
     skipReason:
       "No admin route exists to create a throwaway web-push subscription; deleting an arbitrary id could destroy shared seeded data or the harness' own device",
   },
+
+  "GET /api/admin/jellyfin-users": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "PATCH /api/admin/users/:id/jellyfin": {
+    phase: "update",
+    admin: true,
+    pathParams: (ctx) => ({ id: ctx.get("adminTempUserId") }),
+    body: () => ({ jellyfin_user_id: null }),
+    negativeBody: { jellyfin_user_id: "" },
+  },
+  "POST /api/admin/users/import-jellyfin": {
+    phase: "action",
+    admin: true,
+    body: () => ({ users: [{ jellyfin_user_id: "mock-jellyfin-user" }] }),
+    negativeBody: { users: [] },
+  },
+  "POST /api/admin/sse-test": {
+    phase: "action",
+    admin: true,
+    body: (ctx) => ({ kind: "media", id: Number(ctx.get("libraryMediaId")) }),
+    negativeBody: { kind: "song", id: "x" },
+  },
 };

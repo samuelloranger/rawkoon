@@ -237,4 +237,37 @@ export const booksFixtures: FixtureRegistry = {
     pathParams: (ctx) => ({ id: ctx.get("bookTempId") }),
     negativeBody: null,
   },
+
+  "GET /api/books/discovery/sources": { phase: "read", negativeBody: null },
+  "GET /api/books/discovery": { phase: "read", negativeBody: null },
+  "POST /api/books/discovery/add": {
+    phase: "action",
+    admin: true,
+    body: () => ({
+      title: "E2E Discovered Book",
+      author: "E2E Author",
+      isbn13: "9780000000002",
+    }),
+    negativeBody: { title: 123 },
+  },
+  "POST /api/books/:bookId/handoff/to-ebook": {
+    phase: "action",
+    pathParams: (ctx) => ({ bookId: ctx.get("bookId") }),
+    body: () => ({ position_secs: 10 }),
+    negativeBody: { position_secs: -1 },
+    // The seeded book has only an ebook edition, so there is no audiobook to hand off from.
+    expectedStatus: 404,
+  },
+  "POST /api/books/:bookId/handoff/to-audiobook": {
+    phase: "action",
+    pathParams: (ctx) => ({ bookId: ctx.get("bookId") }),
+    body: () => ({ spine_path: "chapter1.xhtml", progression: 0.5 }),
+    negativeBody: { spine_path: "", progression: 2 },
+    expectedStatus: 404,
+  },
+  "DELETE /api/books/:id/progress": {
+    phase: "delete",
+    pathParams: (ctx) => ({ id: ctx.get("bookId") }),
+    negativeBody: null,
+  },
 };

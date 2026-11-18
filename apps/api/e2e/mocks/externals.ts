@@ -72,6 +72,8 @@ export function installExternalMocks(): void {
       return 0;
     }
     async obliterate() {}
+    async pause() {}
+    async resume() {}
     on() {
       return this;
     }

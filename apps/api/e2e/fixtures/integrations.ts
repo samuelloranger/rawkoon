@@ -260,4 +260,33 @@ export const integrationsFixtures: FixtureRegistry = {
     }),
     negativeBody: { api_key: 123, enabled: "nope" },
   },
+
+  "GET /api/integrations/ai-provider/stats": {
+    phase: "read",
+    admin: true,
+    query: { days: "30" },
+    negativeBody: null,
+  },
+  "GET /api/integrations/ai-provider/calls": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "GET /api/integrations/nyt": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "PUT /api/integrations/nyt": {
+    phase: "update",
+    admin: true,
+    body: () => ({ api_key: "e2e-nyt-key", enabled: false }),
+    negativeBody: { api_key: 1 },
+  },
+  "POST /api/integrations/nyt/test": {
+    phase: "action",
+    admin: true,
+    body: () => ({ api_key: "e2e-nyt-key" }),
+    negativeBody: { api_key: 1 },
+  },
 };

@@ -19,4 +19,15 @@ export const dashboardFixtures: FixtureRegistry = {
     negativeBody: null,
   },
   "GET /api/dashboard/upcoming": { phase: "read", negativeBody: null },
+
+  "GET /api/dashboard/downloads/active": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+  "GET /api/dashboard/downloads/progress": {
+    phase: "read",
+    negativeBody: null,
+  },
+  "GET /api/dashboard/hero": { phase: "read", negativeBody: null },
 };

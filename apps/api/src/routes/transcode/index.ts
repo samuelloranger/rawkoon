@@ -11,7 +11,7 @@ import {
 } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
-import { jsonV } from "@rawkoon/api/middleware/validate";
+import { jsonV, paramV } from "@rawkoon/api/middleware/validate";
 import { detectCapabilities } from "@rawkoon/api/services/transcode/capabilities";
 import { estimateSelection } from "@rawkoon/api/services/transcode/estimateService";
 import {
@@ -57,6 +57,8 @@ const STATUSES = new Set<TranscodeJobStatus>([
 
 const liveToken = z.string().regex(/^[0-9a-fA-F]{64,512}$/);
 const installation = z.string().uuid();
+// Batch ids are Postgres UUIDs; anything else would fail the cast as a 500.
+const batchParam = z.object({ batchId: z.string().uuid() });
 
 function idParam(raw: string): number | null {
   const n = Number.parseInt(raw, 10);
@@ -232,14 +234,16 @@ export const transcodeRoutes = new Hono<Env>()
       : notFound("Failed or cancelled job not found");
   })
 
-  .delete("/batches/:batchId", async (c) =>
-    ok({ removed: await removeBatch(c.req.param("batchId")) }),
+  .delete("/batches/:batchId", paramV(batchParam), async (c) =>
+    ok({ removed: await removeBatch(c.req.valid("param").batchId) }),
   )
 
   .post(
     "/batches/:batchId/move",
+    paramV(batchParam),
     jsonV(z.object({ top: z.literal(true) })),
-    async (c) => ok({ moved: await moveBatchTop(c.req.param("batchId")) }),
+    async (c) =>
+      ok({ moved: await moveBatchTop(c.req.valid("param").batchId) }),
   )
 
   .delete("/history/:id", async (c) => {
