@@ -533,7 +533,9 @@ export type LibraryAttentionKind =
   | "post_process_error"
   | "download_stuck"
   | "grab_skipped"
-  | "auto_grab_stalled";
+  | "auto_grab_stalled"
+  | "audio_language_mismatch"
+  | "audio_language_warn";
 
 type LibraryAttentionScopeType = "movie" | "episode" | "season_pack";
 

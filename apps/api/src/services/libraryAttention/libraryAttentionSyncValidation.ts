@@ -329,6 +329,14 @@ export function alertStillValidFromContext(
         )
       );
     }
+    case "audio_language_mismatch":
+    case "audio_language_warn": {
+      // Raised at import; stays valid while the imported file still exists.
+      if (alert.episodeId != null) {
+        return (ctx.episodeMap.get(alert.episodeId)?.fileCount ?? 0) > 0;
+      }
+      return (ctx.mediaMap.get(alert.mediaId)?.fileCount ?? 0) > 0;
+    }
     default:
       return false;
   }

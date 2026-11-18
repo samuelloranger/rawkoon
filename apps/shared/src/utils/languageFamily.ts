@@ -26,6 +26,102 @@ export function languageFamilyOf(flag: string): string | null {
   return ISO2.test(f) ? f : null;
 }
 
+// ISO 639-2 (B and T forms) for languages common in audio track tags; unlisted codes read as unmappable.
+const ISO3_TO_ISO2: Record<string, string> = {
+  eng: "en",
+  fre: "fr",
+  fra: "fr",
+  spa: "es",
+  ger: "de",
+  deu: "de",
+  ita: "it",
+  por: "pt",
+  jpn: "ja",
+  kor: "ko",
+  chi: "zh",
+  zho: "zh",
+  rus: "ru",
+  dut: "nl",
+  nld: "nl",
+  pol: "pl",
+  swe: "sv",
+  ara: "ar",
+  hin: "hi",
+  tur: "tr",
+  nor: "no",
+  nob: "nb",
+  nno: "nn",
+  dan: "da",
+  fin: "fi",
+  heb: "he",
+  ukr: "uk",
+  hun: "hu",
+  ron: "ro",
+  rum: "ro",
+  gre: "el",
+  ell: "el",
+  cze: "cs",
+  ces: "cs",
+  slo: "sk",
+  slk: "sk",
+  cat: "ca",
+  tha: "th",
+  vie: "vi",
+  ind: "id",
+  msa: "ms",
+  may: "ms",
+  bul: "bg",
+  hrv: "hr",
+  srp: "sr",
+  slv: "sl",
+  lit: "lt",
+  lav: "lv",
+  est: "et",
+  isl: "is",
+  ice: "is",
+  gle: "ga",
+  per: "fa",
+  fas: "fa",
+  urd: "ur",
+  ben: "bn",
+  tam: "ta",
+  tel: "te",
+  mar: "mr",
+  pan: "pa",
+  guj: "gu",
+  kan: "kn",
+  mal: "ml",
+  fil: "tl",
+  tgl: "tl",
+  afr: "af",
+  alb: "sq",
+  sqi: "sq",
+  arm: "hy",
+  hye: "hy",
+  baq: "eu",
+  eus: "eu",
+  geo: "ka",
+  kat: "ka",
+  mac: "mk",
+  mkd: "mk",
+  wel: "cy",
+  cym: "cy",
+  bos: "bs",
+  mlt: "mt",
+  lat: "la",
+};
+
+/**
+ * Language family of an audio track's language tag: handles ISO 639-1/-2,
+ * region suffixes (fr-CA, fr_FR) and the VFF/VFQ labels the scanner emits.
+ * Null for undetermined tags (und, zxx, mul, empty) and unknown codes.
+ */
+export function trackLanguageFamily(language: string | null): string | null {
+  const base = (language ?? "").trim().toLowerCase().split(/[-_]/)[0] ?? "";
+  if (!base || ["und", "zxx", "mul", "mis"].includes(base)) return null;
+  return languageFamilyOf(ISO3_TO_ISO2[base] ?? base);
+}
+
 /**
  * The tag to show for a release whose audio is in a preferred language's
  * family without matching the preference itself, or null when it has none.
