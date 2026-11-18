@@ -44,6 +44,8 @@ import { shelfCoverRoutes } from "./routes/shelves/covers";
 import { settingsRoutes } from "./routes/settings";
 import { systemRoutes } from "./routes/system";
 import { usersRoutes } from "./routes/users";
+import { mcpRoutes } from "./routes/mcp";
+import { setMcpDispatcher } from "./routes/mcp/dispatcher";
 import {
   globalRateLimit,
   jellyfinUsernameRateLimit,
@@ -130,7 +132,12 @@ app
   .route("/api/search", searchRoutes)
   .route("/api/shelves/covers", shelfCoverRoutes)
   .route("/api/shelves", shelfRoutes)
-  .route("/api/system", systemRoutes);
+  .route("/api/system", systemRoutes)
+  .route("/api/mcp", mcpRoutes);
+
+// MCP tools re-dispatch through this app in-process; injected after the routes
+// because importing the app from the tool layer would be a cycle.
+setMcpDispatcher((request) => app.fetch(request));
 
 app.get("/api/health", async (c) => {
   const health = await checkHealth();

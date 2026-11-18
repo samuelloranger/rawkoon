@@ -9,6 +9,7 @@ import { downloadClientFixtures } from "./download-client";
 import { downloadsFixtures } from "./downloads";
 import { integrationsFixtures } from "./integrations";
 import { labbyFixtures } from "./labby";
+import { mcpFixtures } from "./mcp";
 import { libraryFixtures } from "./library";
 import { mediasFixtures } from "./medias";
 import { notificationsFixtures } from "./notifications";
@@ -36,6 +37,7 @@ export const registry: FixtureRegistry = {
   ...authorsFixtures,
   ...bookQualityProfilesFixtures,
   ...labbyFixtures,
+  ...mcpFixtures,
   ...downloadClientFixtures,
   ...downloadsFixtures,
   ...authFixtures,

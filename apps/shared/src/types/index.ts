@@ -24,3 +24,4 @@ export * from "./transcode";
 export * from "./clips";
 export * from "./shelves";
 export * from "./doctor";
+export * from "./mcp";

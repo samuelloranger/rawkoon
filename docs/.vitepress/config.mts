@@ -32,6 +32,7 @@ export default defineConfig({
           { text: "Getting started", link: "/getting-started" },
           { text: "Requests", link: "/library/requests" },
           { text: "TV app", link: "/tv-app" },
+          { text: "MCP server (AI clients)", link: "/mcp" },
           { text: "Quality profiles", link: "/library/quality-profiles" },
           { text: "AI release picks", link: "/library/ai-release-picks" },
           { text: "Media metadata", link: "/library/metadata" },

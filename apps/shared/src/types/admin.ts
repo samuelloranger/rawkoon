@@ -1,3 +1,5 @@
+import type { McpScope } from "./mcp";
+
 export interface TriggerActionResponse {
   success: boolean;
   message: string;
@@ -261,12 +263,14 @@ export interface RevokeSessionResponse {
   message: string;
 }
 
-interface ApiKey {
+export interface ApiKey {
   id: string;
   name: string | null;
   start: string | null;
   prefix: string | null;
   enabled: boolean;
+  /** MCP scopes granted to this key; empty for a plain service key. */
+  mcp_scopes: McpScope[];
   last_used_at: string | null;
   expires_at: string | null;
   created_at: string;
@@ -279,10 +283,21 @@ export interface ApiKeysResponse {
 export interface CreateApiKeyRequest {
   name: string;
   expires_in_days?: number;
+  /** Grants MCP access; absent/empty keeps a plain service key. */
+  mcp_scopes?: McpScope[];
 }
 
 export interface CreateApiKeyResponse {
   key: string;
+  api_key: ApiKey;
+}
+
+/** Editing only the MCP scopes of an existing key (admin). */
+export interface UpdateApiKeyScopesRequest {
+  mcp_scopes: McpScope[];
+}
+
+export interface UpdateApiKeyScopesResponse {
   api_key: ApiKey;
 }
 
