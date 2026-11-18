@@ -18,6 +18,12 @@ const cancelActiveMovieDownloads = mock(
 );
 let preflight: { refusal: { grabbed: false; reason: string } } | object = {};
 const preflightGrab = mock(async (..._args: unknown[]) => preflight);
+let hasFile = false;
+const targetHasFileOnDisk = mock(async (..._args: unknown[]) => hasFile);
+const searchLibraryTarget = mock(async (..._args: unknown[]) => ({
+  result: { grabbed: false, reason: "none" },
+  payload: {},
+}));
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -31,6 +37,10 @@ mock.module("@rawkoon/api/middleware/hono/auth", () => ({
 mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
   preflightGrab,
+  targetHasFileOnDisk,
+}));
+mock.module("@rawkoon/api/services/searchLibraryTarget", () => ({
+  searchLibraryTarget,
 }));
 mock.module("@rawkoon/api/services/replaceActiveDownload", () => ({
   cancelActiveMovieDownloads,
@@ -65,6 +75,21 @@ describe("POST /:id/grab replace", () => {
       releaseTitle: "New.Release.2160p",
       reason: "",
     }));
+  });
+
+  it("replaces a grab that went over an existing file (upgrading)", async () => {
+    media = { id: 1, type: "movie", status: "upgrading" };
+    const res = await grab({ replace: true });
+    expect(res.status).toBe(200);
+    expect(cancelActiveMovieDownloads).toHaveBeenCalledTimes(1);
+    expect(grabRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an upgrading movie without the flag", async () => {
+    media = { id: 1, type: "movie", status: "upgrading" };
+    const res = await grab();
+    expect(res.status).toBe(400);
+    expect(grabRelease).not.toHaveBeenCalled();
   });
 
   it("refuses a downloading movie without the flag", async () => {
@@ -176,5 +201,26 @@ describe("POST /:id/grab replace", () => {
       reason: "Could not stop the running download: client down",
       replaced_previous: true,
     });
+  });
+});
+
+describe("POST /:id/search over an existing file", () => {
+  beforeEach(() => {
+    media = { id: 1, type: "movie", status: "downloaded" };
+    hasFile = true;
+    searchLibraryTarget.mockClear();
+  });
+
+  it("refuses, pointing to Upgrade, instead of replacing the file blindly", async () => {
+    const res = await libraryGrabRoutes.request("/1/search", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain(
+      "Upgrade",
+    );
+    expect(searchLibraryTarget).not.toHaveBeenCalled();
   });
 });

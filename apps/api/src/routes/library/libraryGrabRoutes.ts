@@ -10,6 +10,7 @@ import { cancelActiveMovieDownloads } from "@rawkoon/api/services/replaceActiveD
 import {
   grabRelease,
   preflightGrab,
+  targetHasFileOnDisk,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import type {
   LanguageFallbackSummary,
@@ -82,11 +83,12 @@ export const libraryGrabRoutes = new Hono<Env>()
         if (body.replace && media.type !== "movie") {
           return badRequest("Replace is only available for movies");
         }
+        // A grab over an existing file is in flight as "upgrading", so both count as active.
+        const active =
+          media.status === "downloading" || media.status === "upgrading";
         const replacing =
-          body.replace === true &&
-          media.type === "movie" &&
-          media.status === "downloading";
-        if (media.type === "movie" && media.status === "downloading") {
+          body.replace === true && media.type === "movie" && active;
+        if (media.type === "movie" && active) {
           if (!replacing) {
             return badRequest(
               "This item cannot be grabbed in its current state",
@@ -192,6 +194,12 @@ export const libraryGrabRoutes = new Hono<Env>()
       if (media.status === "downloading") {
         return badRequest("This item cannot be grabbed in its current state");
       }
+      // Search grabs the top-scored release with no quality comparison, so it must not replace a file.
+      if (await targetHasFileOnDisk({ mediaId: id, episodeId: null })) {
+        return badRequest(
+          "This movie already has a file. Use Upgrade to look for a better release.",
+        );
+      }
 
       // Manual search resets counter + status so users can always retry.
       await resetMovieForManualSearch(id);
@@ -240,6 +248,11 @@ export const libraryGrabRoutes = new Hono<Env>()
         if (ep.status === "downloading") {
           return badRequest(
             "This episode cannot be grabbed in its current state",
+          );
+        }
+        if (await targetHasFileOnDisk({ mediaId, episodeId })) {
+          return badRequest(
+            "This episode already has a file. Use Upgrade to look for a better release.",
           );
         }
 

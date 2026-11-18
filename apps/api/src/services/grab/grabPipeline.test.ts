@@ -41,6 +41,7 @@ mock.module("@rawkoon/api/db", () => ({
       },
     },
     libraryEpisode: { update: async () => ({}) },
+    mediaFile: { findMany: async () => [] },
     bookEdition: {
       findUnique: async () => ({
         kind: "ebook",
