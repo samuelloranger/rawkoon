@@ -25,9 +25,9 @@ describe("checkAudioLanguages", () => {
   });
 
   it("flags a file with no preferred-family audio", () => {
-    expect(checkAudioLanguages([t("eng"), t("und")], ["VFF"])).toEqual({
+    expect(checkAudioLanguages([t("eng"), t("spa")], ["VFF"])).toEqual({
       status: "mismatch",
-      fileLanguages: ["eng"],
+      fileLanguages: ["eng", "spa"],
     });
   });
 
@@ -56,5 +56,42 @@ describe("checkAudioLanguages", () => {
     expect(checkAudioLanguages([t("fre", "VFF")], ["VFQ", "VFF"]).status).toBe(
       "ok",
     );
+  });
+
+  it("recovers an undetermined track's language from its title", () => {
+    expect(
+      checkAudioLanguages([t("eng"), t("und", "French VFQ")], ["vfq"]).status,
+    ).toBe("ok");
+  });
+
+  it("is inconclusive when a track is undetermined or unmappable and nothing matched", () => {
+    expect(checkAudioLanguages([t("eng"), t("und")], ["VFF"]).status).toBe(
+      "skip",
+    );
+    expect(checkAudioLanguages([t("eng"), t("")], ["VFF"]).status).toBe("skip");
+    expect(checkAudioLanguages([t("eng"), t("qqq")], ["VFF"]).status).toBe(
+      "skip",
+    );
+  });
+
+  it("knows common ISO 639-2 codes so they are not treated as unmappable", () => {
+    for (const lang of [
+      "nor",
+      "cze",
+      "dan",
+      "fin",
+      "heb",
+      "ukr",
+      "hun",
+      "ron",
+      "rum",
+      "gre",
+      "ell",
+      "cat",
+      "tha",
+      "vie",
+      "ind",
+    ])
+      expect(checkAudioLanguages([t(lang)], ["VFF"]).status).toBe("mismatch");
   });
 });

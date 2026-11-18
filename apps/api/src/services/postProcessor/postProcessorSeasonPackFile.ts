@@ -92,15 +92,13 @@ export async function upsertPackMediaFile(opts: {
   } else {
     await prisma.mediaFile.create({ data: fileData });
   }
-  if (mi) {
-    await syncAudioLanguageAlert({
-      mediaId: opts.mediaId,
-      episodeId: opts.episodeId,
-      tracks: mi.audioTracks as LibraryAudioTrack[],
-    }).catch((e) =>
-      console.warn("[postProcess] audio language check failed:", e),
-    );
-  }
+  await syncAudioLanguageAlert({
+    mediaId: opts.mediaId,
+    episodeId: opts.episodeId,
+    tracks: mi ? (mi.audioTracks as LibraryAudioTrack[]) : null,
+  }).catch((e) =>
+    console.warn("[postProcess] audio language check failed:", e),
+  );
 }
 
 type MergePlacement = {

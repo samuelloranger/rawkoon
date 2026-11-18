@@ -1,4 +1,5 @@
 import {
+  classifyLanguageTags,
   languageFamilyOf,
   trackLanguageFamily,
   type LibraryAudioTrack,
@@ -12,6 +13,14 @@ const VFQ_TITLE = /vfq|vqc|qu[eé]bec|canad/i;
 const VFF_TITLE = /vff|france|truefrench|europ/i;
 
 type Track = Pick<LibraryAudioTrack, "language" | "title">;
+
+// Falls back to the track title for tags like und, via the shared track classifier.
+function familyOf(t: Track): string | null {
+  const direct = trackLanguageFamily(t.language);
+  if (direct) return direct;
+  const tag = classifyLanguageTags([t as LibraryAudioTrack])[0];
+  return tag ? languageFamilyOf(tag) : null;
+}
 
 function isVfq(t: Track): boolean {
   return /^vfq$|fr[-_]ca/i.test(t.language) || VFQ_TITLE.test(t.title ?? "");
@@ -35,16 +44,18 @@ export function checkAudioLanguages(
   );
   if (wanted.size === 0) return { status: "skip" };
 
-  const determined = tracks.filter((t) => trackLanguageFamily(t.language));
+  const determined = tracks.filter((t) => familyOf(t));
   if (determined.length === 0) return { status: "skip" };
 
   const fileLanguages = [
     ...new Set(determined.map((t) => t.language.toLowerCase())),
   ];
-  const matching = determined.filter((t) =>
-    wanted.has(trackLanguageFamily(t.language)!),
-  );
-  if (matching.length === 0) return { status: "mismatch", fileLanguages };
+  const matching = determined.filter((t) => wanted.has(familyOf(t)!));
+  if (matching.length === 0) {
+    // An undetermined or unmappable track may be the preferred audio: inconclusive.
+    if (determined.length < tracks.length) return { status: "skip" };
+    return { status: "mismatch", fileLanguages };
+  }
 
   const lower = preferred.map((p) => p.toLowerCase());
   const onlyVfq =

@@ -335,15 +335,13 @@ export async function postProcess(
       newMediaFileId = created.id;
     }
 
-    if (mi) {
-      await syncAudioLanguageAlert({
-        mediaId: dh.media!.id,
-        episodeId: dh.episode?.id ?? null,
-        tracks: mi.audioTracks as LibraryAudioTrack[],
-      }).catch((e) =>
-        console.warn("[postProcess] audio language check failed:", e),
-      );
-    }
+    await syncAudioLanguageAlert({
+      mediaId: dh.media!.id,
+      episodeId: dh.episode?.id ?? null,
+      tracks: mi ? (mi.audioTracks as LibraryAudioTrack[]) : null,
+    }).catch((e) =>
+      console.warn("[postProcess] audio language check failed:", e),
+    );
 
     // Delete old files after a successful upgrade placement.
     if (dh.isUpgrade && newMediaFileId != null) {

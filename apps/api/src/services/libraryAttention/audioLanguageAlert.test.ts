@@ -4,7 +4,7 @@ import { prismaMock, clearPrismaMocks } from "../../../test/mocks/prisma";
 mock.module("@rawkoon/api/db", () => ({ prisma: prismaMock }));
 
 const run = async (
-  tracks: { language: string; title?: string | null }[],
+  tracks: { language: string; title?: string | null }[] | null,
   episodeId: number | null = null,
 ) => {
   const { syncAudioLanguageAlert } = await import(
@@ -13,7 +13,7 @@ const run = async (
   await syncAudioLanguageAlert({
     mediaId: 7,
     episodeId,
-    tracks: tracks.map((t, index) => ({
+    tracks: (tracks?.map((t, index) => ({
       index,
       title: null,
       codec: null,
@@ -24,7 +24,7 @@ const run = async (
       forced: false,
       language_name: t.language,
       ...t,
-    })) as never,
+    })) ?? null) as never,
   });
 };
 
@@ -90,5 +90,32 @@ describe("syncAudioLanguageAlert", () => {
     withProfile([]);
     await run([{ language: "eng" }]);
     expect(prismaMock.libraryAttentionAlert.create).not.toHaveBeenCalled();
+  });
+
+  it("does not recreate an alert the user dismissed for the same detail", async () => {
+    withProfile(["VFF"]);
+    prismaMock.libraryAttentionAlert.findFirst
+      .mockImplementationOnce(async () => null)
+      .mockImplementationOnce(async () => ({ id: 9 }));
+    await run([{ language: "eng" }]);
+    expect(prismaMock.libraryAttentionAlert.create).not.toHaveBeenCalled();
+    const where = (
+      prismaMock.libraryAttentionAlert.findFirst.mock.calls[1]![0] as {
+        where: Record<string, unknown>;
+      }
+    ).where;
+    expect(where).toMatchObject({
+      status: "dismissed",
+      kind: "audio_language_mismatch",
+    });
+  });
+
+  it("resolves open alerts when media info is unavailable", async () => {
+    await run(null);
+    expect(prismaMock.libraryAttentionAlert.updateMany).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(prismaMock.libraryAttentionAlert.create).not.toHaveBeenCalled();
+    expect(prismaMock.libraryMedia.findUnique).not.toHaveBeenCalled();
   });
 });
