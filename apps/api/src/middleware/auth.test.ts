@@ -36,6 +36,9 @@ const { requireAdmin, requireUser } = await import(
   "@rawkoon/api/middleware/hono/auth"
 );
 const { actAs, getRequestSession, resolveUser } = await import("./auth");
+const { globalRateLimitSkip } = await import(
+  "@rawkoon/api/middleware/rateLimitCore"
+);
 
 const user = {
   id: "u1",
@@ -87,5 +90,17 @@ describe("actAs", () => {
     const asMember = new Request("http://localhost/admin");
     actAs(asMember, member);
     expect((await guarded.fetch(asMember)).status).toBe(403);
+  });
+
+  it("marks seeded requests as inner so the global rate limiter skips them", async () => {
+    const inner = new Request("http://localhost/inner");
+    actAs(inner, user);
+    expect(await globalRateLimitSkip(inner)).toBe(true);
+
+    // An external request without credentials is still counted: the mark is
+    // object-identity keyed, and an incoming request is never in the WeakSet.
+    expect(
+      await globalRateLimitSkip(new Request("http://localhost/inner")),
+    ).toBe(false);
   });
 });

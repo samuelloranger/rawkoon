@@ -44,14 +44,32 @@ async function lookupUser(request: Request) {
 }
 
 /**
+ * In-process dispatches (the MCP tool layer): marked so middleware can tell
+ * them apart from real external requests. Object-identity keyed, so an
+ * incoming request — which always gets its own Request — can never be marked.
+ */
+const innerRequests = new WeakSet<Request>();
+
+export function markInnerRequest(request: Request): void {
+  innerRequests.add(request);
+}
+
+export function isInnerRequest(request: Request): boolean {
+  return innerRequests.has(request);
+}
+
+/**
  * Seeds the per-request identity memos for one exact Request object, so the
  * guards (requireUser/requireAdmin) resolve the given user with no session
- * lookup. Server-internal only: a WeakMap keyed by object identity can't be
- * reached by an incoming request, which always builds its own Request.
+ * lookup, and marks it as an in-process dispatch. Server-internal only: a
+ * WeakMap/WeakSet keyed by object identity can't be reached by an incoming
+ * request, which always builds its own Request.
  */
 export function actAs(request: Request, user: MappedUser): void {
-  // Only the memo's non-nullness is consumed (the rate-limit skip and any
-  // getRequestSession guard); the guards read the user via resolveUser above.
+  // Only the memo's non-nullness is consumed, by getRequestSession callers;
+  // the guards read the user via resolveUser above. The global rate limiter
+  // does not consult it — credential-less requests never reach the session
+  // check — and instead skips via the inner-request mark above.
   sessions.set(
     request,
     Promise.resolve({ user: { id: user.id } } as unknown as Awaited<
@@ -59,4 +77,5 @@ export function actAs(request: Request, user: MappedUser): void {
     >),
   );
   users.set(request, Promise.resolve(user));
+  markInnerRequest(request);
 }
