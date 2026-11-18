@@ -37,8 +37,10 @@ checks apply — an `admin` scope on a key owned by a non-admin is ignored, and
 ### Claude Code
 
 ```bash
-claude mcp add --transport http rawkoon https://rawkoon.example.com/api/mcp --header "x-api-key: <key>"
+claude mcp add --scope user --transport http rawkoon https://rawkoon.example.com/api/mcp --header "x-api-key: <key>"
 ```
+
+`--scope user` makes the server available in every folder. Without it, Claude Code saves it for the current folder only.
 
 ### Claude Desktop
 

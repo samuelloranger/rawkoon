@@ -27,7 +27,8 @@ export function buildMcpSetupCommands(
   url: string,
   key: string,
 ): McpSetupCommand[] {
-  const claude = `claude mcp add --transport http rawkoon ${shellQuote(url)} --header ${doubleQuoted(`x-api-key: ${key}`)}`;
+  // --scope user: the default local scope ties the server to the folder the command runs in.
+  const claude = `claude mcp add --scope user --transport http rawkoon ${shellQuote(url)} --header ${doubleQuoted(`x-api-key: ${key}`)}`;
   const opencode = `opencode mcp add rawkoon --global --url ${shellQuote(url)} --header ${shellQuote(`x-api-key=${key}`)}`;
   const codex = [
     `export RAWKOON_API_KEY=${shellQuote(key)}`,

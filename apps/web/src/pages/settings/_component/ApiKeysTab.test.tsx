@@ -142,7 +142,9 @@ describe("ApiKeysTab", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/claude mcp add --transport http rawkoon/),
+        screen.getByText(
+          /claude mcp add --scope user --transport http rawkoon/,
+        ),
       ).toBeInTheDocument(),
     );
     // The plaintext key appears in its own box and inside the commands.
