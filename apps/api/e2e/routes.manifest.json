@@ -328,6 +328,42 @@
     "path": "/api/calendar/subscription/regenerate"
   },
   {
+    "method": "POST",
+    "path": "/api/clips/:id/recut"
+  },
+  {
+    "method": "POST",
+    "path": "/api/clips/delete-all"
+  },
+  {
+    "method": "GET",
+    "path": "/api/clips/file"
+  },
+  {
+    "method": "GET",
+    "path": "/api/clips/media/:mediaId"
+  },
+  {
+    "method": "GET",
+    "path": "/api/clips/progress"
+  },
+  {
+    "method": "POST",
+    "path": "/api/clips/retry"
+  },
+  {
+    "method": "GET",
+    "path": "/api/clips/settings"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/clips/settings"
+  },
+  {
+    "method": "GET",
+    "path": "/api/clips/status"
+  },
+  {
     "method": "GET",
     "path": "/api/custom-formats"
   },
@@ -646,6 +682,10 @@
   {
     "method": "PATCH",
     "path": "/api/library/:id/monitored"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/library/:id/monitored-seasons"
   },
   {
     "method": "PATCH",
@@ -1057,6 +1097,74 @@
   },
   {
     "method": "GET",
+    "path": "/api/shelves"
+  },
+  {
+    "method": "POST",
+    "path": "/api/shelves"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/shelves/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/:id"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/shelves/:id"
+  },
+  {
+    "method": "POST",
+    "path": "/api/shelves/:id/cover"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/shelves/:id/entries"
+  },
+  {
+    "method": "POST",
+    "path": "/api/shelves/:id/entries"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/shelves/:id/entries/:entryId"
+  },
+  {
+    "method": "POST",
+    "path": "/api/shelves/:id/preview"
+  },
+  {
+    "method": "POST",
+    "path": "/api/shelves/:id/seed-from-rules"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/cover-candidates"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/covers/:filename"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/for-title"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/lookup/:kind"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/shelves/order"
+  },
+  {
+    "method": "GET",
+    "path": "/api/shelves/seeds"
+  },
+  {
+    "method": "GET",
     "path": "/api/system/features"
   },
   {
@@ -1146,6 +1254,14 @@
   {
     "method": "POST",
     "path": "/api/tv/jellyfin/quick-connect"
+  },
+  {
+    "method": "GET",
+    "path": "/api/tv/library-sorts"
+  },
+  {
+    "method": "PUT",
+    "path": "/api/tv/library-sorts"
   },
   {
     "method": "GET",

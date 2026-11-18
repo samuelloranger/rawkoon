@@ -18,6 +18,10 @@ export const requestsFixtures: FixtureRegistry = {
       year: 2026,
     }),
     negativeBody: { type: "movie", tmdb_id: "not-a-number", title: 123 },
+    captures: (body, ctx) => {
+      const id = (body as { id?: unknown }).id;
+      if (typeof id === "number") ctx.set("requestTempId", String(id));
+    },
   },
 
   // Approve runs the full TMDB -> library-add pipeline, which needs a shaped TMDB
@@ -42,5 +46,17 @@ export const requestsFixtures: FixtureRegistry = {
     pathParams: (ctx) => ({ id: ctx.get("requestId") }),
     body: () => ({ deny_reason: "e2e" }),
     negativeBody: { deny_reason: 123 },
+  },
+
+  "GET /api/requests/status": {
+    phase: "read",
+    query: { tmdb_id: "990000001", type: "movie" },
+    negativeBody: null,
+  },
+  // Withdraws the request created above; the seeded one is left for deny.
+  "DELETE /api/requests/:id": {
+    phase: "delete",
+    pathParams: (ctx) => ({ id: ctx.get("requestTempId") }),
+    negativeBody: null,
   },
 };

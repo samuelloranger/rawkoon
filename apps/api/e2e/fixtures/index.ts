@@ -11,6 +11,7 @@ import { integrationsFixtures } from "./integrations";
 import { labbyFixtures } from "./labby";
 import { mcpFixtures } from "./mcp";
 import { libraryFixtures } from "./library";
+import { libraryExtraFixtures } from "./library-extra";
 import { mediasFixtures } from "./medias";
 import { notificationsFixtures } from "./notifications";
 import { qualityProfilesFixtures } from "./quality-profiles";
@@ -20,6 +21,13 @@ import { searchFixtures } from "./search";
 import { settingsFixtures } from "./settings";
 import { systemFixtures } from "./system";
 import { usersFixtures } from "./users";
+import { calendarFixtures } from "./calendar";
+import { clipsFixtures } from "./clips";
+import { exportFixtures } from "./export";
+import { jellyfinFixtures } from "./jellyfin";
+import { shelvesFixtures } from "./shelves";
+import { transcodeFixtures } from "./transcode";
+import { tvFixtures } from "./tv";
 import { type FixtureRegistry, type Route, routeKey } from "./types";
 
 // Per-domain registries are spread in here as they land (Tasks 10-28).
@@ -46,6 +54,14 @@ export const registry: FixtureRegistry = {
   ...mediasFixtures,
   ...booksFixtures,
   ...libraryFixtures,
+  ...libraryExtraFixtures,
+  ...calendarFixtures,
+  ...clipsFixtures,
+  ...exportFixtures,
+  ...jellyfinFixtures,
+  ...shelvesFixtures,
+  ...transcodeFixtures,
+  ...tvFixtures,
 };
 
 // Coverage gate: every manifest route must have a fixture, and every fixture key
