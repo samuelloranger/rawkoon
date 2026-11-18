@@ -212,7 +212,8 @@ export const adminFixtures: FixtureRegistry = {
     expectedStatus: 201,
     body: (ctx) => ({
       email: `e2e-admin-temp-${ctx.get("requestId")}@example.com`,
-      password: `e2e-pass-${ctx.get("requestId")}`,
+      // Mixed case + digits + a special char: the shared password policy.
+      password: `e2e-Pass-${ctx.get("requestId")}!`,
       first_name: "E2E",
       last_name: "Temp",
       is_admin: false,
@@ -231,7 +232,7 @@ export const adminFixtures: FixtureRegistry = {
     admin: true,
     pathParams: (ctx) => ({ id: ctx.get("adminTempUserId") }),
     body: (ctx) => ({
-      password: `e2e-new-pass-${ctx.get("requestId")}`,
+      password: `e2e-New-pass-${ctx.get("requestId")}!`,
     }),
     negativeBody: { password: "short" },
   },
