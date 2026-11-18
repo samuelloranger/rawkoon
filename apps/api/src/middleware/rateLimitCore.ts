@@ -79,7 +79,10 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
   } catch {
     // fall through to x-api-key verify for Labby-style keys
   }
-  const apiKey = req.headers.get("x-api-key");
+  // x-api-key first; some MCP clients (Codex) only send the key as a Bearer
+  // token, so offer it to verifyApiKey too — a session bearer never reaches here.
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const apiKey = req.headers.get("x-api-key") ?? bearer ?? null;
   if (!apiKey) return false;
   try {
     const { apiKeyApi } = await import("@rawkoon/api/lib/apiKeyApi");

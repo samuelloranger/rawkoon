@@ -12,6 +12,10 @@
     "path": "/api/admin/api-keys/:id"
   },
   {
+    "method": "PATCH",
+    "path": "/api/admin/api-keys/:id"
+  },
+  {
     "method": "GET",
     "path": "/api/admin/doctor"
   },
@@ -786,6 +790,14 @@
   {
     "method": "GET",
     "path": "/api/library/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp"
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp"
   },
   {
     "method": "GET",

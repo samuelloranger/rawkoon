@@ -38,6 +38,15 @@ export const adminFixtures: FixtureRegistry = {
     negativeBody: null,
   },
 
+  // Scope edits only (the MCP permissions entry in the plugin's column).
+  "PATCH /api/admin/api-keys/:id": {
+    phase: "update",
+    admin: true,
+    pathParams: (ctx) => ({ id: ctx.get("apiKeyTempId") }),
+    body: () => ({ mcp_scopes: ["read", "request"] }),
+    negativeBody: { mcp_scopes: ["read", "nope"] },
+  },
+
   // Invitations
   "GET /api/admin/invitations": {
     phase: "read",

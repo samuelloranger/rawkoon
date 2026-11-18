@@ -1,15 +1,20 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import { MCP_SCOPES } from "@rawkoon/shared/types";
+import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
+import { parseMcpScopes } from "@rawkoon/api/services/mcp/mcpScopes";
 import {
   createApiKey,
   deleteApiKey,
   listApiKeys,
+  updateApiKeyScopes,
 } from "@rawkoon/api/services/admin/adminApiKeys";
 
 const MAX_EXPIRY_DAYS = 365;
+
+const mcpScopesSchema = z.array(z.enum(MCP_SCOPES));
 
 type ApiKeyRow = {
   id: string;
@@ -17,6 +22,7 @@ type ApiKeyRow = {
   start: string | null;
   prefix: string | null;
   enabled: boolean;
+  permissions: string | null;
   lastRequest: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
@@ -29,6 +35,7 @@ function mapApiKey(row: ApiKeyRow) {
     start: row.start,
     prefix: row.prefix,
     enabled: row.enabled,
+    mcp_scopes: parseMcpScopes(row.permissions),
     last_used_at: row.lastRequest?.toISOString() ?? null,
     expires_at: row.expiresAt?.toISOString() ?? null,
     created_at: row.createdAt.toISOString(),
@@ -52,6 +59,7 @@ export const adminApiKeyRoutes = new Hono<Env>()
       z.object({
         name: z.string(),
         expires_in_days: z.number().optional(),
+        mcp_scopes: mcpScopesSchema.optional(),
       }),
     ),
     async (c) => {
@@ -70,7 +78,12 @@ export const adminApiKeyRoutes = new Hono<Env>()
       }
 
       try {
-        const result = await createApiKey(name, days, c.req.raw.headers);
+        const result = await createApiKey(
+          name,
+          days,
+          c.req.raw.headers,
+          body.mcp_scopes ?? [],
+        );
         if (result.status === "duplicate") {
           return badRequest("An API key with this name already exists");
         }
@@ -86,6 +99,24 @@ export const adminApiKeyRoutes = new Hono<Env>()
         }
         console.error("Error creating API key:", error);
         return serverError("Failed to create API key");
+      }
+    },
+  )
+  .patch(
+    "/api-keys/:id",
+    jsonV(z.object({ mcp_scopes: mcpScopesSchema })),
+    async (c) => {
+      const body = c.req.valid("json");
+      try {
+        const result = await updateApiKeyScopes(
+          c.req.param("id"),
+          body.mcp_scopes,
+        );
+        if (result.status === "not_found") return notFound("API key not found");
+        return ok({ api_key: mapApiKey(result.row) });
+      } catch (error) {
+        console.error("Error updating API key scopes:", error);
+        return serverError("Failed to update API key scopes");
       }
     },
   )
