@@ -6,7 +6,9 @@ import { buildAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import type { GrabReadinessCheck } from "@rawkoon/shared/types";
 
 const PROBE_TTL_MS = 30_000;
-const PROBE_TIMEOUT_MS = 8_000;
+
+/** Budget the grab probes give themselves; the doctor's outer bound sits above it. */
+export const PROBE_TIMEOUT_MS = 8_000;
 
 export type IndexerProbe =
   | { state: "not_configured" }

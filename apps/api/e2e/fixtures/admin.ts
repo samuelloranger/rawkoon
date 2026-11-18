@@ -1,6 +1,13 @@
 import type { FixtureRegistry } from "./types";
 
 export const adminFixtures: FixtureRegistry = {
+  // Doctor self-check: probes read settings + Valkey stubs and always report.
+  "GET /api/admin/doctor": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+
   // API keys
   "GET /api/admin/api-keys": {
     phase: "read",
