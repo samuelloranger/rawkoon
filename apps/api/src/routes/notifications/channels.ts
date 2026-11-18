@@ -1,3 +1,4 @@
+import { connectionFailure } from "@rawkoon/api/utils/describeError";
 import { Hono } from "hono";
 import { z } from "zod";
 import { APP_PATHS } from "@rawkoon/shared/constants";
@@ -171,9 +172,11 @@ export const notificationChannelsRoutes = new Hono<Env>()
     const user = c.get("user");
     const id = parseId(c.req.param("id"));
     if (id === null) return badRequest("Invalid channel id");
+    let target = "the notification channel";
     try {
       const channel = await findChannel(id, user.id);
       if (!channel) return notFound("Channel not found");
+      target = `“${channel.label}”`;
 
       await dispatchToChannel(mapChannel(channel), {
         title: "Rawkoon test notification",
@@ -183,6 +186,10 @@ export const notificationChannelsRoutes = new Hono<Env>()
       return ok({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Dispatch failed";
-      return badRequest(msg);
+      // Additive: the 400 and `error` stay for existing clients.
+      return Response.json(
+        { error: msg, ...connectionFailure(err, target) },
+        { status: 400 },
+      );
     }
   });

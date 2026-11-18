@@ -16,12 +16,15 @@ export function SettingsIndex({
   searchable = false,
   autoFocusSearch = false,
   onNavigate,
+  healthAttention = false,
 }: {
   isAdmin: boolean;
   currentPath: string;
   searchable?: boolean;
   autoFocusSearch?: boolean;
   onNavigate?: () => void;
+  /** Marks the Health entry when readiness checks are failing. */
+  healthAttention?: boolean;
 }) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
@@ -98,6 +101,14 @@ export function SettingsIndex({
                   >
                     <p.icon className="h-4 w-4 shrink-0" />
                     {t(p.titleKey)}
+                    {p.id === "health" && healthAttention && (
+                      <span
+                        role="img"
+                        aria-label={t("settings.healthAttention")}
+                        data-testid="health-attention-dot"
+                        className="ml-auto h-2 w-2 rounded-full bg-red-500"
+                      />
+                    )}
                   </Link>
                 </li>
               );

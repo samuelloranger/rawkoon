@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { describeError, endpointLabel, HttpStatusError } from "./describeError";
+import {
+  connectionFailure,
+  describeError,
+  endpointLabel,
+  HttpStatusError,
+} from "@rawkoon/api/utils/describeError";
 
 const errno = (code: string) => Object.assign(new Error(code), { code });
 
@@ -106,5 +111,18 @@ describe("endpointLabel", () => {
 
   it("is neutral when the URL cannot be parsed", () => {
     expect(endpointLabel("not a url")).toBe("the configured address");
+  });
+});
+
+describe("connectionFailure", () => {
+  it("returns a stable cause and names the target", () => {
+    expect(connectionFailure(errno("ENOTFOUND"), "host:1")).toEqual({
+      cause: "dns",
+      message: expect.stringContaining("host:1"),
+    });
+    expect(connectionFailure(new Error("ntfy 401: nope"), "x").cause).toBe(
+      "auth",
+    );
+    expect(connectionFailure(new Error("weird"), "x").cause).toBe("unknown");
   });
 });

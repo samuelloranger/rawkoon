@@ -33,7 +33,11 @@ import {
   type LibrarySettings,
 } from "./probes";
 import { worstStatus, type CheckOutcome } from "./status";
-import { describeError, endpointLabel, HttpStatusError } from "./describeError";
+import {
+  describeError,
+  endpointLabel,
+  HttpStatusError,
+} from "@rawkoon/api/utils/describeError";
 
 const DOCTOR_TIMEOUT_MS = 5000;
 

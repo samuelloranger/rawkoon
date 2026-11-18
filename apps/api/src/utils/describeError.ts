@@ -1,3 +1,5 @@
+import type { ConnectionCause, ConnectionFailure } from "@rawkoon/shared/types";
+
 /**
  * One-line, credential-free causes for failed probes. Doctor summaries must
  * name the real problem, but never echo an API key, a password, or a URL with
@@ -61,10 +63,11 @@ function shortMessage(text: string, max = 120): string {
   return clean.length <= max ? clean : `${clean.slice(0, max - 1)}…`;
 }
 
-/** Classifies a probe error into a plain-English cause (DNS, refused, timeout, TLS, HTTP…). */
-export function describeError(error: unknown): string {
+type Diagnosis = { cause: ConnectionCause; text: string };
+
+function diagnose(error: unknown): Diagnosis {
   for (const cause of causes(error)) {
-    if (cause instanceof HttpStatusError) return httpSummary(cause.status);
+    if (cause instanceof HttpStatusError) return fromStatus(cause.status);
     const e = cause as { name?: unknown; message?: unknown; code?: unknown };
     const name = typeof e.name === "string" ? e.name : "";
     const message = typeof e.message === "string" ? e.message : "";
@@ -75,34 +78,82 @@ export function describeError(error: unknown): string {
       code === "ETIMEDOUT" ||
       /\btimed out\b/i.test(message)
     ) {
-      return "timed out";
+      return { cause: "timeout", text: "timed out" };
     }
     if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
-      return "DNS lookup failed — the hostname does not resolve";
+      return {
+        cause: "dns",
+        text: "DNS lookup failed — the hostname does not resolve",
+      };
     }
     if (code === "ECONNREFUSED") {
-      return "connection refused — nothing is listening on that host and port";
+      return {
+        cause: "refused",
+        text: "connection refused — nothing is listening on that host and port",
+      };
     }
     if (code === "ECONNRESET") {
-      return "the connection was reset mid-request";
+      return { cause: "unknown", text: "the connection was reset mid-request" };
     }
     if (code === "ENETUNREACH" || code === "EHOSTUNREACH") {
-      return "no route to that host from this container";
+      return {
+        cause: "unknown",
+        text: "no route to that host from this container",
+      };
     }
     if (code === "EACCES" || code === "EPERM") {
-      return "the OS denied permission";
+      return { cause: "unknown", text: "the OS denied permission" };
     }
     if (
       code.startsWith("ERR_TLS") ||
       code.includes("CERT") ||
       /certificate/i.test(message)
     ) {
-      return `TLS handshake failed (${shortMessage(message)})`;
+      return {
+        cause: "tls",
+        text: `TLS handshake failed (${shortMessage(message)})`,
+      };
     }
     if (name === "AbortError") {
-      return "the request was aborted before it finished";
+      return {
+        cause: "unknown",
+        text: "the request was aborted before it finished",
+      };
+    }
+    // Adapters flatten HTTP failures into message text ("... failed: HTTP 401", "ntfy 401: ...").
+    const status = /(?:\bHTTP |^\w+ )(\d{3})\b/.exec(message)?.[1];
+    if (status) return fromStatus(Number(status));
+    if (
+      /\b(auth(entication)? failed|unauthorized|forbidden)\b/i.test(message)
+    ) {
+      return fromStatus(401);
     }
   }
   const message = error instanceof Error ? error.message : String(error);
-  return shortMessage(message) || "unknown error";
+  return { cause: "unknown", text: shortMessage(message) || "unknown error" };
+}
+
+function fromStatus(status: number): Diagnosis {
+  return {
+    cause: status === 401 || status === 403 ? "auth" : "http",
+    text: httpSummary(status),
+  };
+}
+
+/** Classifies a probe error into a plain-English cause (DNS, refused, timeout, TLS, HTTP…). */
+export function describeError(error: unknown): string {
+  return diagnose(error).text;
+}
+
+/** A stable cause plus a message naming `target` (a host:port or service name), for "Test connection" results. */
+export function connectionFailure(
+  error: unknown,
+  target: string,
+): ConnectionFailure {
+  const { cause, text } = diagnose(error);
+  return { cause, message: `Could not connect to ${target}: ${text}` };
+}
+
+export function statusFailure(status: number, target: string) {
+  return connectionFailure(new HttpStatusError(status), target);
 }

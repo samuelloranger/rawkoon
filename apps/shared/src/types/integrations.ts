@@ -194,3 +194,25 @@ export interface AiProviderIntegrationUpdateResponse {
   success: boolean;
   integration: AiProviderIntegration;
 }
+
+/** Why a "Test connection" failed; `message` is plain English and never carries a credential. */
+export type ConnectionCause =
+  | "dns"
+  | "refused"
+  | "timeout"
+  | "tls"
+  | "auth"
+  | "http"
+  | "unknown";
+
+export interface ConnectionFailure {
+  cause: ConnectionCause;
+  message: string;
+}
+
+/** Test results only ever gain these fields on failure; existing flags stay. */
+export type ConnectionTestResult = {
+  success?: boolean;
+  ok?: boolean;
+  error?: string;
+} & Partial<ConnectionFailure>;

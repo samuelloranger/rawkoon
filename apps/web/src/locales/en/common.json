@@ -513,6 +513,7 @@
   },
   "settings": {
     "title": "Settings",
+    "healthAttention": "Health: checks need attention",
     "general": {
       "title": "General",
       "description": "App-wide defaults used by background jobs and shared integrations.",
@@ -1259,6 +1260,15 @@
       }
     },
     "integrations": {
+      "cause": {
+        "dns": "Address not found",
+        "refused": "Connection refused",
+        "timeout": "No response in time",
+        "tls": "Secure connection failed",
+        "auth": "Credentials rejected",
+        "http": "Unexpected response",
+        "unknown": "Connection failed"
+      },
       "testConnection": "Test connection",
       "indexers": "Indexers",
       "groups": {

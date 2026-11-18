@@ -1,4 +1,8 @@
 import {
+  connectionFailure,
+  endpointLabel,
+} from "@rawkoon/api/utils/describeError";
+import {
   fetchMaindata,
   type MaindataDeps,
 } from "@rawkoon/api/services/qbittorrent/clientFetch";
@@ -93,6 +97,7 @@ export function createQbittorrentAdapter(
         return {
           ok: false,
           error: error instanceof Error ? error.message : "unreachable",
+          ...connectionFailure(error, endpointLabel(config.website_url)),
         };
       }
     },

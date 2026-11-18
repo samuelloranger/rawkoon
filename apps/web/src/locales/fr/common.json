@@ -513,6 +513,7 @@
   },
   "settings": {
     "title": "Réglages",
+    "healthAttention": "Santé : des vérifications demandent votre attention",
     "general": {
       "title": "Général",
       "description": "Valeurs par défaut globales utilisées par les tâches en arrière-plan et les intégrations partagées.",
@@ -1259,6 +1260,15 @@
       }
     },
     "integrations": {
+      "cause": {
+        "dns": "Adresse introuvable",
+        "refused": "Connexion refusée",
+        "timeout": "Aucune réponse à temps",
+        "tls": "Échec de la connexion sécurisée",
+        "auth": "Identifiants refusés",
+        "http": "Réponse inattendue",
+        "unknown": "Échec de la connexion"
+      },
       "testConnection": "Tester la connexion",
       "indexers": "Indexeurs",
       "groups": {

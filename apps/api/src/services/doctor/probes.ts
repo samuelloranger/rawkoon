@@ -1,6 +1,6 @@
 import { access, constants, stat, statfs } from "node:fs/promises";
 import { prisma } from "@rawkoon/api/db";
-import { describeError } from "./describeError";
+import { describeError } from "@rawkoon/api/utils/describeError";
 import type { PathProbe } from "./paths";
 
 /** The library-relevant slice of mediaSettings (row id = 1). */

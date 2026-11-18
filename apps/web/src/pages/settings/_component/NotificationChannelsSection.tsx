@@ -1,3 +1,4 @@
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -54,9 +55,13 @@ export function NotificationChannelsSection() {
         toast.success(t("settings.notifications.channels.testSent")),
       onError: (err) => {
         toast.error(
-          err instanceof Error
-            ? err.message
-            : t("settings.notifications.channels.testError"),
+          connectionFailureText(
+            t,
+            err,
+            err instanceof Error
+              ? err.message
+              : t("settings.notifications.channels.testError"),
+          ),
         );
       },
     });
