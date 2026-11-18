@@ -36,18 +36,49 @@ export async function createApiKey(
   if (existing) return { status: "duplicate" };
 
   // Owned by the acting admin; the plugin generates and hashes the key.
-  // The "mcp" resource gates MCP access; absent keeps a plain service key.
+  // `permissions` is server-only in the plugin: passing it through the
+  // header-carrying create call throws SERVER_ONLY_PROPERTY, so scopes are
+  // applied right after through the same server-only update path as
+  // updateApiKeyScopes.
   const created = await apiKeyApi.createApiKey({
-    body: {
-      name,
-      expiresIn: days ? days * SECONDS_PER_DAY : null,
-      ...(mcpScopes.length > 0 ? { permissions: { mcp: mcpScopes } } : {}),
-    },
+    body: { name, expiresIn: days ? days * SECONDS_PER_DAY : null },
     headers,
   });
+
+  if (mcpScopes.length > 0) {
+    const row = await findApiKeyById(created.id);
+    if (!row) {
+      await rollbackCreatedKey(created.id);
+      return { status: "failed" };
+    }
+    try {
+      await apiKeyApi.updateApiKey({
+        body: {
+          keyId: created.id,
+          userId: row.referenceId,
+          permissions: { mcp: mcpScopes },
+        },
+      });
+    } catch (error) {
+      console.error("Error applying MCP scopes to the new API key:", error);
+      await rollbackCreatedKey(created.id);
+      return { status: "failed" };
+    }
+  }
+
   const row = await findApiKeyById(created.id);
   if (!row) return { status: "failed" };
   return { status: "created", key: created.key, row };
+}
+
+/**
+ * The caller asked for a scoped key: if the scopes could not be applied, an
+ * unscoped leftover would be a silent permission downgrade, so delete it.
+ */
+async function rollbackCreatedKey(id: string): Promise<void> {
+  await prisma.baApiKey.delete({ where: { id } }).catch((err) => {
+    console.error("Error rolling back the created API key:", err);
+  });
 }
 
 export type UpdateScopesResult =

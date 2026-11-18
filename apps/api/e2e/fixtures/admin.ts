@@ -13,6 +13,22 @@ export const adminFixtures: FixtureRegistry = {
     phase: "read",
     admin: true,
     negativeBody: null,
+    captures: (body, ctx) => {
+      // The create fixture granted mcp_scopes; the list must still show them
+      // (proves the scopes write survives the plugin's storage path).
+      const keys = (
+        body as { api_keys?: { id: string; mcp_scopes?: string[] }[] }
+      ).api_keys;
+      const created = (keys ?? []).find(
+        (k) => k.id === ctx.get("apiKeyTempId"),
+      );
+      if (!created) throw new Error("created API key missing from the list");
+      if (!(created.mcp_scopes ?? []).includes("read")) {
+        throw new Error(
+          `created key lost its mcp_scopes: ${JSON.stringify(created.mcp_scopes)}`,
+        );
+      }
+    },
   },
 
   "POST /api/admin/api-keys": {
@@ -22,11 +38,21 @@ export const adminFixtures: FixtureRegistry = {
     body: (ctx) => ({
       name: `e2e-temp-${ctx.get("requestId")}-api-key`,
       expires_in_days: 7,
+      mcp_scopes: ["read"],
     }),
     captures: (body, ctx) => {
-      const b = body as { api_key?: { id?: unknown } };
+      const b = body as { api_key?: { id?: unknown; mcp_scopes?: unknown } };
       const id = b.api_key?.id;
       if (typeof id === "string") ctx.set("apiKeyTempId", id);
+      // Create-with-scopes goes through the plugin's server-only update
+      // path; the response must reflect the requested scopes.
+      if (JSON.stringify(b.api_key?.mcp_scopes) !== JSON.stringify(["read"])) {
+        throw new Error(
+          `expected mcp_scopes ["read"] on the created key, got ${JSON.stringify(
+            b.api_key?.mcp_scopes,
+          )}`,
+        );
+      }
     },
     negativeBody: { name: "", expires_in_days: "nope" },
   },

@@ -102,24 +102,43 @@ describe("admin api-keys routes", () => {
     );
   });
 
-  it("passes MCP scopes as the plugin's permissions body", async () => {
+  it("creates a scoped key in two steps: plugin create, then server-only update", async () => {
     await post({ name: "Labby", mcp_scopes: ["read", "approve"] });
+    // permissions must never ride the header-carrying create call (the plugin
+    // rejects them as SERVER_ONLY_PROPERTY).
     expect(createApiKey).toHaveBeenCalledWith(
       expect.objectContaining({
+        body: expect.not.objectContaining({ permissions: expect.anything() }),
+      }),
+    );
+    expect(updateApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({
         body: expect.objectContaining({
+          keyId: "key-1",
+          userId: "ref-1",
           permissions: { mcp: ["read", "approve"] },
         }),
       }),
     );
   });
 
-  it("keeps a key without scopes a plain service key (no permissions)", async () => {
+  it("keeps a key without scopes a plain service key (no update call)", async () => {
     await post({ name: "Labby" });
     expect(createApiKey).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.not.objectContaining({ permissions: expect.anything() }),
       }),
     );
+    expect(updateApiKey).not.toHaveBeenCalled();
+  });
+
+  it("rolls the key back when the scope update fails", async () => {
+    updateApiKey.mockImplementationOnce(async () => {
+      throw new Error("SERVER_ONLY_PROPERTY");
+    });
+    const res = await post({ name: "Labby", mcp_scopes: ["read"] });
+    expect(res.status).toBe(500);
+    expect(del).toHaveBeenCalledWith({ where: { id: "key-1" } });
   });
 
   it("rejects an unknown MCP scope", async () => {
