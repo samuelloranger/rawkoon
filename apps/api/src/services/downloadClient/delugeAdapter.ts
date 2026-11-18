@@ -1,4 +1,8 @@
 import type { DownloadClientIntegrationConfig } from "./config";
+import {
+  connectionFailure,
+  endpointLabel,
+} from "@rawkoon/api/utils/describeError";
 import { normalizeDelugeState } from "./stateNormalize";
 import {
   type AddTorrentInput,
@@ -132,6 +136,7 @@ export function createDelugeAdapter(
         return {
           ok: false,
           error: error instanceof Error ? error.message : "unreachable",
+          ...connectionFailure(error, endpointLabel(config.website_url)),
         };
       }
     },

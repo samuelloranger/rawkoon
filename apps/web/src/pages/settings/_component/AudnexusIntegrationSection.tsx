@@ -1,3 +1,4 @@
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -80,7 +81,14 @@ export function AudnexusIntegrationSection() {
     try {
       const res = await test.mutateAsync({ base_url: baseUrl.trim(), region });
       if (res.success) toast.success(t("settings.books.audnexus.reachable"));
-      else toast.error(res.error ?? t("settings.books.audnexus.notReachable"));
+      else
+        toast.error(
+          connectionFailureText(
+            t,
+            res,
+            t("settings.books.audnexus.notReachable"),
+          ),
+        );
     } catch (e) {
       toast.error(
         e instanceof ApiError

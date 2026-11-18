@@ -1,3 +1,8 @@
+import {
+  connectionFailure,
+  endpointLabel,
+  statusFailure,
+} from "@rawkoon/api/utils/describeError";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -224,6 +229,7 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
         return notFound("AI Provider integration not configured or disabled");
       }
 
+      let failure: unknown = null;
       const res = await fetch(`${config.base_url}/v1/models`, {
         headers: {
           Accept: "application/json",
@@ -232,10 +238,23 @@ export const aiProviderIntegrationRoutes = new Hono<Env>()
             : {}),
         },
         signal: AbortSignal.timeout(5_000),
-      }).catch(() => null);
+      }).catch((error) => {
+        failure = error;
+        return null;
+      });
 
       if (!res?.ok) {
-        return badGateway("Could not connect to AI Provider server");
+        const target = endpointLabel(config.base_url);
+        // Additive: the 502 and `error` stay for existing clients.
+        return Response.json(
+          {
+            error: "Could not connect to AI Provider server",
+            ...(res
+              ? statusFailure(res.status, target)
+              : connectionFailure(failure, target)),
+          },
+          { status: 502 },
+        );
       }
 
       const data = (await res.json().catch(() => null)) as {

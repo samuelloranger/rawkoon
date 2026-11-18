@@ -1,3 +1,4 @@
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -43,7 +44,10 @@ export function NytBooksIntegrationSection() {
         api_key: apiKey.trim() || undefined,
       });
       if (result.success) toast.success(t("settings.books.nyt.testOk"));
-      else toast.error(result.error ?? t("settings.books.nyt.testFailed"));
+      else
+        toast.error(
+          connectionFailureText(t, result, t("settings.books.nyt.testFailed")),
+        );
     } catch (e) {
       toast.error(errorMessage(e, t("settings.books.nyt.testFailed")));
     }

@@ -1,3 +1,4 @@
+import type { ConnectionFailure } from "@rawkoon/shared/types";
 export type DownloadClientType =
   | "qbittorrent"
   | "transmission"
@@ -51,7 +52,9 @@ export interface AddTorrentInput {
 
 export interface DownloadClientAdapter {
   readonly type: DownloadClientType;
-  testConnection(): Promise<{ ok: boolean; error?: string }>;
+  testConnection(): Promise<
+    { ok: boolean; error?: string } & Partial<ConnectionFailure>
+  >;
   /** Returns the info-hash if the client reports it on add, else null. */
   addTorrent(
     input: AddTorrentInput,

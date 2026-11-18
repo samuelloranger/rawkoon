@@ -1,4 +1,8 @@
 import type { DownloadClientIntegrationConfig } from "./config";
+import {
+  connectionFailure,
+  endpointLabel,
+} from "@rawkoon/api/utils/describeError";
 import { normalizeTransmissionState } from "./stateNormalize";
 import {
   type AddTorrentInput,
@@ -126,6 +130,7 @@ export function createTransmissionAdapter(
         return {
           ok: false,
           error: error instanceof Error ? error.message : "unreachable",
+          ...connectionFailure(error, endpointLabel(config.website_url)),
         };
       }
     },

@@ -1,3 +1,8 @@
+import {
+  connectionFailure,
+  endpointLabel,
+  statusFailure,
+} from "@rawkoon/api/utils/describeError";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -141,11 +146,13 @@ export const audnexusIntegrationRoutes = new Hono<Env>()
           return ok({
             success: false,
             error: "Reachable, but rate-limited right now. Try again shortly.",
+            ...statusFailure(res.status, endpointLabel(config.base_url)),
           });
         }
         return ok({
           success: false,
           error: `Audnexus returned HTTP ${res.status}.`,
+          ...statusFailure(res.status, endpointLabel(config.base_url)),
         });
       } catch (error) {
         return ok({
@@ -154,6 +161,7 @@ export const audnexusIntegrationRoutes = new Hono<Env>()
             error instanceof Error
               ? `Could not reach Audnexus: ${error.message}`
               : "Could not reach Audnexus.",
+          ...connectionFailure(error, endpointLabel(config.base_url)),
         });
       }
     },

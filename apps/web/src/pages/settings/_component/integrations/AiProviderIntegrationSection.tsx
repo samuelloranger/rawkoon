@@ -1,3 +1,4 @@
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ function AiProviderIntegrationSectionImpl({
   const [testState, setTestState] = useState<
     "idle" | "loading" | "ok" | "model-not-found" | "error"
   >("idle");
+  const [testDetail, setTestDetail] = useState<string | null>(null);
 
   const hasStoredKey = Boolean(data?.integration?.has_api_key);
 
@@ -131,13 +133,17 @@ function AiProviderIntegrationSectionImpl({
 
   const handleTest = async () => {
     setTestState("loading");
+    setTestDetail(null);
     try {
       const result = await fetcher<{
         success: boolean;
         model_available: boolean | null;
       }>(INTEGRATION_ENDPOINTS.AI_PROVIDER_TEST);
       setTestState(result.model_available === false ? "model-not-found" : "ok");
-    } catch {
+    } catch (e) {
+      setTestDetail(
+        connectionFailureText(t, e, t("settings.integrations.cause.unknown")),
+      );
       setTestState("error");
     }
   };
@@ -299,7 +305,7 @@ function AiProviderIntegrationSectionImpl({
           {testState === "error" && (
             <span className="flex items-center gap-1 text-sm text-red-500">
               <XCircle className="h-3.5 w-3.5" />
-              Could not connect
+              {testDetail ?? "Could not connect"}
             </span>
           )}
         </div>
