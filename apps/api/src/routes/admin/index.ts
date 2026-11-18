@@ -6,6 +6,7 @@ import { adminJobRoutes } from "./adminJobRoutes";
 import { adminLibraryHealthRoutes } from "./adminLibraryHealthRoutes";
 import { adminUserRoutes } from "./adminUserRoutes";
 import { adminMiscRoutes } from "./adminMiscRoutes";
+import { adminDoctorRoutes } from "./adminDoctorRoutes";
 import { adminApiKeyRoutes } from "./apiKeyRoutes";
 import { sseTestRoutes } from "./sseTestRoutes";
 
@@ -16,6 +17,7 @@ export const adminRoutes = new Hono<Env>()
   .use("*", requireAdmin)
   .route("/", adminJobRoutes)
   .route("/", adminLibraryHealthRoutes)
+  .route("/", adminDoctorRoutes)
   .route("/", adminUserRoutes)
   .route("/", adminApiKeyRoutes)
   .route("/", adminMiscRoutes)

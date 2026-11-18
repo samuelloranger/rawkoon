@@ -3,6 +3,8 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/dialog";
+import { useGrabReadiness } from "@/features/medias/hooks/useGrabReadiness";
+import { hasErrorChecks } from "@/features/medias/lib/grabReadiness";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { SETTINGS_PAGES } from "@/pages/settings/_lib/settingsPages";
 import { SettingsIndex } from "./SettingsIndex";
@@ -12,6 +14,9 @@ export function SettingsLayout() {
   const { t } = useTranslation("common");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdmin = useCurrentUser().data?.is_admin === true;
+  // Same cached query the Health page uses; no extra polling, just a longer stale window.
+  const readiness = useGrabReadiness({ enabled: isAdmin, staleTime: 60_000 });
+  const healthAttention = isAdmin && hasErrorChecks(readiness.data?.checks);
   const [indexOpen, setIndexOpen] = useState(false);
   const current = SETTINGS_PAGES.find(
     (p) => pathname === p.path || pathname.startsWith(`${p.path}/`),
@@ -40,6 +45,7 @@ export function SettingsLayout() {
       >
         <SettingsIndex
           isAdmin={isAdmin}
+          healthAttention={healthAttention}
           currentPath={pathname}
           searchable
           autoFocusSearch
@@ -55,7 +61,11 @@ export function SettingsLayout() {
             </h1>
           </div>
           <nav className="p-3" aria-label={t("settings.title")}>
-            <SettingsIndex isAdmin={isAdmin} currentPath={pathname} />
+            <SettingsIndex
+              isAdmin={isAdmin}
+              currentPath={pathname}
+              healthAttention={healthAttention}
+            />
           </nav>
         </div>
       </aside>

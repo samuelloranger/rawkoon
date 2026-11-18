@@ -19,6 +19,10 @@ const updatedFiles: unknown[] = [];
 const historyUpdates: Record<string, unknown>[] = [];
 const blocklisted: number[] = [];
 
+mock.module(
+  "@rawkoon/api/services/libraryAttention/audioLanguageAlert",
+  () => ({ syncAudioLanguageAlert: async () => {} }),
+);
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     libraryEpisode: {

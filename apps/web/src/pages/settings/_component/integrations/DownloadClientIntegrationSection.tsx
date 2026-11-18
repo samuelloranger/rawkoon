@@ -1,3 +1,5 @@
+import type { ConnectionTestResult } from "@rawkoon/shared/types";
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useMemo, useState } from "react";
 import type {
   DownloadClientIntegration,
@@ -99,7 +101,7 @@ function DownloadClientIntegrationSectionImpl({
   const handleTest = async () => {
     setTesting(true);
     try {
-      const result = await fetcher<{ ok: boolean; error?: string }>(
+      const result = await fetcher<ConnectionTestResult & { ok: boolean }>(
         INTEGRATION_ENDPOINTS.DOWNLOAD_CLIENT_TEST,
         { method: "POST" },
       );
@@ -107,7 +109,11 @@ function DownloadClientIntegrationSectionImpl({
         toast.success(t("settings.integrations.downloadClient.testSuccess"));
       else
         toast.error(
-          result.error ?? t("settings.integrations.downloadClient.testError"),
+          connectionFailureText(
+            t,
+            result,
+            t("settings.integrations.downloadClient.testError"),
+          ),
         );
     } catch (error) {
       toast.error(

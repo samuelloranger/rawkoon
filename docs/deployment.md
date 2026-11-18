@@ -25,6 +25,8 @@ manually without restarting:
 
     docker compose -f docker-compose.prod.yml exec rawkoon bunx prisma migrate deploy
 
+This manual command skips the pre-migration backup described below.
+
 Do not run `bun run db:migrate` inside the container — that script sources a
 repo-root `.env` the image does not ship. Do not run development migration
 commands against production.
@@ -33,6 +35,38 @@ To update, pull the image and restart the container. Which tag to run
 (`:latest`, `:edge` or a pinned `:X.Y.Z`), and why going back from `:edge`
 can need a database restore, is covered in
 [Updating and release channels](/self-hosting#updating-and-release-channels).
+
+## Automatic backup before migrations
+
+On every start, the entrypoint checks for database migrations that the image
+carries but the database has not applied. Only then it runs `pg_dump -Fc` into
+`DB_BACKUP_DIR`, named `rawkoon-pre-migrate-<UTC timestamp>-<app version>.dump`,
+and keeps the newest `DB_BACKUP_KEEP` dumps. A first boot on an empty database
+and a start with nothing pending write no dump.
+
+If the dump fails, the container exits without migrating, so the database stays
+as it was. Fix the cause (disk space, permissions, an unreachable database) or
+start with `DB_BACKUP_BEFORE_MIGRATE=false` to migrate without a backup.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DB_BACKUP_BEFORE_MIGRATE` | `true` | `false` skips the dump. |
+| `DB_BACKUP_DIR` | `/app/data/backups` | Inside the persisted `data/` volume, so dumps survive the container. |
+| `DB_BACKUP_KEEP` | `3` | Number of pre-migration dumps to retain. |
+
+The image ships the PostgreSQL 18 client, which dumps 17 and 18 servers. An
+older server major is fine; a newer one needs a newer image.
+
+To undo a bad migration, stop the app, restore the dump, then start the image
+tag that ran before the upgrade (the dump's file name carries the version it
+was taken from):
+
+    docker compose -f docker-compose.prod.yml stop rawkoon
+    docker compose -f docker-compose.prod.yml exec -T db sh -c \
+      'pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+      < data/backups/rawkoon-pre-migrate-<timestamp>-<version>.dump
+    # pin the previous image tag in docker-compose.prod.yml, then:
+    docker compose -f docker-compose.prod.yml up -d rawkoon
 
 ## Back up a complete instance
 
@@ -88,3 +122,22 @@ it: behind Caddy with <code>trusted_proxies</code>, set
 <code>header_up X-Forwarded-For {client_ip}</code>, or a client behind
 Cloudflare can still spoof the leftmost entry. Download-client polling uses the client URL configured in Settings, so an
 internal Docker address avoids a round trip through the public proxy.
+
+## Troubleshooting: `rawkoon doctor`
+
+The doctor probes every external dependency Rawkoon needs — database,
+migrations, Valkey, scheduled jobs, library paths, free space, hardlink
+support, indexer manager, download client, Jellyfin and TMDB — and prints one
+line per check, with a fix under any check that is not OK.
+
+Run it against a running instance:
+
+    docker compose -f docker-compose.prod.yml exec rawkoon bun run doctor
+
+Admins can also fetch the same report as JSON from
+<code>GET /api/admin/doctor</code>. Each line is either `OK` (healthy),
+`WARN` (works, but something needs attention — for example a pending
+migration or an unset library path) or `FAIL` (broken, with the real cause,
+such as a refused connection or a rejected API key). The exit code is `1`
+when any check fails and `0` otherwise, so scripts can gate on it. In
+development, run it from <code>apps/api</code> with `bun run doctor:dev`.

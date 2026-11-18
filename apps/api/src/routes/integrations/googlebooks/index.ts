@@ -1,3 +1,7 @@
+import {
+  connectionFailure,
+  statusFailure,
+} from "@rawkoon/api/utils/describeError";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -131,17 +135,21 @@ export const googleBooksIntegrationRoutes = new Hono<Env>()
           return ok({
             success: false,
             error: "Google Books rejected that key.",
+            // 400 is how Google reports a bad key; classify it as auth.
+            ...statusFailure(403, "Google Books"),
           });
         }
         if (res.status === 429) {
           return ok({
             success: false,
             error: "Key accepted, but its quota is exhausted right now.",
+            ...statusFailure(res.status, "Google Books"),
           });
         }
         return ok({
           success: false,
           error: `Google Books is unavailable (HTTP ${res.status}). The key may still be valid — try again shortly.`,
+          ...statusFailure(res.status, "Google Books"),
         });
       } catch (error) {
         return ok({
@@ -150,6 +158,7 @@ export const googleBooksIntegrationRoutes = new Hono<Env>()
             error instanceof Error
               ? `Could not reach Google Books: ${error.message}`
               : "Could not reach Google Books.",
+          ...connectionFailure(error, "Google Books"),
         });
       }
     },

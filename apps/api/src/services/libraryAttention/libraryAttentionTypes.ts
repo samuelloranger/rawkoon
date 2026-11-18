@@ -24,6 +24,8 @@ const KIND_PRIORITY: Record<LibraryAttentionKind, number> = {
   download_stuck: 3,
   grab_skipped: 4,
   auto_grab_stalled: 5,
+  audio_language_mismatch: 6,
+  audio_language_warn: 7,
 };
 
 export function attentionKindPriority(kind: LibraryAttentionKind): number {

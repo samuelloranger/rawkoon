@@ -251,6 +251,9 @@
       "kindDownloadStuck": "Download stalled",
       "kindGrabSkipped": "Auto-grab gave up",
       "kindAutoGrabStalled": "Auto-grab struggling",
+      "kindAudioLanguageMismatch": "Wrong audio language",
+      "kindAudioLanguageWarn": "Audio may not be Québec French",
+      "audioLanguageHint": "Open the Releases tab to search again and pick another release.",
       "dismiss": "Dismiss",
       "toastDismissOk": "Dismissed",
       "toastDismissFail": "Could not dismiss alert",
@@ -513,6 +516,7 @@
   },
   "settings": {
     "title": "Settings",
+    "healthAttention": "Health: checks need attention",
     "general": {
       "title": "General",
       "description": "App-wide defaults used by background jobs and shared integrations.",
@@ -1122,6 +1126,22 @@
       "createError": "Failed to create API key",
       "createdKeyTitle": "Copy your API key now",
       "createdKeyWarning": "This is the only time the key will be shown. Copy it somewhere safe.",
+      "mcpSection": "MCP access",
+      "mcpHint": "Optional: let AI clients (Claude Code, Claude Desktop, OpenCode, Codex CLI) use Rawkoon through this key.",
+      "mcpScopeRead": "Read (library, search, downloads, requests)",
+      "mcpScopeRequest": "Request titles",
+      "mcpScopeApprove": "Approve requests",
+      "mcpScopeAdmin": "Admin (health self-check)",
+      "mcpColumn": "MCP",
+      "mcpOpen": "MCP setup",
+      "mcpEndpoint": "Endpoint",
+      "mcpFreshHint": "The commands below include the key in clear text — copy them now, the key is shown only once.",
+      "mcpPlaceholderHint": "Replace <your key> in the commands with this API key's value. The key itself is not shown again.",
+      "mcpEditTitle": "MCP access",
+      "mcpEditDescription": "Change what the key \"{{name}}\" may do, and copy a setup command for your MCP client.",
+      "mcpSave": "Save scopes",
+      "mcpSaveSuccess": "MCP scopes updated",
+      "mcpSaveError": "Failed to update MCP scopes",
       "copy": "Copy",
       "copied": "Copied",
       "done": "Done",
@@ -1259,6 +1279,15 @@
       }
     },
     "integrations": {
+      "cause": {
+        "dns": "Address not found",
+        "refused": "Connection refused",
+        "timeout": "No response in time",
+        "tls": "Secure connection failed",
+        "auth": "Credentials rejected",
+        "http": "Unexpected response",
+        "unknown": "Connection failed"
+      },
       "testConnection": "Test connection",
       "indexers": "Indexers",
       "groups": {

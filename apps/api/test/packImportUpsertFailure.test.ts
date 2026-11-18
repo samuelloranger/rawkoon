@@ -19,6 +19,10 @@ const downloadedEpisodes: number[] = [];
 const createdFiles: Array<{ episodeId: number; filePath: string }> = [];
 const historyUpdates: Record<string, unknown>[] = [];
 
+mock.module(
+  "@rawkoon/api/services/libraryAttention/audioLanguageAlert",
+  () => ({ syncAudioLanguageAlert: async () => {} }),
+);
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     libraryEpisode: {

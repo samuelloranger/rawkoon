@@ -26,6 +26,7 @@ export const ADMIN_ENDPOINTS = {
   DELETE_WEB_PUSH: (id: number) => `/api/admin/web-push/${id}`,
   API_KEYS: "/api/admin/api-keys",
   DELETE_API_KEY: (id: string) => `/api/admin/api-keys/${id}`,
+  PATCH_API_KEY: (id: string) => `/api/admin/api-keys/${id}`,
   RETRY_JOB: (queue: string, jobId: string) =>
     `/api/admin/queues/${queue}/jobs/${jobId}/retry`,
   RETRY_FAILED: (queue: string) => `/api/admin/queues/${queue}/retry-failed`,

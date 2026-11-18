@@ -1,4 +1,7 @@
-import { getRequestSession } from "@rawkoon/api/middleware/auth";
+import {
+  getRequestSession,
+  isInnerRequest,
+} from "@rawkoon/api/middleware/auth";
 
 /**
  * Rate-limit policy (windows, maxes, messages, skip predicates, client IP)
@@ -69,6 +72,11 @@ function hasAuthCredential(req: Request): boolean {
  * bucket entirely.
  */
 export async function globalRateLimitSkip(req: Request): Promise<boolean> {
+  // In-process MCP tool dispatches carry no credential headers by design;
+  // they are throttled per key by the MCP limiter, never by the anonymous
+  // IP bucket (one key at 60 reads/min would exhaust it for everyone).
+  if (isInnerRequest(req)) return true;
+
   const path = new URL(req.url).pathname;
   if (/^\/api\/books\/files\/\d+\/content$/.test(path)) return true;
 
@@ -79,7 +87,10 @@ export async function globalRateLimitSkip(req: Request): Promise<boolean> {
   } catch {
     // fall through to x-api-key verify for Labby-style keys
   }
-  const apiKey = req.headers.get("x-api-key");
+  // x-api-key first; some MCP clients (Codex) only send the key as a Bearer
+  // token, so offer it to verifyApiKey too — a session bearer never reaches here.
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const apiKey = req.headers.get("x-api-key") ?? bearer ?? null;
   if (!apiKey) return false;
   try {
     const { apiKeyApi } = await import("@rawkoon/api/lib/apiKeyApi");

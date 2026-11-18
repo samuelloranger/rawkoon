@@ -3,6 +3,7 @@ import {
   isFrenchFallbackTag,
   languageFallbackTag,
   languageFamilyOf,
+  trackLanguageFamily,
 } from "../languageFamily";
 
 const QC = ["VFQ", "VF2", "VFI"];
@@ -51,5 +52,19 @@ describe("isFrenchFallbackTag", () => {
     expect(isFrenchFallbackTag("MULTi")).toBe(true);
     expect(isFrenchFallbackTag("VFF")).toBe(true);
     expect(isFrenchFallbackTag("DE")).toBe(false);
+  });
+});
+
+describe("trackLanguageFamily", () => {
+  it("maps ISO 639-2, regions and scanner labels to a family", () => {
+    for (const l of ["fre", "fra", "fr", "fr-CA", "fr_FR", "VFQ", "VFF"])
+      expect(trackLanguageFamily(l)).toBe("fr");
+    expect(trackLanguageFamily("eng")).toBe("en");
+    expect(trackLanguageFamily("en-US")).toBe("en");
+    expect(trackLanguageFamily("ger")).toBe("de");
+  });
+  it("returns null for undetermined or unknown tags", () => {
+    for (const l of ["und", "zxx", "mul", "", null, "xyzw"])
+      expect(trackLanguageFamily(l)).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "bullmq";
 import { rssPollCron } from "@rawkoon/shared/utils";
 import { valkeyConnection } from "@rawkoon/api/db/valkey";
+import { buildScheduledJobs } from "@rawkoon/api/services/scheduledJobs";
 import {
   PERF_TIMING_ENABLED,
   recordJobDuration,
@@ -179,6 +180,11 @@ export async function closeAllWorkers(): Promise<void> {
   workers.length = 0;
 }
 
+/** Close every queue connection so a CLI that imported queues can exit. */
+export async function closeAllQueues(): Promise<void> {
+  await Promise.all(Object.values(queues).map((queue) => queue.close()));
+}
+
 function trackJobDurations(worker: Worker, queueName: string): Worker {
   if (!PERF_TIMING_ENABLED) return worker;
   worker.on("completed", (job: Job) => {
@@ -349,93 +355,7 @@ export async function setupScheduledJobs() {
   const releaseCheckCron = await loadReleaseCheckCron();
   const rssPollPattern = rssPollCron(await loadRssPollInterval());
 
-  const jobs = [
-    { name: SCHEDULED_JOB_NAMES.CLEANUP_NOTIFICATIONS, pattern: "0 0 * * *" },
-    { name: SCHEDULED_JOB_NAMES.REFRESH_UPCOMING, pattern: "30 */12 * * *" },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_MOVIE_RELEASE_REMINDERS,
-      pattern: "20 * * * *",
-    }, // hourly :20 — day-before movie (watchlist)
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_MOVIE_RELEASES,
-      pattern: releaseCheckCron,
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_EPISODE_RELEASES,
-      pattern: releaseCheckCron,
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SYNC_LIBRARY_SHOW_EPISODES,
-      pattern: "0 */6 * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_DOWNLOAD_COMPLETION,
-      pattern: "*/20 * * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_LIBRARY_INTEGRITY,
-      pattern: "0 3 * * 0",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.POLL_INDEXER_RSS,
-      // rssPollCron keeps it off :00 so it never shares a tick with the
-      // release sweeps, which hit the same indexer for the same wanted items.
-      // The duplicate-grab guard in grabRelease is the real safety net; this
-      // just stops the two jobs racing in the first place.
-      pattern: rssPollPattern,
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.REFRESH_GITHUB_RELEASES,
-      pattern: "0 */6 * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SYNC_LIBRARY_ATTENTION_ALERTS,
-      pattern: "12 * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SYNC_LOCALIZED_TITLES,
-      // Backstop for the add paths that carry no TMDB translations, and the
-      // heal path after a retitle. Offset off the other library jobs.
-      pattern: "27 * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_BOOK_RELEASES,
-      // Offset off :00 so the book sweep never shares a tick with the media
-      // release sweeps above, which hit the same indexer.
-      pattern: "40 */6 * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.CHECK_AUTHOR_RELEASES,
-      // Daily: Google Books is the rate-limited, flaky dependency here, and a
-      // newly published title is not time-critical.
-      pattern: "50 4 * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SWEEP_SEEDING_TORRENTS,
-      // Offset off the RSS poll's :07 ticks at the default interval; both list the client's torrents.
-      pattern: "3-59/15 * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.PROCESS_PENDING_RELEASES,
-      // Offset off the RSS poll's ticks at every interval (they fall on :02/:07) so a due grab doesn't race a poll.
-      pattern: "1-59/5 * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.RECONCILE_PREVIEW_CLIPS,
-      // No-op while clips are disabled; picks up newly imported movies and seasons.
-      pattern: "*/10 * * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SWEEP_TITLE_FACTS,
-      // Nightly, off the other 3 AM job; TMDB facts for shelf rules, then auto-join.
-      pattern: "20 3 * * *",
-    },
-    {
-      name: SCHEDULED_JOB_NAMES.SYNC_JELLYFIN_USERS,
-      // Bounds how long a disabled or deleted Jellyfin user keeps a session.
-      pattern: "*/15 * * * *",
-    },
-  ];
+  const jobs = buildScheduledJobs({ releaseCheckCron, rssPollPattern });
 
   // Prune existing schedulers, then (re)register each idempotently by id
   // (its job name). BullMQ 6 removed the legacy repeatable-jobs API in favor

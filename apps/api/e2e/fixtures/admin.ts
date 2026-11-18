@@ -1,11 +1,34 @@
 import type { FixtureRegistry } from "./types";
 
 export const adminFixtures: FixtureRegistry = {
+  // Doctor self-check: probes read settings + Valkey stubs and always report.
+  "GET /api/admin/doctor": {
+    phase: "read",
+    admin: true,
+    negativeBody: null,
+  },
+
   // API keys
   "GET /api/admin/api-keys": {
     phase: "read",
     admin: true,
     negativeBody: null,
+    captures: (body, ctx) => {
+      // The create fixture granted mcp_scopes; the list must still show them
+      // (proves the scopes write survives the plugin's storage path).
+      const keys = (
+        body as { api_keys?: { id: string; mcp_scopes?: string[] }[] }
+      ).api_keys;
+      const created = (keys ?? []).find(
+        (k) => k.id === ctx.get("apiKeyTempId"),
+      );
+      if (!created) throw new Error("created API key missing from the list");
+      if (!(created.mcp_scopes ?? []).includes("read")) {
+        throw new Error(
+          `created key lost its mcp_scopes: ${JSON.stringify(created.mcp_scopes)}`,
+        );
+      }
+    },
   },
 
   "POST /api/admin/api-keys": {
@@ -15,11 +38,21 @@ export const adminFixtures: FixtureRegistry = {
     body: (ctx) => ({
       name: `e2e-temp-${ctx.get("requestId")}-api-key`,
       expires_in_days: 7,
+      mcp_scopes: ["read"],
     }),
     captures: (body, ctx) => {
-      const b = body as { api_key?: { id?: unknown } };
+      const b = body as { api_key?: { id?: unknown; mcp_scopes?: unknown } };
       const id = b.api_key?.id;
       if (typeof id === "string") ctx.set("apiKeyTempId", id);
+      // Create-with-scopes goes through the plugin's server-only update
+      // path; the response must reflect the requested scopes.
+      if (JSON.stringify(b.api_key?.mcp_scopes) !== JSON.stringify(["read"])) {
+        throw new Error(
+          `expected mcp_scopes ["read"] on the created key, got ${JSON.stringify(
+            b.api_key?.mcp_scopes,
+          )}`,
+        );
+      }
     },
     negativeBody: { name: "", expires_in_days: "nope" },
   },
@@ -29,6 +62,15 @@ export const adminFixtures: FixtureRegistry = {
     admin: true,
     pathParams: (ctx) => ({ id: ctx.get("apiKeyTempId") }),
     negativeBody: null,
+  },
+
+  // Scope edits only (the MCP permissions entry in the plugin's column).
+  "PATCH /api/admin/api-keys/:id": {
+    phase: "update",
+    admin: true,
+    pathParams: (ctx) => ({ id: ctx.get("apiKeyTempId") }),
+    body: () => ({ mcp_scopes: ["read", "request"] }),
+    negativeBody: { mcp_scopes: ["read", "nope"] },
   },
 
   // Invitations
@@ -196,7 +238,8 @@ export const adminFixtures: FixtureRegistry = {
     expectedStatus: 201,
     body: (ctx) => ({
       email: `e2e-admin-temp-${ctx.get("requestId")}@example.com`,
-      password: `e2e-pass-${ctx.get("requestId")}`,
+      // Mixed case + digits + a special char: the shared password policy.
+      password: `e2e-Pass-${ctx.get("requestId")}!`,
       first_name: "E2E",
       last_name: "Temp",
       is_admin: false,
@@ -215,7 +258,7 @@ export const adminFixtures: FixtureRegistry = {
     admin: true,
     pathParams: (ctx) => ({ id: ctx.get("adminTempUserId") }),
     body: (ctx) => ({
-      password: `e2e-new-pass-${ctx.get("requestId")}`,
+      password: `e2e-New-pass-${ctx.get("requestId")}!`,
     }),
     negativeBody: { password: "short" },
   },

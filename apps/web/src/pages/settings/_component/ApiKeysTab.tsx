@@ -4,19 +4,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Check } from "lucide-react";
+import { Plug, Plus, Trash2, Copy, Check } from "lucide-react";
+import type { ApiKey, McpScope } from "@rawkoon/shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/dialog";
 import { LoadingState } from "@/components/LoadingState";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 import { useCurrentUser } from "@/lib/auth/useAuth";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { buildMcpSetupCommands } from "@/lib/mcpSetupCommands";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { SettingsPageHeader } from "@/pages/settings/_component/SettingsPageHeader";
 import { useApiKeys } from "@/pages/settings/useApiKeys";
 import { useCreateApiKey } from "@/pages/settings/useCreateApiKey";
 import { useDeleteApiKey } from "@/pages/settings/useDeleteApiKey";
+import { useUpdateApiKeyScopes } from "@/pages/settings/useUpdateApiKeyScopes";
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -24,11 +28,135 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+const SCOPE_KEYS: { scope: McpScope; labelKey: string }[] = [
+  { scope: "read", labelKey: "settings.apiKeys.mcpScopeRead" },
+  { scope: "request", labelKey: "settings.apiKeys.mcpScopeRequest" },
+  { scope: "approve", labelKey: "settings.apiKeys.mcpScopeApprove" },
+  { scope: "admin", labelKey: "settings.apiKeys.mcpScopeAdmin" },
+];
+
+/** The four MCP permission checkboxes, shared by the create and edit dialogs. */
+function McpScopePicker({
+  scopes,
+  onToggle,
+}: {
+  scopes: McpScope[];
+  onToggle: (scope: McpScope) => void;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {SCOPE_KEYS.map(({ scope, labelKey }) => (
+        <label
+          key={scope}
+          className="flex items-center gap-2 cursor-pointer hover:bg-neutral-700/50 p-2 rounded-md border border-transparent hover:border-neutral-700"
+        >
+          <Checkbox
+            checked={scopes.includes(scope)}
+            onChange={() => onToggle(scope)}
+          />
+          <span className="text-sm text-neutral-300">{t(labelKey)}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** One command line with its own copy button, as in the rest of the app. */
+function CopyableCommand({
+  label,
+  command,
+  hint,
+}: {
+  label: string;
+  command: string;
+  hint?: string;
+}) {
+  const { t } = useTranslation("common");
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!(await copyToClipboard(command))) {
+      toast.error(t("common.copyFailed"));
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-neutral-400">{label}</span>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 break-all rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 font-mono text-xs text-neutral-100 whitespace-pre-wrap">
+          {command}
+        </code>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleCopy}
+          className="gap-1.5 shrink-0"
+        >
+          {copied ? (
+            <Check className="w-3.5 h-3.5" />
+          ) : (
+            <Copy className="w-3.5 h-3.5" />
+          )}
+          {copied ? t("settings.apiKeys.copied") : t("settings.apiKeys.copy")}
+        </Button>
+      </div>
+      {hint && <span className="text-xs text-neutral-500">{hint}</span>}
+    </div>
+  );
+}
+
+function mcpEndpointUrl(): string {
+  return `${window.location.origin}/api/mcp`;
+}
+
+/** The per-client setup commands for one key; the key is only shown right after creation. */
+function McpSetupCommands({
+  url,
+  apiKey,
+  freshKey,
+}: {
+  url: string;
+  apiKey: string;
+  freshKey: boolean;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-neutral-500">
+        {freshKey
+          ? t("settings.apiKeys.mcpFreshHint")
+          : t("settings.apiKeys.mcpPlaceholderHint")}
+      </p>
+      <CopyableCommand
+        label={t("settings.apiKeys.mcpEndpoint")}
+        command={url}
+      />
+      {buildMcpSetupCommands(url, apiKey).map((c) => (
+        <CopyableCommand
+          key={c.client}
+          label={c.client}
+          command={c.command}
+          hint={c.hint}
+        />
+      ))}
+    </div>
+  );
+}
+
+const CREATE_KEY_PLACEHOLDER = "<your key>";
+
 function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation("common");
   const createKey = useCreateApiKey();
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [createdScopes, setCreatedScopes] = useState<McpScope[]>([]);
   const [copied, setCopied] = useState(false);
+  const [scopes, setScopes] = useState<McpScope[]>([]);
 
   const createApiKeySchema = useMemo(
     () =>
@@ -77,7 +205,9 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
       const res = await createKey.mutateAsync({
         name: data.name,
         ...(days !== undefined ? { expires_in_days: days } : {}),
+        ...(scopes.length > 0 ? { mcp_scopes: scopes } : {}),
       });
+      setCreatedScopes(res.api_key.mcp_scopes);
       setCreatedKey(res.key);
       toast.success(t("settings.apiKeys.createSuccess"));
     } catch {
@@ -131,6 +261,13 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
                 : t("settings.apiKeys.copy")}
             </Button>
           </div>
+          {createdScopes.length > 0 && (
+            <McpSetupCommands
+              url={mcpEndpointUrl()}
+              apiKey={createdKey}
+              freshKey
+            />
+          )}
           <div className="flex justify-end">
             <Button onClick={onClose}>{t("settings.apiKeys.done")}</Button>
           </div>
@@ -170,6 +307,24 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
               </p>
             )}
           </label>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-medium text-neutral-300">
+              {t("settings.apiKeys.mcpSection")}
+            </legend>
+            <p className="text-xs text-neutral-500">
+              {t("settings.apiKeys.mcpHint")}
+            </p>
+            <McpScopePicker
+              scopes={scopes}
+              onToggle={(scope) =>
+                setScopes((current) =>
+                  current.includes(scope)
+                    ? current.filter((s) => s !== scope)
+                    : [...current, scope],
+                )
+              }
+            />
+          </fieldset>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               {t("common.cancel")}
@@ -187,6 +342,71 @@ function CreateApiKeyModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Edit an existing key's MCP scopes; commands use a placeholder key. */
+function EditMcpScopesModal({
+  apiKey,
+  onClose,
+}: {
+  apiKey: ApiKey;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation("common");
+  const updateScopes = useUpdateApiKeyScopes();
+  const [scopes, setScopes] = useState<McpScope[]>(apiKey.mcp_scopes);
+
+  const handleSave = async () => {
+    try {
+      await updateScopes.mutateAsync({ id: apiKey.id, scopes });
+      toast.success(t("settings.apiKeys.mcpSaveSuccess"));
+      onClose();
+    } catch {
+      toast.error(t("settings.apiKeys.mcpSaveError"));
+    }
+  };
+
+  return (
+    <Dialog
+      isOpen
+      onClose={onClose}
+      title={t("settings.apiKeys.mcpEditTitle")}
+      panelClassName="max-w-lg"
+    >
+      <div className="flex flex-col gap-4 pt-2">
+        <p className="text-sm text-neutral-400">
+          {t("settings.apiKeys.mcpEditDescription", {
+            name: apiKey.name || apiKey.start || "",
+          })}
+        </p>
+        <McpScopePicker
+          scopes={scopes}
+          onToggle={(scope) =>
+            setScopes((current) =>
+              current.includes(scope)
+                ? current.filter((s) => s !== scope)
+                : [...current, scope],
+            )
+          }
+        />
+        {scopes.length > 0 && (
+          <McpSetupCommands
+            url={mcpEndpointUrl()}
+            apiKey={CREATE_KEY_PLACEHOLDER}
+            freshKey={false}
+          />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={handleSave} disabled={updateScopes.isPending}>
+            {t("settings.apiKeys.mcpSave")}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export function ApiKeysTab() {
   const { t, i18n } = useTranslation("common");
   const { confirm } = useConfirm();
@@ -194,6 +414,7 @@ export function ApiKeysTab() {
   const { data, isLoading } = useApiKeys();
   const deleteKey = useDeleteApiKey();
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<ApiKey | null>(null);
 
   if (!currentUser?.is_admin) return null;
 
@@ -250,6 +471,9 @@ export function ApiKeysTab() {
                   <th className="text-left py-3 px-4 font-medium text-neutral-300">
                     {t("settings.apiKeys.key")}
                   </th>
+                  <th className="text-left py-3 px-4 font-medium text-neutral-300">
+                    {t("settings.apiKeys.mcpColumn")}
+                  </th>
                   <th className="text-left py-3 px-4 font-medium text-neutral-300 whitespace-nowrap">
                     {t("settings.apiKeys.lastUsed")}
                   </th>
@@ -276,6 +500,22 @@ export function ApiKeysTab() {
                     <td className="py-3 px-4 font-mono text-xs text-neutral-400">
                       {key.start ? `${key.start}…` : "—"}
                     </td>
+                    <td className="py-3 px-4">
+                      {key.mcp_scopes.length === 0 ? (
+                        <span className="text-neutral-600">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {key.mcp_scopes.map((scope) => (
+                            <span
+                              key={scope}
+                              className="px-2 py-0.5 rounded-full border border-primary-700 text-primary-300 text-xs whitespace-nowrap"
+                            >
+                              {scope}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-neutral-400 whitespace-nowrap">
                       {key.last_used_at
                         ? formatDateTime(key.last_used_at, i18n.language)
@@ -289,7 +529,16 @@ export function ApiKeysTab() {
                     <td className="py-3 px-4 text-neutral-400 whitespace-nowrap">
                       {formatDateTime(key.created_at, i18n.language)}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditing(key)}
+                        className="gap-1.5"
+                      >
+                        <Plug className="w-3 h-3" />
+                        {t("settings.apiKeys.mcpOpen")}
+                      </Button>{" "}
                       <Button
                         size="sm"
                         onClick={() => handleRevoke(key.id)}
@@ -310,6 +559,9 @@ export function ApiKeysTab() {
       </div>
 
       {showCreate && <CreateApiKeyModal onClose={() => setShowCreate(false)} />}
+      {editing && (
+        <EditMcpScopesModal apiKey={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }

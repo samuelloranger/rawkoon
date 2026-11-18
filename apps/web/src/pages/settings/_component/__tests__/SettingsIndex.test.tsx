@@ -80,4 +80,17 @@ describe("SettingsIndex", () => {
     expect(navigate).toHaveBeenCalledWith({ to: "/settings/reencode" });
     expect(onNavigate).toHaveBeenCalled();
   });
+
+  it("shows the attention dot on Health only when asked", () => {
+    const { rerender } = render(
+      <SettingsIndex isAdmin currentPath="/settings/profile" />,
+    );
+    expect(screen.queryByTestId("health-attention-dot")).toBeNull();
+    rerender(
+      <SettingsIndex isAdmin currentPath="/settings/profile" healthAttention />,
+    );
+    const dot = screen.getByTestId("health-attention-dot");
+    expect(dot).toHaveAttribute("aria-label", "settings.healthAttention");
+    expect(dot.closest("a")).toHaveAttribute("href", "/settings/health");
+  });
 });

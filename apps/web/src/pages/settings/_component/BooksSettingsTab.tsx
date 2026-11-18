@@ -1,3 +1,4 @@
+import { connectionFailureText } from "@/lib/connectionFailureText";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -122,7 +123,14 @@ export function BooksSettingsTab() {
         api_key: apiKey.trim() || undefined,
       });
       if (result.success) toast.success(t("settings.books.provider.testOk"));
-      else toast.error(result.error ?? t("settings.books.provider.testFailed"));
+      else
+        toast.error(
+          connectionFailureText(
+            t,
+            result,
+            t("settings.books.provider.testFailed"),
+          ),
+        );
     } catch (e) {
       toast.error(errorMessage(e, t("settings.books.provider.testFailed")));
     }

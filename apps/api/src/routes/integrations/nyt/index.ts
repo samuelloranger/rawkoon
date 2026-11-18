@@ -1,3 +1,7 @@
+import {
+  connectionFailure,
+  statusFailure,
+} from "@rawkoon/api/utils/describeError";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -116,17 +120,23 @@ export const nytBooksIntegrationRoutes = new Hono<Env>()
         if (res.ok) return ok({ success: true });
 
         if (res.status === 401 || res.status === 403) {
-          return ok({ success: false, error: "NYT rejected that key." });
+          return ok({
+            success: false,
+            error: "NYT rejected that key.",
+            ...statusFailure(res.status, "NYT Books"),
+          });
         }
         if (res.status === 429) {
           return ok({
             success: false,
             error: "Key accepted, but its quota is exhausted right now.",
+            ...statusFailure(res.status, "NYT Books"),
           });
         }
         return ok({
           success: false,
           error: `NYT Books is unavailable (HTTP ${res.status}). The key may still be valid — try again shortly.`,
+          ...statusFailure(res.status, "NYT Books"),
         });
       } catch (error) {
         return ok({
@@ -135,6 +145,7 @@ export const nytBooksIntegrationRoutes = new Hono<Env>()
             error instanceof Error
               ? `Could not reach NYT Books: ${error.message}`
               : "Could not reach NYT Books.",
+          ...connectionFailure(error, "NYT Books"),
         });
       }
     },
