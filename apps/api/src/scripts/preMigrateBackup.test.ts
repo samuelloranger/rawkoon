@@ -80,3 +80,35 @@ test("pgEnvFromUrl refuses a schema it can't pass safely", () => {
     pgEnvFromUrl("postgresql://u:p@db:5432/app?schema=my-schema"),
   ).toThrow("unsupported schema name");
 });
+
+describe("pgEnvFromUrl host forms", () => {
+  test("socket URL takes the host from ?host=", () => {
+    const env = pgEnvFromUrl(
+      "postgresql://u:p@/app?host=/var/run/postgresql&sslmode=disable",
+    );
+    expect(env.PGHOST).toBe("/var/run/postgresql");
+    expect(env.PGPORT).toBe("5432");
+    expect(env.PGDATABASE).toBe("app");
+    expect(env.PGSSLMODE).toBe("disable");
+  });
+  test("?port= applies when the authority has none", () => {
+    expect(
+      pgEnvFromUrl("postgresql://u:p@/app?host=/tmp&port=6543").PGPORT,
+    ).toBe("6543");
+  });
+  test("authority port wins over ?port=", () => {
+    expect(pgEnvFromUrl("postgresql://u:p@db:5433/app?port=6543").PGPORT).toBe(
+      "5433",
+    );
+  });
+  test("bracketed IPv6 host loses its brackets", () => {
+    const env = pgEnvFromUrl("postgresql://u:p@[::1]:5433/app");
+    expect(env.PGHOST).toBe("::1");
+    expect(env.PGPORT).toBe("5433");
+  });
+  test("bracketed IPv6 host without a port", () => {
+    expect(pgEnvFromUrl("postgresql://u:p@[2001:db8::2]/app").PGHOST).toBe(
+      "2001:db8::2",
+    );
+  });
+});
