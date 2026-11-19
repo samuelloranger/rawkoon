@@ -12,6 +12,8 @@ import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 
+import { failedTest } from "@rawkoon/api/utils/integrations/testConnection";
+import { probeTmdbKey } from "@rawkoon/api/utils/medias/tmdbFetcherCore";
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const tmdbIntegrationRoutes = new Hono<Env>()
   .get("/tmdb", async () => {
@@ -87,6 +89,23 @@ export const tmdbIntegrationRoutes = new Hono<Env>()
       } catch (error) {
         console.error("Error saving TMDB integration config:", error);
         return serverError("Failed to save TMDB integration config");
+      }
+    },
+  )
+  .post(
+    "/tmdb/test",
+    jsonV(z.object({ api_key: z.string().optional() })),
+    async (c) => {
+      const stored = normalizeTmdbConfig(
+        (await getIntegrationConfigRecord("tmdb"))?.config,
+      );
+      const apiKey = c.req.valid("json").api_key?.trim() || stored?.api_key;
+      if (!apiKey) return badRequest("No API key to test");
+      try {
+        await probeTmdbKey(apiKey);
+        return ok({ success: true });
+      } catch (error) {
+        return ok(failedTest(error, "TMDB"));
       }
     },
   );

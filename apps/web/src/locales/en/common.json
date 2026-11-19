@@ -1289,6 +1289,10 @@
         "unknown": "Connection failed"
       },
       "testConnection": "Test connection",
+      "apiKeyBlankHint": "Leave blank to use the saved key (same URL only)",
+      "testing": "Testing…",
+      "testSuccess": "Connection works.",
+      "testError": "Could not run the test.",
       "indexers": "Indexers",
       "groups": {
         "media": "Media",

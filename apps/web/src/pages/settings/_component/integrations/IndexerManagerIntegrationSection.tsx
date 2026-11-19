@@ -1,6 +1,8 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { IntegrationTestButton } from "@/pages/settings/_component/integrations/IntegrationTestButton";
+import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 import type { IndexerItem } from "@/pages/settings/useJackettIndexers";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
 import { IntegrationUrlInput } from "@/pages/settings/_component/integrations/IntegrationUrlInput";
@@ -138,7 +140,23 @@ export function IndexerManagerIntegrationSection({
           )}
           className="focus-ring w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 font-mono text-white"
         />
+
+        {!apiKey.trim() && (
+          <p className="mt-1 text-xs text-neutral-500">
+            {t("settings.integrations.apiKeyBlankHint")}
+          </p>
+        )}
       </div>
+
+      <IntegrationTestButton
+        endpoint={
+          translationKey === "jackett"
+            ? INTEGRATION_ENDPOINTS.JACKETT_TEST
+            : INTEGRATION_ENDPOINTS.PROWLARR_TEST
+        }
+        website_url={websiteUrl}
+        api_key={apiKey}
+      />
 
       <RssIndexerSelector
         indexers={indexersData?.indexers}

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useTmdbIntegration } from "@/pages/settings/useTmdbIntegration";
 import { useUpdateTmdbIntegration } from "@/pages/settings/useUpdateTmdbIntegration";
 import { toast } from "sonner";
+import { IntegrationTestButton } from "@/pages/settings/_component/integrations/IntegrationTestButton";
+import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
 
 export function TmdbIntegrationSection() {
@@ -87,6 +89,10 @@ function TmdbIntegrationSectionImpl({
           className="focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
         />
       </div>
+      <IntegrationTestButton
+        endpoint={INTEGRATION_ENDPOINTS.TMDB_TEST}
+        api_key={apiKey}
+      />
       <div>
         <label
           htmlFor="tmdb-integration-section-popularity-threshold"
