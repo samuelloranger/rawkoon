@@ -56,6 +56,8 @@
                 }
             case "motionKit":
                 DebugMotionGallery()
+            case "apiKeys", "apiKeyCreate", "apiKeyCreated", "apiKeyEdit":
+                DebugApiKeys(screen: screen)
             case "addShow", "addShowPick", "addCompact", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons":
                 DebugAddSheets(screen: screen)
             default:
@@ -117,6 +119,7 @@
                 "aiGrabs", "aiHistory", "aiCallDetail", "aiBanner", "aiBannerBudget",
                 "autoSearchIdle", "autoSearchBusy", "upgradeDialog", "motionKit",
                 "growthAdmin", "growthMember", "growthNoBooks", "liveSearchToasts",
+                "apiKeys", "apiKeyCreate", "apiKeyCreated", "apiKeyEdit",
                 "releaseNotes", "shelves", "shelfDetail", "shelfEditor",
                 "addShow", "addShowPick", "addCompact", "addMovie", "addBook", "requestShow", "approveShow", "manageSeasons",
             ].contains(screen)

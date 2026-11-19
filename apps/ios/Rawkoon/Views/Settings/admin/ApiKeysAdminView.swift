@@ -33,7 +33,7 @@ struct ApiKeysAdminView: View {
                     Text("No API keys.").foregroundStyle(Theme.muted).listRowBackground(Theme.raised)
                 }
                 ForEach(keys) { key in
-                    Button { editing = key } label: { row(key) }
+                    Button { editing = key } label: { ApiKeyRow(key: key) }
                         .buttonStyle(.plain)
                         .listRowBackground(Theme.raised)
                         .swipeActions {
@@ -66,31 +66,6 @@ struct ApiKeysAdminView: View {
             NavigationStack { EditMcpScopesSheet(apiKey: key, onSaved: { Task { await load() } }) }
         }
         .onAppear { Task { await load() } }
-    }
-
-    private func row(_ key: ApiKeyDTO) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(key.name ?? String(localized: "Key")).foregroundStyle(Theme.text)
-            Text("\(key.start ?? key.prefix ?? "")\u{2026}").font(.footnote.monospaced()).foregroundStyle(Theme.muted)
-            Text(detailLine(key)).font(.footnote).foregroundStyle(Theme.muted)
-            if !key.mcpScopes.isEmpty {
-                Text("MCP: \(key.mcpScopes.joined(separator: ", "))").font(.footnote).foregroundStyle(Theme.apricot)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-    }
-
-    private func detailLine(_ key: ApiKeyDTO) -> String {
-        func date(_ raw: String?) -> String? {
-            raw.flatMap(APIClient.parseISO8601).map { $0.formatted(date: .abbreviated, time: .omitted) }
-        }
-        let never = String(localized: "Never")
-        return [
-            String(localized: "Created \(date(key.createdAt) ?? "—")"),
-            String(localized: "Last used \(date(key.lastUsedAt) ?? never)"),
-            String(localized: "Expires \(date(key.expiresAt) ?? never)"),
-        ].joined(separator: " \u{2022} ")
     }
 
     private func load() async {
@@ -136,6 +111,36 @@ struct ApiKeysAdminView: View {
 }
 
 // MARK: - Shared pieces
+
+struct ApiKeyRow: View {
+    let key: ApiKeyDTO
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(key.name ?? String(localized: "Key")).foregroundStyle(Theme.text)
+            Text("\(key.start ?? key.prefix ?? "")\u{2026}").font(.footnote.monospaced()).foregroundStyle(Theme.muted)
+            Text(detailLine).font(.footnote).foregroundStyle(Theme.muted)
+            if !key.mcpScopes.isEmpty {
+                Text("MCP: \(key.mcpScopes.joined(separator: ", "))").font(.footnote).foregroundStyle(Theme.apricot)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private var detailLine: String {
+        func date(_ raw: String?) -> String? {
+            raw.flatMap(APIClient.parseISO8601).map { $0.formatted(date: .abbreviated, time: .omitted) }
+        }
+        let never = String(localized: "Never")
+        return [
+            String(localized: "Created \(date(key.createdAt) ?? "—")"),
+            String(localized: "Last used \(date(key.lastUsedAt) ?? never)"),
+            String(localized: "Expires \(date(key.expiresAt) ?? never)"),
+        ].joined(separator: " \u{2022} ")
+    }
+}
+
 
 private struct McpScopeToggles: View {
     @Binding var scopes: [String]
@@ -219,8 +224,9 @@ private struct McpCommandsSection: View {
 
 // MARK: - Sheets
 
-private struct CreateApiKeySheet: View {
+struct CreateApiKeySheet: View {
     let onDone: () -> Void
+    var initialCreated: CreateApiKeyResponse?
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -228,7 +234,8 @@ private struct CreateApiKeySheet: View {
     @State private var name = ""
     @State private var expiresDays: Int? = nil
     @State private var scopes: [String] = []
-    @State private var created: CreateApiKeyResponse?
+    @State private var createdOverride: CreateApiKeyResponse?
+    private var created: CreateApiKeyResponse? { createdOverride ?? initialCreated }
     @State private var working = false
     @State private var error: String?
 
@@ -298,7 +305,7 @@ private struct CreateApiKeySheet: View {
         guard let client = model.api() else { return }
         working = true; error = nil
         do {
-            created = try await client.createApiKey(CreateApiKeyBody(
+            createdOverride = try await client.createApiKey(CreateApiKeyBody(
                 name: name.trimmingCharacters(in: .whitespaces), expiresInDays: expiresDays, mcpScopes: scopes
             ))
             onDone()
@@ -309,7 +316,7 @@ private struct CreateApiKeySheet: View {
     }
 }
 
-private struct EditMcpScopesSheet: View {
+struct EditMcpScopesSheet: View {
     let apiKey: ApiKeyDTO
     let onSaved: () -> Void
 
