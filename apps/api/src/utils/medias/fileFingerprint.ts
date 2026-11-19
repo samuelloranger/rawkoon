@@ -6,7 +6,7 @@ export type FileFingerprint = {
   mtimeMs: bigint;
   /**
    * dev/ino are decimal strings, not bigint. They are only ever an opaque
-   * identity key (see inodeKeyFromParts), and mergerfs synthesizes unsigned
+   * identity key (see buildLibraryInodeKeySet), and mergerfs synthesizes unsigned
    * 64-bit inodes that overflow a signed Postgres bigint.
    *
    * Null when the runtime could not report a trustworthy inode — see
@@ -96,13 +96,6 @@ export function fingerprintDbFields(fp: FileFingerprint): {
     fileDev: fp.dev,
     fileIno: fp.ino,
   };
-}
-
-export function inodeKeyFromParts(
-  dev: string | number | bigint,
-  ino: string | number | bigint,
-): string {
-  return `${dev}:${ino}`;
 }
 
 export async function statFileFingerprint(

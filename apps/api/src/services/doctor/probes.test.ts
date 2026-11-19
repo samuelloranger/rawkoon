@@ -13,10 +13,10 @@ import { join } from "node:path";
 
 mock.module("@rawkoon/api/db", () => ({ prisma: {} }));
 
-const { inodeKey } = await import(
+const { linkedInodeKey } = await import(
   "@rawkoon/api/services/downloads/downloadsScanner"
 );
-const { inodeKeyFromParts, normalizeInode } = await import(
+const { normalizeInode } = await import(
   "@rawkoon/api/utils/medias/fileFingerprint"
 );
 const { scanDownloads } = await import("./probes");
@@ -26,16 +26,22 @@ afterAll(() => mock.restore());
 const FAR = Date.now() + 60_000;
 
 describe("library inode keys", () => {
+  const real = 2n ** 63n + 12345n;
+
   it("matches a signed inode above 2^63 against its stored unsigned form", () => {
-    const real = 2n ** 63n + 12345n;
-    const stored = inodeKeyFromParts("77", normalizeInode(real)!);
     // Bun reports such inodes as the negative two's-complement view.
-    expect(inodeKey(77n, BigInt.asIntN(64, real))).toBe(stored);
+    expect(linkedInodeKey({ nlink: 2n, ino: BigInt.asIntN(64, real) })).toBe(
+      normalizeInode(real)!,
+    );
   });
 
-  it("identifies a library file by inode alone, since a remount changes st_dev", () => {
-    const real = 2n ** 63n + 12345n;
-    expect(normalizeInode(BigInt.asIntN(64, real))).toBe(normalizeInode(real));
+  it("ignores the device number, which a remount changes", () => {
+    const before = linkedInodeKey({ nlink: 2n, ino: real });
+    expect(linkedInodeKey({ nlink: 3n, ino: real })).toBe(before);
+  });
+
+  it("never matches a file with no other link", () => {
+    expect(linkedInodeKey({ nlink: 1n, ino: real })).toBe("?");
   });
 });
 

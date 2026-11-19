@@ -6,7 +6,6 @@ import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
   fingerprintDbFields,
   fingerprintFromStats,
-  inodeKeyFromParts,
   normalizeInode,
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
@@ -27,7 +26,10 @@ const DB_PAGE_SIZE = 500;
 let cachedInodeKeySet: Set<string> | null = null;
 let cachedInodeExpiresAt = 0;
 
-/** Library inode index for hardlink detection, cached 30s; stats only rows missing persisted fileDev/fileIno and backfills them. */
+/**
+ * Library inodes for hardlink detection, cached 30s; stats only rows missing a persisted inode and backfills them.
+ * Inodes only: a remount (mergerfs and other FUSE pools) changes st_dev, so a stored device number goes stale.
+ */
 export async function buildLibraryInodeKeySet(
   refresh = false,
 ): Promise<Set<string>> {
@@ -59,8 +61,8 @@ export async function buildLibraryInodeKeySet(
       // Stored values can be bad (Bun 1.3.11 persisted INT64_MAX on pooled filesystems); re-stat rather than poison the key set.
       const storedIno =
         row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
-      if (row.fileDev != null && storedIno != null) {
-        keys.add(inodeKeyFromParts(row.fileDev, storedIno));
+      if (storedIno != null) {
+        keys.add(storedIno);
       } else {
         needStat.push({ id: row.id, filePath: row.filePath });
       }
@@ -77,8 +79,8 @@ export async function buildLibraryInodeKeySet(
         if (!st.isFile()) return null;
         const fp = fingerprintFromStats(st);
         // Null when the inode is untrustworthy; a placeholder key would match every such file.
-        if (fp.dev !== null && fp.ino !== null) {
-          keys.add(inodeKeyFromParts(fp.dev, fp.ino));
+        if (fp.ino !== null) {
+          keys.add(fp.ino);
         }
         return { id: row.id, data: fingerprintDbFields(fp) };
       } catch {
@@ -98,15 +100,16 @@ export async function buildLibraryInodeKeySet(
   return keys;
 }
 
-/** Key for a live stat, normalized like the library side; "?" for an unusable inode so it never matches. */
-export function inodeKey(
-  dev: bigint | undefined,
-  ino: bigint | undefined,
-): string {
-  if (dev === undefined || ino === undefined) return "?";
-  const normalized = normalizeInode(ino);
-  if (normalized === null) return "?";
-  return inodeKeyFromParts(BigInt.asUintN(64, dev).toString(), normalized);
+/**
+ * Key of a file that may be hardlinked into the library: its normalized inode, or "?" (never matches) when it has no
+ * other link or no usable inode. Requiring a second link keeps an inode-number clash with another disk from matching.
+ */
+export function linkedInodeKey(st: {
+  nlink: bigint | number;
+  ino: bigint;
+}): string {
+  if (BigInt(st.nlink) < 2n) return "?";
+  return normalizeInode(st.ino) ?? "?";
 }
 
 export function deriveDownloadsScanRoots(media: {
@@ -266,7 +269,7 @@ async function walkDownloadsOnce(
       if (st.dev === undefined || st.ino === undefined) return null;
 
       const fileName = basename(filePath);
-      const keyStr = inodeKey(st.dev, st.ino);
+      const keyStr = linkedInodeKey(st);
 
       return {
         file_path: filePath,

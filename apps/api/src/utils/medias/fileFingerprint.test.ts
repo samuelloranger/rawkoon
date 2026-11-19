@@ -5,7 +5,6 @@ import {
   fileUnchanged,
   fingerprintDbFields,
   fingerprintFromStats,
-  inodeKeyFromParts,
   mapPool,
   normalizeInode,
   statFileFingerprint,
@@ -147,11 +146,6 @@ describe("fileFingerprint", () => {
     });
   });
 
-  it("inodeKeyFromParts stringifies consistently", () => {
-    expect(inodeKeyFromParts(1, 2)).toBe("1:2");
-    expect(inodeKeyFromParts(1n, 2n)).toBe("1:2");
-  });
-
   it("statFileFingerprint reads a real file", async () => {
     const dir = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "fp-"));
     const path = join(dir, "a.bin");
@@ -203,9 +197,8 @@ describe("fileFingerprint", () => {
     await fhC.close();
     try {
       const key = (fp: { dev: string | null; ino: string | null }) => {
-        expect(fp.dev).not.toBeNull();
         expect(fp.ino).not.toBeNull();
-        return inodeKeyFromParts(fp.dev as string, fp.ino as string);
+        return fp.ino as string;
       };
       const fpA = (await statFileFingerprint(a))!;
       const fpB = (await statFileFingerprint(b))!;
