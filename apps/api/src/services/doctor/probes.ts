@@ -9,14 +9,8 @@ import {
 import { join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { describeError } from "@rawkoon/api/utils/describeError";
-import {
-  buildLibraryInodeKeySet,
-  inodeKey,
-} from "@rawkoon/api/services/downloads/downloadsScanner";
-import {
-  inodeKeyFromParts,
-  normalizeInode,
-} from "@rawkoon/api/utils/medias/fileFingerprint";
+import { buildLibraryInodeKeySet } from "@rawkoon/api/services/downloads/downloadsScanner";
+import { normalizeInode } from "@rawkoon/api/utils/medias/fileFingerprint";
 import type { DownloadEntry } from "./orphanedDownloads";
 import type { PathProbe } from "./paths";
 
@@ -109,16 +103,23 @@ export async function statFreeBytes(path: string): Promise<FreeBytesProbe> {
   }
 }
 
-/** Every (dev:ino) the library knows; media keys come from the shared index that re-stats rows with no stored inode. */
+/**
+ * Every inode the library knows, without the device: mergerfs and remounts change st_dev,
+ * so a stored dev goes stale while the inode stays. A cross-filesystem inode clash can only hide an orphan.
+ */
 export async function readLibraryInodes(): Promise<Set<string>> {
-  const keys = new Set(await buildLibraryInodeKeySet());
+  const keys = new Set(
+    [...(await buildLibraryInodeKeySet())].map((k) =>
+      k.slice(k.indexOf(":") + 1),
+    ),
+  );
   const books = await prisma.bookFile.findMany({
-    where: { fileDev: { not: null }, fileIno: { not: null } },
-    select: { fileDev: true, fileIno: true },
+    where: { fileIno: { not: null } },
+    select: { fileIno: true },
   });
   for (const row of books) {
     const ino = normalizeInode(BigInt(row.fileIno!));
-    if (ino !== null) keys.add(inodeKeyFromParts(row.fileDev!, ino));
+    if (ino !== null) keys.add(ino);
   }
   return keys;
 }
@@ -149,7 +150,7 @@ async function walk(
     if (!info.isDirectory()) {
       total.sizeBytes = Number(info.size);
       total.linkedToLibrary =
-        info.nlink > 1n && inodes.has(inodeKey(info.dev, info.ino));
+        info.nlink > 1n && inodes.has(normalizeInode(info.ino) ?? "?");
       return total;
     }
     for (const child of await readdir(path)) {

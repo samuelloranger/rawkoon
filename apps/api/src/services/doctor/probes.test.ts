@@ -32,6 +32,11 @@ describe("library inode keys", () => {
     // Bun reports such inodes as the negative two's-complement view.
     expect(inodeKey(77n, BigInt.asIntN(64, real))).toBe(stored);
   });
+
+  it("identifies a library file by inode alone, since a remount changes st_dev", () => {
+    const real = 2n ** 63n + 12345n;
+    expect(normalizeInode(BigInt.asIntN(64, real))).toBe(normalizeInode(real));
+  });
 });
 
 describe("scanDownloads", () => {
@@ -47,7 +52,7 @@ describe("scanDownloads", () => {
       await chmod(join(root, "locked"), 0o000);
 
       const st = await stat(join(lib, "a.mkv"), { bigint: true });
-      const inodes = new Set([inodeKey(st.dev, st.ino)]);
+      const inodes = new Set([normalizeInode(st.ino)!]);
       const entries = await scanDownloads(root, inodes, FAR);
       const byName = Object.fromEntries(entries.map((e) => [e.name, e]));
 

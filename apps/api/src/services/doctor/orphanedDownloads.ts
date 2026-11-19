@@ -75,7 +75,11 @@ export function evaluateOrphans(
     status: "warn",
     summary: `${orphans.length} ${
       orphans.length === 1 ? "item" : "items"
-    } (${formatBytes(total)}) in the downloads folder belong to no torrent and are not linked into the library: ${names.join(", ")}${
+    } (${formatBytes(total)}) in the downloads folder ${
+      orphans.length === 1 ? "belongs" : "belong"
+    } to no torrent and ${
+      orphans.length === 1 ? "is" : "are"
+    } not linked into the library: ${names.join(", ")}${
       more > 0 ? `, and ${more} more` : ""
     }.`,
     fix: "Review them and delete the ones you no longer need from the downloads folder (rm -r on the host); Rawkoon never deletes them itself.",
