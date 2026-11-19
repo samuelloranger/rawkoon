@@ -15,13 +15,21 @@ const episodes: Ep[] = [
 ];
 let filesFor: number[] = [];
 let failCreateFor = 0;
+let throwInSync = false;
+const seasonSyncs: { season: number; after: number }[] = [];
 const downloadedEpisodes: number[] = [];
 const createdFiles: Array<{ episodeId: number; filePath: string }> = [];
 const historyUpdates: Record<string, unknown>[] = [];
 
 mock.module(
   "@rawkoon/api/services/libraryAttention/audioLanguageAlert",
-  () => ({ syncAudioLanguageAlert: async () => {} }),
+  () => ({
+    syncAudioLanguageAlert: async () => {},
+    syncSeasonAudioLanguageAlert: async (a: { season: number }) => {
+      seasonSyncs.push({ season: a.season, after: downloadedEpisodes.length });
+      if (throwInSync) throw new Error("sync down");
+    },
+  }),
 );
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -132,6 +140,8 @@ function run(isUpgrade: boolean) {
 beforeEach(() => {
   filesFor = [];
   failCreateFor = 0;
+  throwInSync = false;
+  seasonSyncs.length = 0;
   createdFiles.length = 0;
   downloadedEpisodes.length = 0;
   historyUpdates.length = 0;
@@ -148,5 +158,21 @@ describe("pack import when a MediaFile upsert fails", () => {
       partialError: expect.stringContaining("S2E1"),
     });
     expect(historyUpdates.at(-1)?.postProcessError).toContain("S2E1");
+  });
+
+  it("syncs the audio alert once per season, after every episode is imported", async () => {
+    await run(true);
+    expect(seasonSyncs.sort((a, b) => a.season - b.season)).toEqual([
+      { season: 1, after: 2 },
+      { season: 2, after: 2 },
+    ]);
+  });
+
+  it("still syncs what was imported when one episode failed, and a sync error never fails the import", async () => {
+    failCreateFor = 201;
+    throwInSync = true;
+    const result = await run(false);
+    expect(result).toMatchObject({ success: true, episodeCount: 1 });
+    expect(seasonSyncs.map((s) => s.season).sort()).toEqual([1, 2]);
   });
 });

@@ -9,6 +9,7 @@ import { prisma } from "@rawkoon/api/db";
 import { cleanupPackUpgrade } from "./cleanupPackUpgrade";
 import { remapPath } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
+import { syncSeasonAudioLanguageAlert } from "@rawkoon/api/services/libraryAttention/audioLanguageAlert";
 import {
   renderEpisodeTemplate,
   sanitizePathTemplateOutput,
@@ -398,6 +399,16 @@ export async function postProcessSeasonPack(
       }),
     );
     episodeResults.push(...chunkResults);
+  }
+
+  // Once per season, after upgrade cleanup, so duplicates and parallel files can't skew or race it.
+  for (const season of new Set(placements.map((p) => p.episode.season))) {
+    await syncSeasonAudioLanguageAlert({
+      mediaId: dh.media.id,
+      season,
+    }).catch((e) =>
+      console.warn("[postProcess] audio language check failed:", e),
+    );
   }
 
   let processed = 0;

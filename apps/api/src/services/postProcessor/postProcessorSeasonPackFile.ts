@@ -2,7 +2,6 @@ import { basename } from "node:path";
 import { stat } from "node:fs/promises";
 
 import { prisma } from "@rawkoon/api/db";
-import { syncSeasonAudioLanguageAlert } from "@rawkoon/api/services/libraryAttention/audioLanguageAlert";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
 import {
   parseFilenameMetadata,
@@ -92,12 +91,6 @@ export async function upsertPackMediaFile(opts: {
   } else {
     await prisma.mediaFile.create({ data: fileData });
   }
-  await syncSeasonAudioLanguageAlert({
-    mediaId: opts.mediaId,
-    episodeId: opts.episodeId,
-  }).catch((e) =>
-    console.warn("[postProcess] audio language check failed:", e),
-  );
 }
 
 type MergePlacement = {

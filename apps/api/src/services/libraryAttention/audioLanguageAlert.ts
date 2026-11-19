@@ -15,6 +15,32 @@ export async function syncAudioLanguageAlert(opts: {
   /** Null when media info was unavailable: the scope is then unjudged. */
   tracks: readonly LibraryAudioTrack[] | null;
 }): Promise<void> {
+  if (opts.episodeId != null) {
+    const episode = await prisma.libraryEpisode.findUnique({
+      where: { id: opts.episodeId },
+      select: { season: true },
+    });
+    // An open season alert owns this episode: recompute it rather than add a second alert.
+    const seasonAlert =
+      episode &&
+      (await prisma.libraryAttentionAlert.findFirst({
+        where: {
+          mediaId: opts.mediaId,
+          scopeType: "season_pack",
+          season: episode.season,
+          status: "open",
+          kind: { in: KINDS },
+        },
+        select: { id: true },
+      }));
+    if (episode && seasonAlert) {
+      await syncSeasonAudioLanguageAlert({
+        mediaId: opts.mediaId,
+        season: episode.season,
+      });
+      return;
+    }
+  }
   const scope = {
     mediaId: opts.mediaId,
     episodeId: opts.episodeId,
@@ -76,9 +102,15 @@ async function upsertAlert(scope: Scope, kind: string, detail: string) {
       data,
     });
   } else {
-    // A re-import of the same file must not resurrect an alert the user dismissed.
+    // A re-import must not resurrect a dismissed alert; a season's detail carries
+    // counts that change, so only its kind identifies it.
     const dismissed = await prisma.libraryAttentionAlert.findFirst({
-      where: { ...scope, kind, detail, status: "dismissed" },
+      where: {
+        ...scope,
+        kind,
+        ...(scope.scopeType === "season_pack" ? {} : { detail }),
+        status: "dismissed",
+      },
       select: { id: true },
     });
     if (dismissed) return;
@@ -89,19 +121,15 @@ async function upsertAlert(scope: Scope, kind: string, detail: string) {
 }
 
 /**
- * After a season-pack episode import, judge every file the season holds and
+ * After a season-pack import (or an episode change inside an alerted season), judge every file the season holds and
  * keep ONE season alert instead of one per episode. Recomputed from stored
  * tracks, so the result does not depend on the order the pack's files land.
  */
 export async function syncSeasonAudioLanguageAlert(opts: {
   mediaId: number;
-  episodeId: number;
+  season: number;
 }): Promise<void> {
-  const episode = await prisma.libraryEpisode.findUnique({
-    where: { id: opts.episodeId },
-    select: { season: true },
-  });
-  if (!episode) return;
+  const episode = { season: opts.season };
   const scope = {
     mediaId: opts.mediaId,
     episodeId: null,

@@ -127,9 +127,6 @@ describe("syncSeasonAudioLanguageAlert", () => {
     { index: 0, language, language_name: language, title: null },
   ];
   const seed = (files: { episodeId: number; language: string }[]) => {
-    prismaMock.libraryEpisode.findUnique.mockImplementationOnce(async () => ({
-      season: 2,
-    }));
     withProfile(["VFF"]);
     prismaMock.mediaFile.findMany.mockImplementationOnce(async () =>
       files.map((f) => ({
@@ -142,7 +139,7 @@ describe("syncSeasonAudioLanguageAlert", () => {
     const { syncSeasonAudioLanguageAlert } = await import(
       "@rawkoon/api/services/libraryAttention/audioLanguageAlert"
     );
-    await syncSeasonAudioLanguageAlert({ mediaId: 7, episodeId: 1 });
+    await syncSeasonAudioLanguageAlert({ mediaId: 7, season: 2 });
   };
 
   it("raises one season alert counting the affected episodes", async () => {
@@ -199,6 +196,51 @@ describe("syncSeasonAudioLanguageAlert", () => {
       .mockImplementationOnce(async () => ({ id: 9 }));
     await sync();
     expect(prismaMock.libraryAttentionAlert.create).not.toHaveBeenCalled();
+  });
+  it("keeps a dismissed season alert dismissed when the counts change", async () => {
+    seed([
+      { episodeId: 1, language: "eng" },
+      { episodeId: 2, language: "eng" },
+    ]);
+    prismaMock.libraryAttentionAlert.findFirst
+      .mockImplementationOnce(async () => null)
+      .mockImplementationOnce(async () => ({ id: 9 }));
+    await sync();
+    expect(prismaMock.libraryAttentionAlert.create).not.toHaveBeenCalled();
+    const where = (
+      prismaMock.libraryAttentionAlert.findFirst.mock.calls[1]![0] as {
+        where: Record<string, unknown>;
+      }
+    ).where;
+    expect(where).toMatchObject({ status: "dismissed", season: 2 });
+    expect(where).not.toHaveProperty("detail");
+  });
+});
+
+describe("episode import under an open season alert", () => {
+  beforeEach(() => clearPrismaMocks());
+
+  it("recomputes the season alert and raises no episode alert", async () => {
+    // episode lookup (episode path), then season sync's own lookups
+    prismaMock.libraryEpisode.findUnique.mockImplementationOnce(async () => ({
+      season: 2,
+    }));
+    prismaMock.libraryAttentionAlert.findFirst.mockImplementationOnce(
+      async () => ({ id: 5 }),
+    );
+    withProfile(["VFF"]);
+    prismaMock.mediaFile.findMany.mockImplementationOnce(async () => [
+      {
+        episodeId: 1,
+        audioTracks: [{ index: 0, language: "eng", language_name: "eng" }],
+      },
+    ]);
+    await run([{ language: "fre" }], 1);
+    const created = prismaMock.libraryAttentionAlert.create.mock.calls.map(
+      (c) => (c[0] as { data: { scopeType: string } }).data.scopeType,
+    );
+    expect(created).not.toContain("episode");
+    expect(prismaMock.mediaFile.findMany).toHaveBeenCalledTimes(1);
   });
 });
 
