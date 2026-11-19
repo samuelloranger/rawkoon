@@ -1,6 +1,7 @@
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { evaluateOrphans, selectOrphans } from "./orphanedDownloads";
-import { readLibraryInodes, scanDownloads } from "./probes";
+import { buildLibraryInodeKeySet } from "@rawkoon/api/services/downloads/downloadsScanner";
+import { scanDownloads } from "./probes";
 import type { CheckOutcome } from "./status";
 
 export const ORPHANS_TIMEOUT_MS = 60_000;
@@ -40,7 +41,7 @@ export async function checkOrphanedDownloads(
   }
   const entries = await scanDownloads(
     downloadsPath,
-    await readLibraryInodes(),
+    await buildLibraryInodeKeySet(),
     deadlineMs,
   );
   if (torrents.length === 0 && entries.length > 0) {

@@ -9,11 +9,7 @@ import {
 import { join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { describeError } from "@rawkoon/api/utils/describeError";
-import {
-  buildLibraryInodeKeySet,
-  linkedInodeKey,
-} from "@rawkoon/api/services/downloads/downloadsScanner";
-import { normalizeInode } from "@rawkoon/api/utils/medias/fileFingerprint";
+import { linkedInodeKey } from "@rawkoon/api/services/downloads/downloadsScanner";
 import type { DownloadEntry } from "./orphanedDownloads";
 import type { PathProbe } from "./paths";
 
@@ -104,20 +100,6 @@ export async function statFreeBytes(path: string): Promise<FreeBytesProbe> {
     }
     return { freeBytes: null, error: describeError(error) };
   }
-}
-
-/** Every inode the library knows (media from the shared index, plus book files), matched with linkedInodeKey. */
-export async function readLibraryInodes(): Promise<Set<string>> {
-  const keys = new Set(await buildLibraryInodeKeySet());
-  const books = await prisma.bookFile.findMany({
-    where: { fileIno: { not: null } },
-    select: { fileIno: true },
-  });
-  for (const row of books) {
-    const ino = normalizeInode(BigInt(row.fileIno!));
-    if (ino !== null) keys.add(ino);
-  }
-  return keys;
 }
 
 type Walked = Pick<

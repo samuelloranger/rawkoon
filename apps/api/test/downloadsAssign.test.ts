@@ -18,6 +18,7 @@ let mediaFiles: Array<{ filePath: string; id: number }>;
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     mediaSettings: { findUnique: async () => settingsRow },
+    bookFile: { findMany: async () => [] },
     mediaFile: {
       findMany: async () => mediaFiles,
       findFirst: async () => null,

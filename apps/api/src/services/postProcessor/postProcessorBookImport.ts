@@ -1,5 +1,6 @@
-import type { Stats } from "node:fs";
+import type { BigIntStats } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
+import { fingerprintFromStats } from "@rawkoon/api/utils/medias/fileFingerprint";
 import { basename, extname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -157,9 +158,10 @@ async function recordKeeper(
   parsedRelease: ReturnType<typeof parseBookReleaseTitle>,
   bookLanguage: string | null,
 ): Promise<void> {
-  let st: Stats | null = null;
+  // bigint: a plain stat rounds inodes over 2^53, so the stored identity would never match the file again.
+  let st: BigIntStats | null = null;
   try {
-    st = await stat(dst);
+    st = await stat(dst, { bigint: true });
   } catch {
     st = null;
   }
@@ -171,9 +173,8 @@ async function recordKeeper(
     if (fallback) languageTags = [fallback];
   }
 
-  const fileIno = st
-    ? { fileDev: String(st.dev), fileIno: String(st.ino) }
-    : { fileDev: null, fileIno: null };
+  const fp = st ? fingerprintFromStats(st) : null;
+  const fileIno = { fileDev: fp?.dev ?? null, fileIno: fp?.ino ?? null };
 
   // Idempotent: re-importing the same destination replaces its row rather
   // than accumulating duplicates, since a retried post-process is normal.
@@ -183,7 +184,7 @@ async function recordKeeper(
       editionId,
       filePath: dst,
       fileName: basename(dst),
-      sizeBytes: BigInt(st?.size ?? 0),
+      sizeBytes: st?.size ?? 0n,
       sha256: await sha256File(dst),
       format: keeper.format,
       durationSecs: probe.durationSecs,
@@ -193,7 +194,7 @@ async function recordKeeper(
       releaseGroup: parsedRelease.releaseGroup,
       languageTags,
       ...fileIno,
-      fileMtimeMs: st ? BigInt(Math.trunc(st.mtimeMs)) : null,
+      fileMtimeMs: st?.mtimeMs ?? null,
     },
   });
 }

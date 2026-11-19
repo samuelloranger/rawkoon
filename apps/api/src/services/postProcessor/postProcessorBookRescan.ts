@@ -1,5 +1,6 @@
-import type { Stats } from "node:fs";
+import type { BigIntStats } from "node:fs";
 import { stat } from "node:fs/promises";
+import { fingerprintFromStats } from "@rawkoon/api/utils/medias/fileFingerprint";
 import { basename, dirname, join } from "node:path";
 
 import { prisma } from "@rawkoon/api/db";
@@ -139,15 +140,17 @@ async function findEditionFiles(
 /** True when the keeper's bytes match its existing row; skips an ffprobe spawn per chapter, which made rescans take tens of seconds. */
 function isUnchanged(
   prior: KnownFile | undefined,
-  st: Stats,
+  st: BigIntStats,
 ): prior is KnownFile {
+  const fp = fingerprintFromStats(st);
   return (
     !!prior &&
-    prior.fileDev === String(st.dev) &&
-    prior.fileIno === String(st.ino) &&
+    fp.ino !== null &&
+    prior.fileDev === fp.dev &&
+    prior.fileIno === fp.ino &&
     prior.fileMtimeMs !== null &&
-    prior.fileMtimeMs === BigInt(Math.trunc(st.mtimeMs)) &&
-    prior.sizeBytes === BigInt(st.size)
+    prior.fileMtimeMs === st.mtimeMs &&
+    prior.sizeBytes === st.size
   );
 }
 
@@ -163,9 +166,9 @@ async function syncKeepers(
   // Files whose bytes changed in place: neither registered nor removed, but their duration shifts later offsets.
   let reprobed = 0;
   for (const keeper of keepers) {
-    let st: Stats | null = null;
+    let st: BigIntStats | null = null;
     try {
-      st = await stat(keeper.path);
+      st = await stat(keeper.path, { bigint: true });
     } catch {
       continue;
     }
@@ -186,19 +189,20 @@ async function syncKeepers(
     const languageTags =
       probe.languageTags.length === 0 ? [bookLanguage] : probe.languageTags;
 
+    const fp = fingerprintFromStats(st);
     const { existed } = await upsertBookFile({
       editionId,
       filePath: keeper.path,
       fileName: basename(keeper.path),
-      sizeBytes: BigInt(st.size),
+      sizeBytes: st.size,
       format: keeper.format,
       durationSecs: probe.durationSecs,
       audioBitrate: probe.audioBitrate,
       audioCodec: probe.audioCodec,
       languageTags,
-      fileDev: String(st.dev),
-      fileIno: String(st.ino),
-      fileMtimeMs: BigInt(Math.trunc(st.mtimeMs)),
+      fileDev: fp.dev,
+      fileIno: fp.ino,
+      fileMtimeMs: st.mtimeMs,
       sha256: await sha256File(keeper.path),
     });
 

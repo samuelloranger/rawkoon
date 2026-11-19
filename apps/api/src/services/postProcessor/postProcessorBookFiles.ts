@@ -236,8 +236,8 @@ export interface BookFileUpsert {
   audioBitrate: number | null;
   audioCodec: string | null;
   languageTags: string[];
-  fileDev: string;
-  fileIno: string;
+  fileDev: string | null;
+  fileIno: string | null;
   fileMtimeMs: bigint;
   sha256: string | null;
 }
