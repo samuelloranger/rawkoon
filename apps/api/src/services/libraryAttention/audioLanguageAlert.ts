@@ -142,7 +142,7 @@ export async function syncSeasonAudioLanguageAlert(opts: {
   const flagged: { status: "mismatch" | "warn"; languages: string[] }[] = [];
   let judged = 0;
   for (const f of files) {
-    const tracks = f.audioTracks as LibraryAudioTrack[];
+    const tracks = f.audioTracks as unknown as LibraryAudioTrack[];
     if (!Array.isArray(tracks) || tracks.length === 0) continue;
     judged++;
     const r = checkAudioLanguages(tracks, preferred);
