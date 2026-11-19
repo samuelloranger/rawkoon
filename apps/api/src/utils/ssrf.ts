@@ -50,46 +50,6 @@ export function isBlockedForLanFetch(ip: string): boolean {
   return !LAN_ALLOWED_RANGES.has(addr.range());
 }
 
-export async function validateSafeUrl(urlStr: string): Promise<string> {
-  const url = new URL(urlStr);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid protocol: ${url.protocol}`);
-  }
-
-  const hostname = url.hostname;
-
-  // If host is already an IP, check it
-  if (isIP(hostname)) {
-    if (isPrivateIP(hostname)) {
-      throw new Error(
-        `Outbound URL target IP is blocked (private/local range): ${hostname}`,
-      );
-    }
-    return urlStr;
-  }
-
-  // If host is a hostname, resolve it
-  try {
-    const addresses = await lookup(hostname, { all: true });
-    for (const addr of addresses) {
-      if (isPrivateIP(addr.address)) {
-        throw new Error(
-          `Outbound URL host resolves to blocked IP (private/local range): ${addr.address}`,
-        );
-      }
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("blocked IP")) {
-      throw err;
-    }
-    throw new Error(`DNS resolution failed for host: ${hostname}`, {
-      cause: err,
-    });
-  }
-
-  return urlStr;
-}
-
 const DEFAULT_MAX_REDIRECTS = 5;
 
 /** "public": only globally routable targets. "lan": also private/ULA/CGNAT (indexers on the LAN). */
