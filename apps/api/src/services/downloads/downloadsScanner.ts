@@ -6,6 +6,7 @@ import { listVideoFilesUnder } from "@rawkoon/api/utils/medias/fileIdentifier";
 import {
   fingerprintDbFields,
   fingerprintFromStats,
+  type FileFingerprint,
   normalizeInode,
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
@@ -26,9 +27,17 @@ const DB_PAGE_SIZE = 500;
 let cachedInodeKeySet: Set<string> | null = null;
 let cachedInodeExpiresAt = 0;
 
+/** A stored inode written from a plain (non-bigint) stat: past 2^53 it is a rounded double that matches no file. */
+export function isLossyInode(stored: string): boolean {
+  const n = Number(stored);
+  return Math.abs(n) > Number.MAX_SAFE_INTEGER && String(n) === stored;
+}
+
+type InodeRow = { id: number; filePath: string; fileIno: string | null };
+
 /**
- * Library inodes for hardlink detection, cached 30s; stats only rows missing a persisted inode and backfills them.
- * Inodes only: a remount (mergerfs and other FUSE pools) changes st_dev, so a stored device number goes stale.
+ * Library inodes (media and book files) for hardlink detection, cached 30s; stats only rows without a trustworthy
+ * persisted inode and backfills them. Inodes only: a remount (mergerfs and other FUSE pools) changes st_dev.
  */
 export async function buildLibraryInodeKeySet(
   refresh = false,
@@ -39,60 +48,83 @@ export async function buildLibraryInodeKeySet(
   }
 
   const keys = new Set<string>();
-  const needStat: Array<{ id: number; filePath: string }> = [];
-
-  // Cursor batches folded into the key set so a large library never materializes every row at once.
-  let cursor: { id: number } | undefined;
-  for (;;) {
-    const batch = await prisma.mediaFile.findMany({
-      take: DB_PAGE_SIZE,
-      ...(cursor ? { cursor, skip: 1 } : {}),
-      select: {
-        id: true,
-        filePath: true,
-        fileDev: true,
-        fileIno: true,
+  const select = { id: true, filePath: true, fileIno: true } as const;
+  const tables = [
+    {
+      page: (cursor?: { id: number }) =>
+        prisma.mediaFile.findMany({
+          take: DB_PAGE_SIZE,
+          ...(cursor ? { cursor, skip: 1 } : {}),
+          select,
+          orderBy: { id: "asc" },
+        }),
+      backfill: async (id: number, fp: FileFingerprint) => {
+        await prisma.mediaFile.update({
+          where: { id },
+          data: fingerprintDbFields(fp),
+        });
       },
-      orderBy: { id: "asc" },
-    });
-    if (batch.length === 0) break;
+    },
+    {
+      page: (cursor?: { id: number }) =>
+        prisma.bookFile.findMany({
+          take: DB_PAGE_SIZE,
+          ...(cursor ? { cursor, skip: 1 } : {}),
+          select,
+          orderBy: { id: "asc" },
+        }),
+      // Identity only: size/mtime drive the book rescan's changed-file check, so they must not move here.
+      backfill: async (id: number, fp: FileFingerprint) => {
+        await prisma.bookFile.update({
+          where: { id },
+          data: { fileDev: fp.dev, fileIno: fp.ino },
+        });
+      },
+    },
+  ];
 
-    for (const row of batch) {
-      // Stored values can be bad (Bun 1.3.11 persisted INT64_MAX on pooled filesystems); re-stat rather than poison the key set.
-      const storedIno =
-        row.fileIno != null ? normalizeInode(BigInt(row.fileIno)) : null;
-      if (storedIno != null) {
-        keys.add(storedIno);
-      } else {
-        needStat.push({ id: row.id, filePath: row.filePath });
+  for (const table of tables) {
+    const needStat: InodeRow[] = [];
+    // Cursor batches folded into the key set so a large library never materializes every row at once.
+    let cursor: { id: number } | undefined;
+    for (;;) {
+      const batch: InodeRow[] = await table.page(cursor);
+      if (batch.length === 0) break;
+
+      for (const row of batch) {
+        // Stored values can be bad (Bun 1.3.11 persisted INT64_MAX on pooled filesystems; old book rows were rounded); re-stat rather than poison the key set.
+        const storedIno =
+          row.fileIno != null && !isLossyInode(row.fileIno)
+            ? normalizeInode(BigInt(row.fileIno))
+            : null;
+        if (storedIno != null) keys.add(storedIno);
+        else needStat.push(row);
       }
+
+      if (batch.length < DB_PAGE_SIZE) break;
+      cursor = { id: batch[batch.length - 1]!.id };
     }
 
-    if (batch.length < DB_PAGE_SIZE) break;
-    cursor = { id: batch[batch.length - 1]!.id };
-  }
-
-  const backfills = (
-    await mapPool(needStat, FS_STAT_CONCURRENCY, async (row) => {
-      try {
-        const st = await stat(remapPath(row.filePath), { bigint: true });
-        if (!st.isFile()) return null;
-        const fp = fingerprintFromStats(st);
-        // Null when the inode is untrustworthy; a placeholder key would match every such file.
-        if (fp.ino !== null) {
-          keys.add(fp.ino);
+    const backfills = (
+      await mapPool(needStat, FS_STAT_CONCURRENCY, async (row) => {
+        try {
+          const st = await stat(remapPath(row.filePath), { bigint: true });
+          if (!st.isFile()) return null;
+          const fp = fingerprintFromStats(st);
+          // Null when the inode is untrustworthy; a placeholder key would match every such file.
+          if (fp.ino !== null) keys.add(fp.ino);
+          return { id: row.id, fp };
+        } catch {
+          return null;
         }
-        return { id: row.id, data: fingerprintDbFields(fp) };
-      } catch {
-        return null;
-      }
-    })
-  ).filter((b): b is NonNullable<typeof b> => b != null);
+      })
+    ).filter((b): b is NonNullable<typeof b> => b != null);
 
-  if (backfills.length > 0) {
-    await mapPool(backfills, DB_WRITE_CONCURRENCY, (b) =>
-      prisma.mediaFile.update({ where: { id: b.id }, data: b.data }),
-    );
+    if (backfills.length > 0) {
+      await mapPool(backfills, DB_WRITE_CONCURRENCY, (b) =>
+        table.backfill(b.id, b.fp),
+      );
+    }
   }
 
   cachedInodeKeySet = keys;

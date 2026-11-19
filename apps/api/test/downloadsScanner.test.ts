@@ -16,6 +16,9 @@ let settingsRow: {
 } | null;
 let mediaPaths: MF[] = [];
 let mediaFileUpdates: Array<{ id: number; data: Record<string, unknown> }> = [];
+let bookPaths: Array<{ id: number; filePath: string; fileIno: string | null }> =
+  [];
+let bookFileUpdates: Array<{ id: number; data: Record<string, unknown> }> = [];
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -35,6 +38,16 @@ mock.module("@rawkoon/api/db", () => ({
         data: Record<string, unknown>;
       }) => {
         mediaFileUpdates.push({ id: args.where.id, data: args.data });
+        return {};
+      },
+    },
+    bookFile: {
+      findMany: async () => bookPaths,
+      update: async (args: {
+        where: { id: number };
+        data: Record<string, unknown>;
+      }) => {
+        bookFileUpdates.push({ id: args.where.id, data: args.data });
         return {};
       },
     },
@@ -98,6 +111,8 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
   let tmp: string;
 
   beforeEach(async () => {
+    bookPaths = [];
+    bookFileUpdates = [];
     invalidateDownloadsScannerCache();
     invalidateLibraryInodeKeySetCache();
     mediaPaths = [];
@@ -172,6 +187,29 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
     // Missing fingerprint columns are backfilled after the stat pass.
     expect(mediaFileUpdates.length).toBeGreaterThan(0);
     expect(mediaFileUpdates[0]!.data.fileIno).toBeDefined();
+  });
+
+  it("detects a book file hardlinked into the library and heals its rounded stored inode", async () => {
+    const vidPath = join(tmp, "audiobook.mkv");
+    const libTwin = join(tmp, "library-audiobook.mkv");
+    await truncateBigFile(vidPath, 105 * 1024 * 1024);
+    await link(vidPath, libTwin);
+
+    settingsRow = {
+      moviesLibraryPath: join(tmp, "lib_marker"),
+      showsLibraryPath: null,
+    };
+    // What a plain (non-bigint) stat stored for a large inode: a rounded double.
+    bookPaths = [{ id: 9, filePath: libTwin, fileIno: "2350956048102949000" }];
+
+    const { entries: rows } = await scanDownloads({ refresh: true });
+    const hit = rows.find((r) => r.file_path === vidPath);
+    expect(hit?.is_imported).toBe(true);
+    expect(bookFileUpdates).toHaveLength(1);
+    expect(bookFileUpdates[0]!.data).toEqual({
+      fileDev: expect.any(String),
+      fileIno: expect.any(String),
+    });
   });
 
   it("uses the persisted inode without requiring the library path on disk", async () => {
