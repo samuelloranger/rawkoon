@@ -41,6 +41,10 @@ RUN bun install --frozen-lockfile --production --omit=peer --ignore-scripts --fi
 COPY apps/api/prisma ./apps/api/prisma
 COPY apps/api/prisma.config.ts ./apps/api/
 RUN cd apps/api && DATABASE_URL=postgresql://build@localhost/build bunx prisma generate
+# Drop sourcemaps and the non-Postgres query-compiler wasm that Prisma ships for every provider.
+RUN find /app/node_modules /app/apps/*/node_modules -name '*.map' -delete 2>/dev/null; \
+    find /app/node_modules/.bun -path '*@prisma/client/runtime/*' \( -name 'query_compiler_*_bg.mysql.*' -o -name 'query_compiler_*_bg.sqlite.*' -o -name 'query_compiler_*_bg.sqlserver.*' -o -name 'query_compiler_*_bg.cockroachdb.*' \) -delete; \
+    true
 
 # Final production stage (using a slim Bun image)
 FROM oven/bun:1.4.4-slim
