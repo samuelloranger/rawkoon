@@ -138,16 +138,17 @@ async function findEditionFiles(
 }
 
 /** True when the keeper's bytes match its existing row; skips an ffprobe spawn per chapter, which made rescans take tens of seconds. */
-function isUnchanged(
+export function isUnchanged(
   prior: KnownFile | undefined,
   st: BigIntStats,
 ): prior is KnownFile {
   const fp = fingerprintFromStats(st);
   return (
     !!prior &&
-    fp.ino !== null &&
-    prior.fileDev === fp.dev &&
-    prior.fileIno === fp.ino &&
+    // No usable inode (0 or the pooled-filesystem clamp): size and mtime alone decide, as they always could.
+    (fp.ino === null
+      ? prior.fileIno === null
+      : prior.fileDev === fp.dev && prior.fileIno === fp.ino) &&
     prior.fileMtimeMs !== null &&
     prior.fileMtimeMs === st.mtimeMs &&
     prior.sizeBytes === st.size
