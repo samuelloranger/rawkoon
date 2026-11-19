@@ -78,7 +78,10 @@ export const libraryMetaRoutes = new Hono<Env>()
       if (!Number.isFinite(id)) return badRequest("Invalid ID");
       const body = c.req.valid("json");
       const item = await updateLibraryStatus(id, body.status);
-      return ok({ item: mapLibraryMedia(item) });
+      return ok({
+        item: mapLibraryMedia(item),
+        status_adjusted: item.status !== body.status,
+      });
     } catch {
       return serverError("Failed to update status");
     }
@@ -430,6 +433,7 @@ export const libraryMetaRoutes = new Hono<Env>()
             status: ep.status,
             search_attempts: ep.searchAttempts,
           },
+          status_adjusted: ep.status !== body.status,
         });
       } catch {
         return serverError("Failed to update episode status");

@@ -1,4 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
+import { reopenedStatus } from "@rawkoon/api/services/library/targetHasFileOnDisk";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
@@ -140,7 +141,7 @@ export async function cancelActiveMovieDownloads(
   // A stale "downloading" status with no active row would still block the grab.
   await prisma.libraryMedia.updateMany({
     where: { id: mediaId, status: "downloading" },
-    data: { status: "wanted" },
+    data: { status: await reopenedStatus({ mediaId, episodeId: null }) },
   });
   emitLibraryUpdate(mediaId);
   return { status: "cancelled", cancelled: removed.length };

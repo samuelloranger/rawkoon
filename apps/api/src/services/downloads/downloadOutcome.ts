@@ -1,4 +1,5 @@
 import { prisma } from "@rawkoon/api/db";
+import { reopenedStatus } from "@rawkoon/api/services/library/targetHasFileOnDisk";
 import {
   type OutcomeEffects,
   productionOutcomeEffects,
@@ -71,7 +72,12 @@ export async function revertToWantedIfNoActiveGrabs(
   if (dh.episodeId != null) {
     await prisma.libraryEpisode.updateMany({
       where: { id: dh.episodeId, status: "downloading" },
-      data: { status: "wanted" },
+      data: {
+        status: await reopenedStatus({
+          mediaId: dh.mediaId,
+          episodeId: dh.episodeId,
+        }),
+      },
     });
     await prisma.libraryEpisode.updateMany({
       where: { id: dh.episodeId, status: "upgrading" },
@@ -80,7 +86,12 @@ export async function revertToWantedIfNoActiveGrabs(
   } else if (dh.mediaId != null) {
     await prisma.libraryMedia.updateMany({
       where: { id: dh.mediaId, status: "downloading" },
-      data: { status: "wanted" },
+      data: {
+        status: await reopenedStatus({
+          mediaId: dh.mediaId,
+          episodeId: null,
+        }),
+      },
     });
     await prisma.libraryMedia.updateMany({
       where: { id: dh.mediaId, status: "upgrading" },
