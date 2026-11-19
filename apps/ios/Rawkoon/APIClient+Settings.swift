@@ -376,6 +376,10 @@ extension APIClient {
         try await post("/api/admin/api-keys", body: body)
     }
 
+    func updateApiKeyScopes(id: String, scopes: [String]) async throws -> UpdateApiKeyScopesResponse {
+        try await patch("/api/admin/api-keys/\(id)", body: UpdateApiKeyScopesBody(mcpScopes: scopes))
+    }
+
     func deleteApiKey(id: String) async throws {
         try await deleteExpectOK("/api/admin/api-keys/\(id)")
     }

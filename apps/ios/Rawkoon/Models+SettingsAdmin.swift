@@ -156,7 +156,10 @@ nonisolated struct ApiKeyDTO: Decodable, Identifiable, Sendable {
     let id: String
     let name: String?
     let start: String?
-    let lastUsed: String?
+    let prefix: String?
+    let enabled: Bool?
+    let mcpScopes: [String]
+    let lastUsedAt: String?
     let expiresAt: String?
     let createdAt: String?
 }
@@ -165,9 +168,16 @@ nonisolated struct ApiKeysResponse: Decodable, Sendable { let apiKeys: [ApiKeyDT
 nonisolated struct CreateApiKeyBody: Encodable, Sendable {
     let name: String
     let expiresInDays: Int?
+    let mcpScopes: [String]
 }
 
-nonisolated struct CreateApiKeyResponse: Decodable, Sendable { let key: String? }
+nonisolated struct CreateApiKeyResponse: Decodable, Sendable {
+    let key: String
+    let apiKey: ApiKeyDTO
+}
+
+nonisolated struct UpdateApiKeyScopesBody: Encodable, Sendable { let mcpScopes: [String] }
+nonisolated struct UpdateApiKeyScopesResponse: Decodable, Sendable { let apiKey: ApiKeyDTO }
 
 nonisolated struct BlocklistEntryDTO: Decodable, Identifiable, Sendable {
     let id: Int
