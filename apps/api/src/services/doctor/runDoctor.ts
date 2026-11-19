@@ -24,14 +24,11 @@ import {
 } from "./migrations";
 import { evaluateHardlinks } from "./hardlinks";
 import { mapGrabReadiness } from "./grabMapping";
-import { evaluateOrphans, selectOrphans } from "./orphanedDownloads";
-import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
+import { checkOrphanedDownloads } from "./orphanedDownloadsCheck";
 import { evaluateFreeSpace, evaluatePathAccess, type PathProbe } from "./paths";
 import {
   probePath,
-  readLibraryInodes,
   readLibrarySettings,
-  scanDownloads,
   statDevice,
   statFreeBytes,
   type LibrarySettings,
@@ -43,77 +40,16 @@ import {
   HttpStatusError,
 } from "@rawkoon/api/utils/describeError";
 
-const DOCTOR_TIMEOUT_MS = 5000;
+import {
+  DOCTOR_TIMEOUT_MS,
+  draft,
+  runCheck,
+  type CheckDef,
+} from "./checkRunner";
 
 // Headroom above grabReadiness's own probe budget so its classified
 // "unreachable" drafts win over an outer collapse into "timed out".
 const GRAB_READINESS_TIMEOUT_MS = PROBE_TIMEOUT_MS + 2000;
-
-type Draft = { id: string; title: string } & CheckOutcome;
-
-interface CheckDef {
-  /** Fallback check id/title when the probe throws before producing drafts. */
-  id: string;
-  title: string;
-  /** Fallback fix when the probe crashes; returned drafts carry their own. */
-  fixOnCrash: string | null;
-  /** Per-def bound; defaults to DOCTOR_TIMEOUT_MS. */
-  timeoutMs?: number;
-  run: () => Promise<Draft[]>;
-}
-
-// Name matches the DOMException AbortSignal.timeout produces, so
-// describeError classifies a lost race as "timed out".
-class ProbeTimeout extends Error {
-  constructor(label: string) {
-    super(`${label} timed out`);
-    this.name = "TimeoutError";
-  }
-}
-
-/** Bounds one probe so a hung dependency can never stall the report. */
-function withTimeout<T>(
-  promise: Promise<T>,
-  label: string,
-  timeoutMs: number = DOCTOR_TIMEOUT_MS,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new ProbeTimeout(label)), timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
-
-function draft(id: string, title: string, outcome: CheckOutcome): Draft {
-  return { id, title, ...outcome };
-}
-
-async function runCheck(def: CheckDef): Promise<DoctorCheck[]> {
-  const startedAt = Date.now();
-  let drafts: Draft[];
-  try {
-    drafts = await withTimeout(def.run(), def.title, def.timeoutMs);
-  } catch (error) {
-    // A throwing check is a failed check — the report itself never crashes.
-    drafts = [
-      draft(def.id, def.title, {
-        status: "fail",
-        summary: `Could not be checked: ${describeError(error)}.`,
-        fix: def.fixOnCrash,
-      }),
-    ];
-  }
-  const duration_ms = Date.now() - startedAt;
-  return drafts.map((d) => ({ ...d, duration_ms }));
-}
 
 const SETTINGS_UNAVAILABLE: PathProbe = {
   exists: false,
@@ -269,39 +205,13 @@ function orphanedDownloadsDef(settings: Promise<LibrarySettings>): CheckDef {
     // A large downloads folder takes a while to walk.
     timeoutMs: ORPHANS_TIMEOUT_MS,
     fixOnCrash: "Check the downloads path mount and the download client.",
-    run: async () => {
-      const path = (await settings).downloadsPath;
-      if (!path) {
-        return [
-          draft(id, title, {
-            status: "ok",
-            summary: "No downloads path configured.",
-            fix: null,
-          }),
-        ];
-      }
-      // Without the client's torrent list every entry would look orphaned.
-      const torrents = await resolveActiveAdapter()
-        .then((active) => active?.adapter.listTorrents() ?? null)
-        .catch(() => null);
-      if (!torrents) {
-        return [
-          draft(id, title, {
-            status: "warn",
-            summary: "Could not check: the download client is unreachable.",
-            fix: "Check the download client under Settings, then re-run the doctor.",
-          }),
-        ];
-      }
-      const entries = await scanDownloads(path, await readLibraryInodes());
-      return [
-        draft(
-          id,
-          title,
-          evaluateOrphans(selectOrphans(entries, torrents, Date.now())),
-        ),
-      ];
-    },
+    run: async () => [
+      draft(
+        id,
+        title,
+        await checkOrphanedDownloads((await settings).downloadsPath),
+      ),
+    ],
   };
 }
 
