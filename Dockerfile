@@ -69,9 +69,10 @@ RUN sed -i 's/^Components: main$/Components: main non-free non-free-firmware/' /
 
 # pg_dump/psql 18 from PGDG: Debian only ships 17, and pg_dump refuses a server newer than itself.
 # A 18 client dumps 17 and 18 servers alike. Used by scripts/preMigrateBackup.ts.
-RUN install -d /usr/share/postgresql-common/pgdg \
+RUN . /etc/os-release \
+    && install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends postgresql-client-18 \
     && rm -rf /var/lib/apt/lists/*
