@@ -77,20 +77,36 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           generate-routes: "true"
-      # Normally ~20s; a stalled apt mirror used to hold the job until its 25-minute timeout.
+      # The runner's Ubuntu mirror is sometimes too slow to fetch ffmpeg in minutes, so its .debs live in the Actions cache.
+      - name: Ubuntu codename for the ffmpeg cache key
+        id: os
+        run: echo "codename=$(. /etc/os-release && echo "$VERSION_CODENAME")" >> "$GITHUB_OUTPUT"
+      - name: Restore ffmpeg packages
+        uses: actions/cache@v4
+        with:
+          path: ~/ffmpeg-debs
+          key: ffmpeg-debs-${{ steps.os.outputs.codename }}-${{ runner.arch }}-v1
       - name: Install ffmpeg
-        timeout-minutes: 5
+        timeout-minutes: 8
         run: |
           # man-db re-indexes every manual page after an install, which crawls on hosted runners.
           sudo rm -f /var/lib/man-db/auto-update
-          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          # dpkg, not apt-get: apt refuses local .debs when the package lists are empty. Never downgrade the image's newer libs.
+          if ls ~/ffmpeg-debs/*.deb >/dev/null 2>&1 &&
+            sudo dpkg --refuse-downgrade -i ~/ffmpeg-debs/*.deb >/dev/null && ffprobe -version >/dev/null 2>&1; then
+            ffprobe -version | head -1
+            exit 0
+          fi
+          echo "No usable cached packages; fetching ffmpeg from the mirror"
+          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o APT::Keep-Downloaded-Packages=true"
           # A stalled mirror hangs a whole attempt, so bound each one and retry; fetched .debs are kept, so a slow mirror resumes.
           for attempt in 1 2 3; do
-            sudo timeout 90 sh -c "dpkg --configure -a; apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
+            sudo timeout 150 sh -c "dpkg --configure -a; apt-get update -y $APT && apt-get install -y -f --no-install-recommends $APT ffmpeg" && break
             [ "$attempt" = 3 ] && exit 1
             echo "apt attempt $attempt failed, retrying"
             sleep 3
           done
+          mkdir -p ~/ffmpeg-debs && cp /var/cache/apt/archives/*.deb ~/ffmpeg-debs/ || echo "no .debs kept to cache"
           ffprobe -version | head -1
       # One step per suite, each with its own timeout, so a hang fails fast and names its suite.
       - name: Web tests
