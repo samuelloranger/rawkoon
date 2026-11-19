@@ -6,7 +6,11 @@ const refetch = vi.fn();
 let report: DoctorReport | undefined;
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, o?: { when?: string }) =>
+      o?.when != null ? `${k}|${o.when}` : k,
+    i18n: { language: "en" },
+  }),
 }));
 vi.mock("@/pages/settings/useDoctor", () => ({
   useDoctor: () => ({
@@ -53,6 +57,15 @@ describe("DoctorCard", () => {
     expect(statusOf("database")).toBe("ok");
     expect(statusOf("tmdb")).toBe("warn");
     expect(statusOf("valkey")).toBe("fail");
+    expect(
+      container.querySelector('[data-check="tmdb"]')?.textContent,
+    ).toContain("settings.health.doctor.status.warn:");
+    expect(
+      container
+        .querySelector('[data-check="valkey"] svg')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(screen.getByText(/settings.health.doctor.checkedAt\|/)).toBeTruthy();
     expect(screen.getByText("Set the TMDB key.")).toBeTruthy();
     expect(screen.getByText("Check the host.")).toBeTruthy();
     expect(

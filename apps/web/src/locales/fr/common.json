@@ -1936,6 +1936,7 @@
       "doctor": {
         "title": "Docteur",
         "description": "Lance le diagnostic complet : base de données, Valkey, migrations, chemins, indexeur, client de téléchargement et intégrations.",
+        "checkedAt": "Vérifié {{when}}",
         "run": "Lancer les vérifications",
         "running": "Vérifications en cours…",
         "loadError": "Impossible de lancer les vérifications.",

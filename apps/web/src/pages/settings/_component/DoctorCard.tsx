@@ -1,3 +1,4 @@
+import { formatRelativeTime } from "@/lib/utils/relativeTime";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ const ICONS: Record<
 
 /** On-demand self-check of everything Rawkoon depends on (same report as `bun run doctor`). */
 export function DoctorCard() {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const { data, isFetching, isError, refetch } = useDoctor();
 
   return (
@@ -36,6 +37,13 @@ export function DoctorCard() {
                 ? t(`settings.health.doctor.overall.${data.status}`)
                 : t("settings.health.doctor.description")}
           </p>
+          {data && (
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {t("settings.health.doctor.checkedAt", {
+                when: formatRelativeTime(data.checked_at, i18n.language) ?? "",
+              })}
+            </p>
+          )}
         </div>
         <Button
           type="button"
@@ -67,12 +75,13 @@ export function DoctorCard() {
               >
                 <Icon
                   className={cn("mt-0.5 h-4 w-4 shrink-0", className)}
-                  aria-label={t(
-                    `settings.health.doctor.status.${check.status}`,
-                  )}
+                  aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1 text-sm text-neutral-200">
                   <p>
+                    <span className="sr-only">
+                      {t(`settings.health.doctor.status.${check.status}`)}:{" "}
+                    </span>
                     <span className="font-medium">{check.title}</span>
                     {" — "}
                     {check.summary}

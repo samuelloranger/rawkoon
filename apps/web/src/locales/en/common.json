@@ -1936,6 +1936,7 @@
       "doctor": {
         "title": "Doctor",
         "description": "Run the full self-check: database, Valkey, migrations, paths, indexer, download client and integrations.",
+        "checkedAt": "Checked {{when}}",
         "run": "Run checks",
         "running": "Running checks…",
         "loadError": "Could not run the checks.",
