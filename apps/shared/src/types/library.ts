@@ -166,6 +166,8 @@ export interface AddToLibraryResponse {
 
 export interface LibraryItemResponse {
   item: LibraryMedia;
+  /** Status PATCH only: "wanted" was requested but a file exists, so the item stays "downloaded". */
+  status_adjusted?: boolean;
 }
 
 interface LibraryEpisode {

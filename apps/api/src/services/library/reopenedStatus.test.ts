@@ -10,8 +10,16 @@ const dhCount = mock(async (_arg: unknown) => 0);
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
     mediaFile: { findMany: async () => files },
-    libraryMedia: { update: mediaUpdate, updateMany: mediaUpdateMany },
-    libraryEpisode: { update: episodeUpdate, updateMany: episodeUpdateMany },
+    libraryMedia: {
+      update: mediaUpdate,
+      updateMany: mediaUpdateMany,
+      findMany: async () => [{ id: 1 }],
+    },
+    libraryEpisode: {
+      update: episodeUpdate,
+      updateMany: episodeUpdateMany,
+      findMany: async () => [{ id: 7, mediaId: 1 }],
+    },
     downloadHistory: { count: dhCount },
   },
 }));
@@ -55,18 +63,29 @@ describe("writers that reopen a movie or episode", () => {
   it("manual-search reset keeps a movie with a file downloaded", async () => {
     files = onDisk;
     await resetMovieForManualSearch(1);
-    expect(statusOf(mediaUpdate)).toBe("downloaded");
+    expect(statusOf(mediaUpdateMany)).toBe("downloaded");
   });
 
   it("manual-search reset makes a movie without a file wanted", async () => {
     await resetMovieForManualSearch(1);
-    expect(statusOf(mediaUpdate)).toBe("wanted");
+    expect(statusOf(mediaUpdateMany)).toBe("wanted");
+  });
+
+  it("manual-search reset never overwrites an in-flight grab", async () => {
+    await resetMovieForManualSearch(1);
+    await resetEpisodeForManualSearch(1, 7);
+    for (const m of [mediaUpdateMany, episodeUpdateMany]) {
+      const arg = m.mock.calls[0]![0] as {
+        where: { status: { notIn: string[] } };
+      };
+      expect(arg.where.status.notIn).toEqual(["downloading", "upgrading"]);
+    }
   });
 
   it("manual-search reset keeps an episode with a file downloaded", async () => {
     files = onDisk;
     await resetEpisodeForManualSearch(1, 7);
-    expect(statusOf(episodeUpdate)).toBe("downloaded");
+    expect(statusOf(episodeUpdateMany)).toBe("downloaded");
   });
 
   it("manual status wanted on a movie or episode with a file stays downloaded", async () => {
@@ -96,16 +115,24 @@ describe("writers that reopen a movie or episode", () => {
     expect(statusOf(mediaUpdateMany)).toBe("wanted");
   });
 
-  it("the sync heal flips wanted rows that have files", async () => {
+  it("the sync heal flips wanted rows whose file is on disk", async () => {
+    files = onDisk;
     expect(await healWantedWithFiles()).toBe(3);
-    const where = (mediaUpdateMany.mock.calls[0]![0] as { where: unknown })
-      .where;
-    expect(where).toMatchObject({
-      status: "wanted",
-      type: "movie",
-      files: { some: {} },
+    expect(mediaUpdateMany.mock.calls[0]![0]).toMatchObject({
+      where: { id: { in: [1] }, status: "wanted" },
     });
     expect(statusOf(episodeUpdateMany)).toBe("downloaded");
+  });
+
+  it("the sync heal leaves a wanted row whose file is gone from disk", async () => {
+    files = [{ filePath: "/nonexistent/stale.mkv" }];
+    await healWantedWithFiles();
+    for (const m of [mediaUpdateMany, episodeUpdateMany]) {
+      expect(
+        (m.mock.calls[0]![0] as { where: { id: { in: number[] } } }).where.id
+          .in,
+      ).toEqual([]);
+    }
   });
 
   it("retrying skipped episodes sends ones with files to downloaded", async () => {

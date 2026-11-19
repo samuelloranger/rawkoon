@@ -19,13 +19,17 @@ export function findLibraryMediaRow(id: number) {
   return prisma.libraryMedia.findUnique({ where: { id } });
 }
 
+// An in-flight grab keeps its status; only the search counter is reset.
+const IN_FLIGHT = ["downloading", "upgrading"];
+
 export async function resetMovieForManualSearch(id: number) {
-  return prisma.libraryMedia.update({
+  await prisma.libraryMedia.update({
     where: { id },
-    data: {
-      searchAttempts: 0,
-      status: await reopenedStatus({ mediaId: id, episodeId: null }),
-    },
+    data: { searchAttempts: 0 },
+  });
+  return prisma.libraryMedia.updateMany({
+    where: { id, status: { notIn: IN_FLIGHT } },
+    data: { status: await reopenedStatus({ mediaId: id, episodeId: null }) },
   });
 }
 
@@ -39,12 +43,13 @@ export async function resetEpisodeForManualSearch(
   mediaId: number,
   episodeId: number,
 ) {
-  return prisma.libraryEpisode.update({
+  await prisma.libraryEpisode.update({
     where: { id: episodeId },
-    data: {
-      searchAttempts: 0,
-      status: await reopenedStatus({ mediaId, episodeId }),
-    },
+    data: { searchAttempts: 0 },
+  });
+  return prisma.libraryEpisode.updateMany({
+    where: { id: episodeId, status: { notIn: IN_FLIGHT } },
+    data: { status: await reopenedStatus({ mediaId, episodeId }) },
   });
 }
 
