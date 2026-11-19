@@ -86,7 +86,7 @@ jobs:
           APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
           # A stalled mirror hangs a whole attempt, so bound each one and retry within the step guard.
           for attempt in 1 2 3; do
-            sudo timeout 50 sh -c "apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
+            sudo timeout 50 sh -c "dpkg --configure -a; apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
             [ "$attempt" = 3 ] && exit 1
             echo "apt attempt $attempt failed, retrying"
             sleep 3
