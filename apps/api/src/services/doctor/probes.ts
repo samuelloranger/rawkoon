@@ -1,6 +1,15 @@
-import { access, constants, stat, statfs } from "node:fs/promises";
+import {
+  access,
+  constants,
+  lstat,
+  readdir,
+  stat,
+  statfs,
+} from "node:fs/promises";
+import { join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { describeError } from "@rawkoon/api/utils/describeError";
+import type { DownloadEntry } from "./orphanedDownloads";
 import type { PathProbe } from "./paths";
 
 /** The library-relevant slice of mediaSettings (row id = 1). */
@@ -90,4 +99,57 @@ export async function statFreeBytes(path: string): Promise<FreeBytesProbe> {
     }
     return { freeBytes: null, error: describeError(error) };
   }
+}
+
+/** Every (dev:ino) the library knows, from the cached stat of each media and book file. */
+export async function readLibraryInodes(): Promise<Set<string>> {
+  const where = { fileDev: { not: null }, fileIno: { not: null } };
+  const select = { fileDev: true, fileIno: true };
+  const [media, books] = await Promise.all([
+    prisma.mediaFile.findMany({ where, select }),
+    prisma.bookFile.findMany({ where, select }),
+  ]);
+  return new Set(
+    [...media, ...books].map((row) => `${row.fileDev}:${row.fileIno}`),
+  );
+}
+
+async function walk(
+  path: string,
+  inodes: ReadonlySet<string>,
+): Promise<
+  Pick<DownloadEntry, "sizeBytes" | "newestMtimeMs" | "linkedToLibrary">
+> {
+  const info = await lstat(path, { bigint: true });
+  let sizeBytes = 0;
+  let newestMtimeMs = Number(info.mtimeMs);
+  let linkedToLibrary = false;
+  if (info.isDirectory()) {
+    for (const child of await readdir(path)) {
+      const sub = await walk(join(path, child), inodes);
+      sizeBytes += sub.sizeBytes;
+      newestMtimeMs = Math.max(newestMtimeMs, sub.newestMtimeMs);
+      linkedToLibrary ||= sub.linkedToLibrary;
+    }
+  } else {
+    sizeBytes = Number(info.size);
+    linkedToLibrary = info.nlink > 1n && inodes.has(`${info.dev}:${info.ino}`);
+  }
+  return { sizeBytes, newestMtimeMs, linkedToLibrary };
+}
+
+/** Top-level entries of the downloads folder with size, freshness and library-link facts. */
+export async function scanDownloads(
+  downloadsPath: string,
+  inodes: ReadonlySet<string>,
+): Promise<DownloadEntry[]> {
+  const names = (await readdir(downloadsPath)).filter(
+    (name) => !name.startsWith(".") && name.toLowerCase() !== "incomplete",
+  );
+  return Promise.all(
+    names.map(async (name) => ({
+      name,
+      ...(await walk(join(downloadsPath, name), inodes)),
+    })),
+  );
 }

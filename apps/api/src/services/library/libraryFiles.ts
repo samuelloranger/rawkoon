@@ -5,6 +5,7 @@ import { prisma } from "@rawkoon/api/db";
 import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { estimateEtaSeconds } from "@rawkoon/api/services/downloadClient/eta";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
+import { ownsTorrentData } from "@rawkoon/api/services/downloadClient/afterImport";
 
 /** Newest grabs shown in the library detail history panel. */
 const MEDIA_HISTORY_LIMIT = 200;
@@ -225,9 +226,13 @@ export async function performDownloadAction(
       const active = await resolveActiveAdapter();
       if (active) {
         // Best-effort: a missing torrent shouldn't block removing the row.
-        await active.adapter
-          .remove(dh.torrentHash, deleteFiles)
-          .catch(() => {});
+        // The library's hardlinks survive a data delete; a shared torrent's data must not.
+        const deleteData =
+          deleteFiles &&
+          (await ownsTorrentData(active.adapter, dh.torrentHash).catch(
+            () => false,
+          ));
+        await active.adapter.remove(dh.torrentHash, deleteData).catch(() => {});
       }
     }
     await revertToWantedIfNoActiveGrabs({

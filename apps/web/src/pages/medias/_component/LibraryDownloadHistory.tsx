@@ -30,7 +30,7 @@ export function LibraryDownloadHistory({
   const clearFailed = useClearLibraryFailedDownloads(libraryId);
   const { confirm } = useConfirm();
   const downloadAction = useLibraryDownloadAction(libraryId);
-  const deleteFilesRef = useRef(false);
+  const deleteFilesRef = useRef(true);
   const items = data?.items ?? [];
   const hasRemovable = items.some(isRemovableDownloadHistoryEntry);
   const busyDeleting =
@@ -159,7 +159,7 @@ export function LibraryDownloadHistory({
                           title={t("library.management.removeDownload")}
                           aria-label={t("library.management.removeDownload")}
                           onClick={() => {
-                            deleteFilesRef.current = false;
+                            deleteFilesRef.current = true;
                             confirm({
                               variant: "destructive",
                               description: (
@@ -172,6 +172,7 @@ export function LibraryDownloadHistory({
                                   <label className="flex items-center gap-2 text-sm text-neutral-300">
                                     <input
                                       type="checkbox"
+                                      defaultChecked
                                       onChange={(e) => {
                                         deleteFilesRef.current =
                                           e.target.checked;

@@ -24,10 +24,14 @@ import {
 } from "./migrations";
 import { evaluateHardlinks } from "./hardlinks";
 import { mapGrabReadiness } from "./grabMapping";
+import { evaluateOrphans, selectOrphans } from "./orphanedDownloads";
+import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { evaluateFreeSpace, evaluatePathAccess, type PathProbe } from "./paths";
 import {
   probePath,
+  readLibraryInodes,
   readLibrarySettings,
+  scanDownloads,
   statDevice,
   statFreeBytes,
   type LibrarySettings,
@@ -248,6 +252,53 @@ function hardlinksDef(
                 library.device !== null,
             ),
           }),
+        ),
+      ];
+    },
+  };
+}
+
+const ORPHANS_TIMEOUT_MS = 60_000;
+
+function orphanedDownloadsDef(settings: Promise<LibrarySettings>): CheckDef {
+  const id = "orphaned_downloads";
+  const title = "Orphaned downloads";
+  return {
+    id,
+    title,
+    // A large downloads folder takes a while to walk.
+    timeoutMs: ORPHANS_TIMEOUT_MS,
+    fixOnCrash: "Check the downloads path mount and the download client.",
+    run: async () => {
+      const path = (await settings).downloadsPath;
+      if (!path) {
+        return [
+          draft(id, title, {
+            status: "ok",
+            summary: "No downloads path configured.",
+            fix: null,
+          }),
+        ];
+      }
+      // Without the client's torrent list every entry would look orphaned.
+      const torrents = await resolveActiveAdapter()
+        .then((active) => active?.adapter.listTorrents() ?? null)
+        .catch(() => null);
+      if (!torrents) {
+        return [
+          draft(id, title, {
+            status: "warn",
+            summary: "Could not check: the download client is unreachable.",
+            fix: "Check the download client under Settings, then re-run the doctor.",
+          }),
+        ];
+      }
+      const entries = await scanDownloads(path, await readLibraryInodes());
+      return [
+        draft(
+          id,
+          title,
+          evaluateOrphans(selectOrphans(entries, torrents, Date.now())),
         ),
       ];
     },
@@ -491,6 +542,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     freeSpaceDef(settings, booksEnabled),
     hardlinksDef(settings, booksEnabled),
     grabReadinessDef(),
+    orphanedDownloadsDef(settings),
     jellyfinDef(),
     tmdbDef(),
   ];

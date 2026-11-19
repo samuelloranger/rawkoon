@@ -179,7 +179,7 @@ export const libraryFilesRoutes = new Hono<Env>()
           mediaId,
           dhId,
           body.action,
-          body.delete_files ?? false,
+          body.delete_files ?? true,
         );
         if (result === "not_found") {
           return notFound("Download history not found");

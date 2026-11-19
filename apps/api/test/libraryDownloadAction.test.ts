@@ -30,6 +30,7 @@ const qbCalls: Array<{ fn: string; hash: string; delete_files?: boolean }> = [];
 // makes to check whether other active grabs exist. Used to assert the revert was invoked.
 const dhCountCalls: Array<unknown> = [];
 let pauseSucceeds = true;
+let torrentList: Array<Record<string, unknown>> = [];
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
@@ -77,7 +78,7 @@ mock.module("@rawkoon/api/services/downloadClient/registry", () => ({
       type: "transmission",
       testConnection: async () => ({ ok: true }),
       addTorrent: async () => ({ hash: null }),
-      listTorrents: async () => [],
+      listTorrents: async () => torrentList,
       getTorrent: async () => null,
       pause: async (hash: string) => {
         qbCalls.push({ fn: "pause", hash });
@@ -121,6 +122,7 @@ beforeEach(() => {
   qbCalls.length = 0;
   dhCountCalls.length = 0;
   pauseSucceeds = true;
+  torrentList = [{ hash: "h1", name: "T1", contentPath: "/dl/T1" }];
 });
 
 function post(body: Record<string, unknown>, dhId = 5) {
@@ -146,18 +148,22 @@ describe("POST /:id/downloads/:dhId/action", () => {
     expect(qbCalls[0].fn).toBe("resume");
   });
 
-  it("remove deletes the torrent (keep files) and the DH row", async () => {
+  it("remove deletes the torrent, its files and the DH row by default", async () => {
     const res = await post({ action: "remove" });
     expect(res.status).toBe(200);
-    expect(qbCalls).toEqual([
-      { fn: "delete", hash: "h1", delete_files: false },
-    ]);
+    expect(qbCalls).toEqual([{ fn: "delete", hash: "h1", delete_files: true }]);
     expect(deleted).toEqual([5]);
   });
 
-  it("remove with delete_files passes the flag", async () => {
-    await post({ action: "remove", delete_files: true });
-    expect(qbCalls[0].delete_files).toBe(true);
+  it("remove with delete_files false keeps the files", async () => {
+    await post({ action: "remove", delete_files: false });
+    expect(qbCalls[0].delete_files).toBe(false);
+  });
+
+  it("remove keeps the files when another torrent shares the content", async () => {
+    torrentList.push({ hash: "h2", name: "T2", contentPath: "/dl/T1" });
+    await post({ action: "remove" });
+    expect(qbCalls[0].delete_files).toBe(false);
   });
 
   it("remove of a row with no hash still deletes the DH row", async () => {
