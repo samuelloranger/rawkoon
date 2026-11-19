@@ -24,6 +24,10 @@ import {
 } from "./migrations";
 import { evaluateHardlinks } from "./hardlinks";
 import { mapGrabReadiness } from "./grabMapping";
+import {
+  checkOrphanedDownloads,
+  ORPHANS_TIMEOUT_MS,
+} from "./orphanedDownloadsCheck";
 import { evaluateFreeSpace, evaluatePathAccess, type PathProbe } from "./paths";
 import {
   probePath,
@@ -186,6 +190,26 @@ function hardlinksDef(
         ),
       ];
     },
+  };
+}
+
+function orphanedDownloadsDef(settings: Promise<LibrarySettings>): CheckDef {
+  const id = "orphaned_downloads";
+  const title = "Orphaned downloads";
+  return {
+    id,
+    title,
+    // A large downloads folder takes a while to walk.
+    timeoutMs: ORPHANS_TIMEOUT_MS,
+    needs: "db",
+    fixOnCrash: "Check the downloads path mount and the download client.",
+    run: async () => [
+      draft(
+        id,
+        title,
+        await checkOrphanedDownloads((await settings).downloadsPath),
+      ),
+    ],
   };
 }
 
@@ -428,6 +452,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     freeSpaceDef(settings, booksEnabled),
     hardlinksDef(settings, booksEnabled),
     grabReadinessDef(),
+    orphanedDownloadsDef(settings),
     jellyfinDef(),
     tmdbDef(),
   ];

@@ -428,11 +428,12 @@ struct MediaDetailView: View {
                 ),
                 presenting: pendingDownloadRemoveId
             ) { id in
-                Button("Remove", role: .destructive) {
-                    Task { await performDownloadAction(id, action: "remove") }
-                }
+                // Deleting is listed first: keeping the data leaves an orphaned download behind.
                 Button("Remove and delete files", role: .destructive) {
                     Task { await performDownloadAction(id, action: "remove", deleteFiles: true) }
+                }
+                Button("Remove", role: .destructive) {
+                    Task { await performDownloadAction(id, action: "remove") }
                 }
                 Button("Cancel", role: .cancel) {}
             }
