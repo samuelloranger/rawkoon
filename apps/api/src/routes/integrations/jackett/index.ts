@@ -17,6 +17,11 @@ import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { JackettAdapter } from "@rawkoon/api/services/indexerManager/jackettAdapter";
 
+import {
+  failedTest,
+  resolveTestTarget,
+  testBodySchema,
+} from "@rawkoon/api/utils/integrations/testConnection";
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const jackettIntegrationRoutes = new Hono<Env>()
   .get("/jackett", async () => {
@@ -118,5 +123,20 @@ export const jackettIntegrationRoutes = new Hono<Env>()
     } catch (error) {
       console.error("Error fetching Jackett indexers:", error);
       return serverError("Failed to fetch Jackett indexers");
+    }
+  })
+  .post("/jackett/test", jsonV(testBodySchema), async (c) => {
+    const stored = normalizeJackettConfig(
+      (await findIntegrationRow("jackett"))?.config,
+    );
+    const target = resolveTestTarget(c.req.valid("json"), stored);
+    if ("error" in target) return badRequest(target.error);
+    try {
+      await new JackettAdapter({ ...target, rss_indexers: [] }).getIndexers({
+        strict: true,
+      });
+      return ok({ success: true });
+    } catch (error) {
+      return ok(failedTest(error, "Jackett"));
     }
   });

@@ -3,7 +3,6 @@ import { beforeEach, mock } from "bun:test";
 const realSsrf = { ...(await import("../ssrf")) };
 mock.module("../ssrf", () => ({
   ...realSsrf,
-  validateSafeUrl: async (url: string) => url,
   // Passthrough so request-construction assertions still see the original URL
   // and headers; the real safeFetch's IP-pinning is covered by ssrf tests.
   safeFetch: (url: string, init?: RequestInit) =>

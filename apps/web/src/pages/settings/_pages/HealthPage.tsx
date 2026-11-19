@@ -5,6 +5,7 @@ import { useLibraryAttention } from "@/features/medias/hooks/useLibraryAttention
 import { failingChecks } from "@/features/medias/lib/grabReadiness";
 import { LibraryAttentionPanel } from "@/pages/_component/LibraryAttentionPanel";
 import { RssStatusPanel } from "@/pages/_component/RssStatusPanel";
+import { DoctorCard } from "@/pages/settings/_component/DoctorCard";
 import { GrabReadinessChecklist } from "@/pages/settings/_component/GrabReadinessChecklist";
 import { LibraryHealthCard } from "@/pages/settings/_component/LibraryHealthCard";
 import { SettingsPageShell } from "@/pages/settings/_component/SettingsPageShell";
@@ -78,6 +79,7 @@ export function HealthPage() {
         </h3>
         <LibraryHealthCard latest={health.data?.latest ?? null} t={t} />
       </section>
+      <DoctorCard />
       <LibraryAttentionPanel />
       <RssStatusPanel />
     </SettingsPageShell>

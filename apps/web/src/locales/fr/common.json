@@ -1289,6 +1289,10 @@
         "unknown": "Échec de la connexion"
       },
       "testConnection": "Tester la connexion",
+      "apiKeyBlankHint": "Laissez vide pour utiliser la clé enregistrée (même URL seulement)",
+      "testing": "Test en cours…",
+      "testSuccess": "La connexion fonctionne.",
+      "testError": "Impossible de lancer le test.",
       "indexers": "Indexeurs",
       "groups": {
         "media": "Médias",
@@ -1932,7 +1936,25 @@
       "libraryIssues_one": "{{count}} problème de bibliothèque à examiner",
       "libraryIssues_other": "{{count}} problèmes de bibliothèque à examiner",
       "alertsOpen_one": "{{count}} alerte ouverte",
-      "alertsOpen_other": "{{count}} alertes ouvertes"
+      "alertsOpen_other": "{{count}} alertes ouvertes",
+      "doctor": {
+        "title": "Docteur",
+        "description": "Lance le diagnostic complet : base de données, Valkey, migrations, chemins, indexeur, client de téléchargement et intégrations.",
+        "checkedAt": "Vérifié {{when}}",
+        "run": "Lancer les vérifications",
+        "running": "Vérifications en cours…",
+        "loadError": "Impossible de lancer les vérifications.",
+        "overall": {
+          "ok": "Tout est en ordre.",
+          "warn": "Certaines vérifications ont des avertissements.",
+          "fail": "Certaines vérifications ont échoué."
+        },
+        "status": {
+          "ok": "OK",
+          "warn": "Avertissement",
+          "fail": "Échec"
+        }
+      }
     },
     "jellyfinLink": {
       "title": "Jellyfin",

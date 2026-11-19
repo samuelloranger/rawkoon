@@ -72,10 +72,24 @@ export function backupsToDelete(files: string[], keep: number): string[] {
 
 /** libpq env vars from a Prisma-style URL, so the password never lands in argv or logs. */
 export function pgEnvFromUrl(databaseUrl: string): Record<string, string> {
-  const url = new URL(databaseUrl);
+  // WHATWG URL rejects credentials with an empty host, which is exactly the socket form.
+  const emptyAuthorityHost = /^[a-z]+:\/\/[^/?]*@(?=[/?])/i.test(databaseUrl);
+  const url = new URL(
+    emptyAuthorityHost
+      ? databaseUrl.replace(/@(?=[/?])/, "@localhost")
+      : databaseUrl,
+  );
+  const emptyHost = emptyAuthorityHost || url.hostname === "";
+  // Socket URLs carry the host (a socket dir) in ?host= and leave the authority empty.
+  const host =
+    url.searchParams.get("host") ||
+    (emptyHost ? "" : decodeURIComponent(url.hostname)).replace(
+      /^\[(.*)\]$/,
+      "$1",
+    );
   const env: Record<string, string> = {
-    PGHOST: decodeURIComponent(url.hostname),
-    PGPORT: url.port || "5432",
+    PGHOST: host,
+    PGPORT: url.port || url.searchParams.get("port") || "5432",
     PGUSER: decodeURIComponent(url.username),
     PGPASSWORD: decodeURIComponent(url.password),
     PGDATABASE: decodeURIComponent(url.pathname.replace(/^\//, "")),

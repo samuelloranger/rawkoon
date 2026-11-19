@@ -5,6 +5,7 @@ import { prisma } from "@rawkoon/api/db";
 import { revertToWantedIfNoActiveGrabs } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { estimateEtaSeconds } from "@rawkoon/api/services/downloadClient/eta";
 import { pruneLibraryDirsAfterDelete } from "@rawkoon/api/services/library/pruneLibraryDirs";
+import { ownsTorrentData } from "@rawkoon/api/services/downloadClient/afterImport";
 
 /** Newest grabs shown in the library detail history panel. */
 const MEDIA_HISTORY_LIMIT = 200;
@@ -205,11 +206,18 @@ export async function performDownloadAction(
   mediaId: number,
   dhId: number,
   action: DownloadAction,
-  deleteFiles: boolean,
+  /** Undefined: delete only what was imported (the library holds its own link). */
+  deleteFiles: boolean | undefined,
 ): Promise<DownloadActionResult> {
   const dh = await prisma.downloadHistory.findFirst({
     where: { id: dhId, mediaId },
-    select: { id: true, mediaId: true, torrentHash: true, episodeId: true },
+    select: {
+      id: true,
+      mediaId: true,
+      torrentHash: true,
+      episodeId: true,
+      postProcessDestinationPath: true,
+    },
   });
   if (!dh) return "not_found";
 
@@ -225,9 +233,19 @@ export async function performDownloadAction(
       const active = await resolveActiveAdapter();
       if (active) {
         // Best-effort: a missing torrent shouldn't block removing the row.
-        await active.adapter
-          .remove(dh.torrentHash, deleteFiles)
-          .catch(() => {});
+        // The library's hardlinks survive a data delete; a shared torrent's data must not.
+        // A regrab row with the same hash still points at this data.
+        const sharedWithRow =
+          (await prisma.downloadHistory.count({
+            where: { torrentHash: dh.torrentHash, id: { not: dh.id } },
+          })) > 0;
+        const deleteData =
+          (deleteFiles ?? dh.postProcessDestinationPath != null) &&
+          !sharedWithRow &&
+          (await ownsTorrentData(active.adapter, dh.torrentHash).catch(
+            () => false,
+          ));
+        await active.adapter.remove(dh.torrentHash, deleteData).catch(() => {});
       }
     }
     await revertToWantedIfNoActiveGrabs({

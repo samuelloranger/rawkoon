@@ -83,6 +83,7 @@ export function LibraryDownloadHistory({
                   : "border-sky-900/60 bg-sky-950/10";
 
               const removable = isRemovableDownloadHistoryEntry(row);
+              const imported = row.post_process_destination_path != null;
               const inProgress = isDownloadInProgress(row);
               const live = row.live ?? null;
               const paused = isPausedState(live?.state);
@@ -159,7 +160,7 @@ export function LibraryDownloadHistory({
                           title={t("library.management.removeDownload")}
                           aria-label={t("library.management.removeDownload")}
                           onClick={() => {
-                            deleteFilesRef.current = false;
+                            deleteFilesRef.current = imported;
                             confirm({
                               variant: "destructive",
                               description: (
@@ -172,6 +173,7 @@ export function LibraryDownloadHistory({
                                   <label className="flex items-center gap-2 text-sm text-neutral-300">
                                     <input
                                       type="checkbox"
+                                      defaultChecked={imported}
                                       onChange={(e) => {
                                         deleteFilesRef.current =
                                           e.target.checked;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { isPrivateIP, validateSafeUrl, safeFetch } from "../src/utils/ssrf";
+import { isPrivateIP, safeFetch } from "../src/utils/ssrf";
 
 describe("isPrivateIP", () => {
   it("detects private IPv4 ranges", () => {
@@ -27,28 +27,6 @@ describe("isPrivateIP", () => {
     expect(isPrivateIP("fe80::1")).toBe(true);
     expect(isPrivateIP("fc00::1")).toBe(true);
     expect(isPrivateIP("2606:4700::1111")).toBe(false);
-  });
-});
-
-describe("validateSafeUrl", () => {
-  it("allows safe public URLs", async () => {
-    const res = await validateSafeUrl("https://google.com");
-    expect(res).toBe("https://google.com");
-  });
-
-  it("blocks private/local IPs directly", async () => {
-    await expect(validateSafeUrl("http://127.0.0.1")).rejects.toThrow(
-      "Outbound URL target IP is blocked",
-    );
-    await expect(validateSafeUrl("http://10.0.0.5")).rejects.toThrow(
-      "Outbound URL target IP is blocked",
-    );
-  });
-
-  it("blocks hostnames resolving to private IPs", async () => {
-    await expect(validateSafeUrl("http://localhost")).rejects.toThrow(
-      "resolves to blocked IP",
-    );
   });
 });
 

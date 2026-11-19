@@ -1,6 +1,7 @@
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeTmdbConfig } from "@rawkoon/api/utils/integrations/normalizers";
 import { fetchWithTimeout } from "@rawkoon/api/utils/fetchWithTimeout";
+import { HttpStatusError } from "@rawkoon/api/utils/describeError";
 
 /**
  * Supported i18n locale → TMDB language tag mappings.
@@ -26,6 +27,16 @@ export function toTmdbLanguage(locale: string): string {
 export async function loadTmdbConfig() {
   const integration = await getIntegrationConfigRecord("tmdb");
   return integration?.enabled ? normalizeTmdbConfig(integration.config) : null;
+}
+
+/** Throws on a network failure or a non-2xx; /configuration is the cheapest authenticated call. */
+export async function probeTmdbKey(apiKey: string): Promise<void> {
+  const res = await fetchWithTimeout(
+    `https://api.themoviedb.org/3/configuration?api_key=${encodeURIComponent(apiKey)}`,
+    { headers: { Accept: "application/json" } },
+    10_000,
+  );
+  if (!res.ok) throw new HttpStatusError(res.status);
 }
 
 export function makeTmdbFetch(apiKey: string, language = "en-US") {

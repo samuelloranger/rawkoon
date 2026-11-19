@@ -16,3 +16,18 @@ export function worstStatus(statuses: readonly DoctorStatus[]): DoctorStatus {
     "ok",
   );
 }
+
+export type Dependency = "db" | "valkey";
+
+/** The outcome for a check whose shared dependency is down; null when it is up or unknown. */
+export function skippedOutcome(
+  needs: Dependency | undefined,
+  health: { db: boolean; valkey: boolean } | null,
+): CheckOutcome | null {
+  if (!needs || health?.[needs] !== false) return null;
+  return {
+    status: "fail",
+    summary: `Skipped: ${needs === "db" ? "the database" : "Valkey"} is unreachable.`,
+    fix: null,
+  };
+}

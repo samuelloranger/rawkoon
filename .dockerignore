@@ -34,3 +34,7 @@ Thumbs.db
 # Documentation
 *.md
 !README.md
+
+# Tests are not part of the runtime image
+apps/api/e2e/
+apps/api/test/

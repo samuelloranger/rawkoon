@@ -88,7 +88,8 @@ export interface IndexerManagerAdapter {
 
   search(params: IndexerSearchParams): Promise<SearchResult>;
 
-  getIndexers(): Promise<NormalizedIndexer[]>;
+  /** `strict` throws the connection or HTTP failure instead of returning an empty list. */
+  getIndexers(opts?: { strict?: boolean }): Promise<NormalizedIndexer[]>;
 
   /**
    * Resolve a stored token to a download URL/magnet (and title).

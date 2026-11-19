@@ -332,6 +332,11 @@ export function alertStillValidFromContext(
     case "audio_language_mismatch":
     case "audio_language_warn": {
       // Raised at import; stays valid while the imported file still exists.
+      if (alert.scopeType === "season_pack") {
+        const eps =
+          ctx.seasonEpisodes.get(`${alert.mediaId}|${alert.season}`) ?? [];
+        return eps.some((ep) => ep.fileCount > 0);
+      }
       if (alert.episodeId != null) {
         return (ctx.episodeMap.get(alert.episodeId)?.fileCount ?? 0) > 0;
       }

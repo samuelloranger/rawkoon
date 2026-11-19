@@ -556,12 +556,20 @@
     "path": "/api/integrations/jackett/indexers"
   },
   {
+    "method": "POST",
+    "path": "/api/integrations/jackett/test"
+  },
+  {
     "method": "GET",
     "path": "/api/integrations/jellyfin"
   },
   {
     "method": "PUT",
     "path": "/api/integrations/jellyfin"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/jellyfin/test"
   },
   {
     "method": "GET",
@@ -604,12 +612,20 @@
     "path": "/api/integrations/prowlarr/indexers"
   },
   {
+    "method": "POST",
+    "path": "/api/integrations/prowlarr/test"
+  },
+  {
     "method": "GET",
     "path": "/api/integrations/tmdb"
   },
   {
     "method": "PUT",
     "path": "/api/integrations/tmdb"
+  },
+  {
+    "method": "POST",
+    "path": "/api/integrations/tmdb/test"
   },
   {
     "method": "POST",

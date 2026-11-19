@@ -289,4 +289,37 @@ export const integrationsFixtures: FixtureRegistry = {
     body: () => ({ api_key: "e2e-nyt-key" }),
     negativeBody: { api_key: 1 },
   },
+  "POST /api/integrations/jackett/test": {
+    phase: "action",
+    admin: true,
+    body: () => ({
+      website_url: "http://mock-jackett.local",
+      api_key: "mock-jackett-key",
+    }),
+    negativeBody: { website_url: 1 },
+  },
+  "POST /api/integrations/prowlarr/test": {
+    phase: "action",
+    admin: true,
+    body: () => ({
+      website_url: "http://mock-prowlarr.local",
+      api_key: "mock-prowlarr-key",
+    }),
+    negativeBody: { website_url: 1 },
+  },
+  "POST /api/integrations/jellyfin/test": {
+    phase: "action",
+    admin: true,
+    body: () => ({
+      website_url: "http://mock-jellyfin.local",
+      api_key: "mock-jellyfin-key",
+    }),
+    negativeBody: { website_url: 1 },
+  },
+  "POST /api/integrations/tmdb/test": {
+    phase: "action",
+    admin: true,
+    body: () => ({ api_key: "e2e-tmdb-key" }),
+    negativeBody: { api_key: 1 },
+  },
 };

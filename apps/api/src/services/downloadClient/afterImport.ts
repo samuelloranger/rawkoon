@@ -39,6 +39,18 @@ export function afterImportAction(input: {
     : "keep";
 }
 
+/** True when the torrent's data is its own: no other torrent shares the content path. */
+export async function ownsTorrentData(
+  adapter: DownloadClientAdapter,
+  hash: string,
+): Promise<boolean> {
+  const torrents = await adapter.listTorrents();
+  const self = torrents.find(
+    (t) => t.hash.toLowerCase() === hash.toLowerCase(),
+  );
+  return self != null && !sharesContentPath(self, torrents);
+}
+
 /** Apply an after-import action; data is kept when another torrent shares it. */
 export async function applyAfterImportAction(
   adapter: DownloadClientAdapter,
@@ -50,11 +62,7 @@ export async function applyAfterImportAction(
   try {
     let deleteData = action === "removeWithData";
     if (deleteData) {
-      const torrents = await adapter.listTorrents();
-      const self = torrents.find(
-        (t) => t.hash.toLowerCase() === hash.toLowerCase(),
-      );
-      deleteData = self != null && !sharesContentPath(self, torrents);
+      deleteData = await ownsTorrentData(adapter, hash);
     }
     await adapter.remove(hash, deleteData);
   } catch (error) {

@@ -1,5 +1,6 @@
 import { getIntegrationConfigRecord } from "@rawkoon/api/services/integrationConfigCache";
 import { normalizeJellyfinConfig } from "@rawkoon/api/utils/integrations/normalizers";
+import { HttpStatusError } from "@rawkoon/api/utils/describeError";
 import type { JellyfinIntegrationConfig } from "@rawkoon/api/utils/integrations/types";
 
 const JELLYFIN_TIMEOUT_MS = 10_000;
@@ -67,6 +68,16 @@ export async function getJellyfinConfig(): Promise<JellyfinIntegrationConfig | n
   const integration = await getIntegrationConfigRecord("jellyfin");
   if (!integration?.enabled) return null;
   return normalizeJellyfinConfig(integration.config);
+}
+
+/** Throws on a network failure or a non-2xx from an authenticated call. */
+export async function probeJellyfin(
+  config: Pick<JellyfinIntegrationConfig, "website_url" | "api_key">,
+): Promise<void> {
+  const res = await jellyfinFetch(`${config.website_url}/System/Info`, {
+    headers: jellyfinAuthHeader(config.api_key),
+  });
+  if (!res.ok) throw new HttpStatusError(res.status);
 }
 
 function toJellyfinUser(raw: unknown): JellyfinUser | null {

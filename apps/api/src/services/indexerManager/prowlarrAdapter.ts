@@ -22,6 +22,7 @@ import {
   toBoolean,
 } from "../../utils/medias/prowlarrSearchUtils";
 import { randomUUID } from "crypto";
+import { HttpStatusError } from "@rawkoon/api/utils/describeError";
 
 const RELEASE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -190,14 +191,20 @@ export class ProwlarrAdapter implements IndexerManagerAdapter {
     return { releases, indexerWarnings };
   }
 
-  async getIndexers(): Promise<NormalizedIndexer[]> {
+  async getIndexers(opts?: { strict?: boolean }): Promise<NormalizedIndexer[]> {
     const url = new URL("/api/v1/indexer", this.config.website_url);
     const res = await fetch(url.toString(), {
       headers: this.headers(),
       signal: AbortSignal.timeout(10_000),
-    }).catch(() => null);
+    }).catch((error) => {
+      if (opts?.strict) throw error;
+      return null;
+    });
 
-    if (!res?.ok) return [];
+    if (!res?.ok) {
+      if (opts?.strict && res) throw new HttpStatusError(res.status);
+      return [];
+    }
 
     const raw = (await res.json().catch(() => [])) as Array<
       Record<string, unknown>

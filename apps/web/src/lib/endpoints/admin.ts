@@ -1,6 +1,7 @@
 export const ADMIN_ENDPOINTS = {
   TRIGGER_ACTION: "/api/admin/trigger-action",
   SCHEDULED_JOBS: "/api/admin/scheduled-jobs",
+  DOCTOR: "/api/admin/doctor",
   LIBRARY_HEALTH: "/api/admin/library-health",
   LIBRARY_HEALTH_IGNORES: "/api/admin/library-health/ignores",
   LIBRARY_HEALTH_IGNORE: (id: number) =>

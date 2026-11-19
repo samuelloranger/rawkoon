@@ -99,7 +99,10 @@ export async function buildLibraryInodeKeySet(
 }
 
 /** Key for a live stat, normalized like the library side; "?" for an unusable inode so it never matches. */
-function inodeKey(dev: bigint | undefined, ino: bigint | undefined): string {
+export function inodeKey(
+  dev: bigint | undefined,
+  ino: bigint | undefined,
+): string {
   if (dev === undefined || ino === undefined) return "?";
   const normalized = normalizeInode(ino);
   if (normalized === null) return "?";

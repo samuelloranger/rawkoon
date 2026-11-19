@@ -24,6 +24,10 @@ import {
 } from "./migrations";
 import { evaluateHardlinks } from "./hardlinks";
 import { mapGrabReadiness } from "./grabMapping";
+import {
+  checkOrphanedDownloads,
+  ORPHANS_TIMEOUT_MS,
+} from "./orphanedDownloadsCheck";
 import { evaluateFreeSpace, evaluatePathAccess, type PathProbe } from "./paths";
 import {
   probePath,
@@ -33,83 +37,15 @@ import {
   type LibrarySettings,
 } from "./probes";
 import { worstStatus, type CheckOutcome } from "./status";
+import { DOCTOR_TIMEOUT_MS, draft, runCheck, type CheckDef } from "./runCheck";
 import {
-  describeError,
   endpointLabel,
   HttpStatusError,
 } from "@rawkoon/api/utils/describeError";
 
-const DOCTOR_TIMEOUT_MS = 5000;
-
 // Headroom above grabReadiness's own probe budget so its classified
 // "unreachable" drafts win over an outer collapse into "timed out".
 const GRAB_READINESS_TIMEOUT_MS = PROBE_TIMEOUT_MS + 2000;
-
-type Draft = { id: string; title: string } & CheckOutcome;
-
-interface CheckDef {
-  /** Fallback check id/title when the probe throws before producing drafts. */
-  id: string;
-  title: string;
-  /** Fallback fix when the probe crashes; returned drafts carry their own. */
-  fixOnCrash: string | null;
-  /** Per-def bound; defaults to DOCTOR_TIMEOUT_MS. */
-  timeoutMs?: number;
-  run: () => Promise<Draft[]>;
-}
-
-// Name matches the DOMException AbortSignal.timeout produces, so
-// describeError classifies a lost race as "timed out".
-class ProbeTimeout extends Error {
-  constructor(label: string) {
-    super(`${label} timed out`);
-    this.name = "TimeoutError";
-  }
-}
-
-/** Bounds one probe so a hung dependency can never stall the report. */
-function withTimeout<T>(
-  promise: Promise<T>,
-  label: string,
-  timeoutMs: number = DOCTOR_TIMEOUT_MS,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new ProbeTimeout(label)), timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
-
-function draft(id: string, title: string, outcome: CheckOutcome): Draft {
-  return { id, title, ...outcome };
-}
-
-async function runCheck(def: CheckDef): Promise<DoctorCheck[]> {
-  const startedAt = Date.now();
-  let drafts: Draft[];
-  try {
-    drafts = await withTimeout(def.run(), def.title, def.timeoutMs);
-  } catch (error) {
-    // A throwing check is a failed check — the report itself never crashes.
-    drafts = [
-      draft(def.id, def.title, {
-        status: "fail",
-        summary: `Could not be checked: ${describeError(error)}.`,
-        fix: def.fixOnCrash,
-      }),
-    ];
-  }
-  const duration_ms = Date.now() - startedAt;
-  return drafts.map((d) => ({ ...d, duration_ms }));
-}
 
 const SETTINGS_UNAVAILABLE: PathProbe = {
   exists: false,
@@ -161,6 +97,7 @@ function pathDef(
   return {
     id: slot.id,
     title: slot.title,
+    needs: "db",
     fixOnCrash: "Check the mount and permissions for the configured path.",
     run: async () => {
       // A movies-only install has no book paths to warn about.
@@ -193,6 +130,7 @@ function freeSpaceDef(
   return {
     id: "free_space",
     title: "Free space",
+    needs: "db",
     fixOnCrash: "Check that the library and download volumes are mounted.",
     run: async () => {
       const slots = await configuredSlots(settings, booksEnabled);
@@ -221,6 +159,7 @@ function hardlinksDef(
   return {
     id: "hardlinks",
     title: "Hardlink support",
+    needs: "db",
     fixOnCrash: "Check the mounts for the downloads and library paths.",
     run: async () => {
       const row = await settings;
@@ -251,6 +190,26 @@ function hardlinksDef(
         ),
       ];
     },
+  };
+}
+
+function orphanedDownloadsDef(settings: Promise<LibrarySettings>): CheckDef {
+  const id = "orphaned_downloads";
+  const title = "Orphaned downloads";
+  return {
+    id,
+    title,
+    // A large downloads folder takes a while to walk.
+    timeoutMs: ORPHANS_TIMEOUT_MS,
+    needs: "db",
+    fixOnCrash: "Check the downloads path mount and the download client.",
+    run: async () => [
+      draft(
+        id,
+        title,
+        await checkOrphanedDownloads((await settings).downloadsPath),
+      ),
+    ],
   };
 }
 
@@ -306,6 +265,7 @@ function scheduledJobsDef(): CheckDef {
   return {
     id: "scheduled_jobs",
     title: "Scheduled jobs",
+    needs: "valkey",
     fixOnCrash:
       "Scheduled jobs are registered from Valkey at API startup — check that Valkey is reachable, then restart the API.",
     run: async () => {
@@ -455,6 +415,7 @@ function migrationsDef(): CheckDef {
   return {
     id: "migrations",
     title: "Migrations",
+    needs: "db",
     fixOnCrash:
       "Run `prisma migrate deploy` — the container entrypoint does this on startup.",
     run: async () => {
@@ -491,11 +452,14 @@ export async function runDoctor(): Promise<DoctorReport> {
     freeSpaceDef(settings, booksEnabled),
     hardlinksDef(settings, booksEnabled),
     grabReadinessDef(),
+    orphanedDownloadsDef(settings),
     jellyfinDef(),
     tmdbDef(),
   ];
 
-  const checks = (await Promise.all(defs.map(runCheck))).flat();
+  const checks = (
+    await Promise.all(defs.map((def) => runCheck(def, health)))
+  ).flat();
   return {
     status: worstStatus(checks.map((check) => check.status)),
     version: getAppVersion(),

@@ -12,16 +12,24 @@ import {
   QUEUE_NAMES,
   SCHEDULED_JOB_NAMES,
 } from "@rawkoon/api/services/queueService";
+import { reopenedStatus } from "@rawkoon/api/services/library/targetHasFileOnDisk";
 import { downloadedEpisodesFailingProfile } from "@rawkoon/api/services/upgradeTargets";
 
 export function findLibraryMediaRow(id: number) {
   return prisma.libraryMedia.findUnique({ where: { id } });
 }
 
-export function resetMovieForManualSearch(id: number) {
-  return prisma.libraryMedia.update({
+// An in-flight grab keeps its status; only the search counter is reset.
+const IN_FLIGHT = ["downloading", "upgrading"];
+
+export async function resetMovieForManualSearch(id: number) {
+  await prisma.libraryMedia.update({
     where: { id },
-    data: { searchAttempts: 0, status: "wanted" },
+    data: { searchAttempts: 0 },
+  });
+  return prisma.libraryMedia.updateMany({
+    where: { id, status: { notIn: IN_FLIGHT } },
+    data: { status: await reopenedStatus({ mediaId: id, episodeId: null }) },
   });
 }
 
@@ -31,10 +39,17 @@ export function findEpisodeOfMedia(mediaId: number, episodeId: number) {
   });
 }
 
-export function resetEpisodeForManualSearch(episodeId: number) {
-  return prisma.libraryEpisode.update({
+export async function resetEpisodeForManualSearch(
+  mediaId: number,
+  episodeId: number,
+) {
+  await prisma.libraryEpisode.update({
     where: { id: episodeId },
-    data: { searchAttempts: 0, status: "wanted" },
+    data: { searchAttempts: 0 },
+  });
+  return prisma.libraryEpisode.updateMany({
+    where: { id: episodeId, status: { notIn: IN_FLIGHT } },
+    data: { status: await reopenedStatus({ mediaId, episodeId }) },
   });
 }
 
@@ -42,11 +57,19 @@ export async function retrySkippedEpisodes(
   mediaId: number,
   season: number,
 ): Promise<number> {
-  const result = await prisma.libraryEpisode.updateMany({
-    where: { mediaId, season, status: "skipped" },
-    data: { status: "wanted", searchAttempts: 0 },
-  });
-  return result.count;
+  // An episode that already has a file goes back to downloaded, not the search queue.
+  const where = { mediaId, season, status: "skipped" };
+  const [missing, kept] = await Promise.all([
+    prisma.libraryEpisode.updateMany({
+      where: { ...where, files: { none: {} } },
+      data: { status: "wanted", searchAttempts: 0 },
+    }),
+    prisma.libraryEpisode.updateMany({
+      where: { ...where, files: { some: {} } },
+      data: { status: "downloaded", searchAttempts: 0 },
+    }),
+  ]);
+  return missing.count + kept.count;
 }
 
 export function countDownloadingEpisodes(mediaId: number, season: number) {

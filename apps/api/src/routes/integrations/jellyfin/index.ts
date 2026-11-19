@@ -16,6 +16,12 @@ import { badRequest, ok, serverError } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 
+import {
+  failedTest,
+  resolveTestTarget,
+  testBodySchema,
+} from "@rawkoon/api/utils/integrations/testConnection";
+import { probeJellyfin } from "@rawkoon/api/services/jellyfin/jellyfinUsers";
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const jellyfinIntegrationRoutes = new Hono<Env>()
   .get("/jellyfin", async () => {
@@ -116,4 +122,17 @@ export const jellyfinIntegrationRoutes = new Hono<Env>()
         return serverError("Failed to save Jellyfin integration config");
       }
     },
-  );
+  )
+  .post("/jellyfin/test", jsonV(testBodySchema), async (c) => {
+    const stored = normalizeJellyfinConfig(
+      (await findIntegrationRow("jellyfin"))?.config,
+    );
+    const target = resolveTestTarget(c.req.valid("json"), stored);
+    if ("error" in target) return badRequest(target.error);
+    try {
+      await probeJellyfin(target);
+      return ok({ success: true });
+    } catch (error) {
+      return ok(failedTest(error, "Jellyfin"));
+    }
+  });

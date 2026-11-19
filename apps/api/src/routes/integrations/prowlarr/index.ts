@@ -17,6 +17,11 @@ import type { Env } from "@rawkoon/api/honoEnv";
 import { jsonV } from "@rawkoon/api/middleware/validate";
 import { ProwlarrAdapter } from "@rawkoon/api/services/indexerManager/prowlarrAdapter";
 
+import {
+  failedTest,
+  resolveTestTarget,
+  testBodySchema,
+} from "@rawkoon/api/utils/integrations/testConnection";
 // Mounted under /api/integrations; requireAdmin is applied at the parent.
 export const prowlarrIntegrationRoutes = new Hono<Env>()
   .get("/prowlarr", async () => {
@@ -113,5 +118,20 @@ export const prowlarrIntegrationRoutes = new Hono<Env>()
     } catch (error) {
       console.error("Error fetching Prowlarr indexers:", error);
       return serverError("Failed to fetch Prowlarr indexers");
+    }
+  })
+  .post("/prowlarr/test", jsonV(testBodySchema), async (c) => {
+    const stored = normalizeProwlarrConfig(
+      (await findIntegrationRow("prowlarr"))?.config,
+    );
+    const target = resolveTestTarget(c.req.valid("json"), stored);
+    if ("error" in target) return badRequest(target.error);
+    try {
+      await new ProwlarrAdapter({ ...target, rss_indexers: [] }).getIndexers({
+        strict: true,
+      });
+      return ok({ success: true });
+    } catch (error) {
+      return ok(failedTest(error, "Prowlarr"));
     }
   });
