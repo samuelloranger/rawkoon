@@ -1,6 +1,256 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Key": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clé"
+          }
+        }
+      }
+    },
+    "Revoke this API key?": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Révoquer cette clé API ?"
+          }
+        }
+      }
+    },
+    "Any integration using it will stop working immediately.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toute intégration qui l'utilise cessera de fonctionner immédiatement."
+          }
+        }
+      }
+    },
+    "Copied.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copié."
+          }
+        }
+      }
+    },
+    "Copy": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier"
+          }
+        }
+      }
+    },
+    "Endpoint": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Point de terminaison"
+          }
+        }
+      }
+    },
+    "The variable must be set in the shell that runs codex.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La variable doit être définie dans le shell qui exécute codex."
+          }
+        }
+      }
+    },
+    "MCP setup": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuration MCP"
+          }
+        }
+      }
+    },
+    "The commands above include the key in clear text — copy them now, the key is shown only once.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les commandes ci-dessus contiennent la clé en clair — copiez-les maintenant, la clé n'est affichée qu'une seule fois."
+          }
+        }
+      }
+    },
+    "Replace <your key> in the commands with this API key's value. The key itself is not shown again.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacez <your key> dans les commandes par la valeur de cette clé API ; elle n'est plus affichée ici."
+          }
+        }
+      }
+    },
+    "Copy your API key now": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiez votre clé API maintenant"
+          }
+        }
+      }
+    },
+    "This is the only time the key will be shown. Copy it somewhere safe.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C'est la seule fois où la clé sera affichée. Copiez-la en lieu sûr."
+          }
+        }
+      }
+    },
+    "MCP access": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accès MCP"
+          }
+        }
+      }
+    },
+    "Optional: let AI clients (Claude Code, Claude Desktop, OpenCode, Codex CLI) use Rawkoon through this key.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facultatif : permettez aux clients IA (Claude Code, Claude Desktop, OpenCode, Codex CLI) d'utiliser Rawkoon via cette clé."
+          }
+        }
+      }
+    },
+    "Save scopes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer les permissions"
+          }
+        }
+      }
+    },
+    "MCP scopes updated": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions MCP mises à jour"
+          }
+        }
+      }
+    },
+    "Failed to update MCP scopes": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la mise à jour des permissions MCP"
+          }
+        }
+      }
+    },
+    "Read (library, search, downloads, requests)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture (médiathèque, recherche, téléchargements, demandes)"
+          }
+        }
+      }
+    },
+    "Request titles": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander des titres"
+          }
+        }
+      }
+    },
+    "Approve requests": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approuver les demandes"
+          }
+        }
+      }
+    },
+    "Admin (health self-check)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin (autodiagnostic)"
+          }
+        }
+      }
+    },
+    "Created %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créée le %@"
+          }
+        }
+      }
+    },
+    "Last used %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière utilisation : %@"
+          }
+        }
+      }
+    },
+    "MCP: %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP : %@"
+          }
+        }
+      }
+    },
+    "Change what the key \"%@\" may do, and copy a setup command for your MCP client.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifiez ce que la clé « %@ » peut faire, puis copiez une commande de configuration pour votre client MCP."
+          }
+        }
+      }
+    },
     "No filter": {
       "localizations": {
         "fr": {
