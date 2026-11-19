@@ -174,7 +174,34 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
     expect(mediaFileUpdates[0]!.data.fileIno).toBeDefined();
   });
 
-  it("uses persisted fileDev/fileIno without requiring the library path on disk", async () => {
+  it("uses the persisted inode without requiring the library path on disk", async () => {
+    const vidPath = join(tmp, "download.mkv");
+    await truncateBigFile(vidPath, 105 * 1024 * 1024);
+    // A second link stands in for the library copy, which lives at a path the scan never stats.
+    await link(vidPath, join(tmp, "other-link.mkv"));
+    const st = await stat(vidPath);
+
+    settingsRow = {
+      moviesLibraryPath: join(tmp, "lib_marker"),
+      showsLibraryPath: null,
+    };
+    mediaPaths = [
+      {
+        filePath: join(tmp, "missing-library-copy.mkv"),
+        // A remount changes st_dev; the stored device must not matter.
+        fileDev: BigInt(st.dev) + 7n,
+        fileIno: BigInt(st.ino),
+      },
+    ];
+
+    const { entries: rows } = await scanDownloads({ refresh: true });
+    expect(rows.some((r) => r.file_path === vidPath && r.is_imported)).toBe(
+      true,
+    );
+    expect(mediaFileUpdates).toHaveLength(0);
+  });
+
+  it("never reports a download with no other link as imported", async () => {
     const vidPath = join(tmp, "download.mkv");
     await truncateBigFile(vidPath, 105 * 1024 * 1024);
     const st = await stat(vidPath);
@@ -185,17 +212,14 @@ describe.serial("scanDownloads integration (mocked prisma)", () => {
     };
     mediaPaths = [
       {
-        filePath: join(tmp, "missing-library-copy.mkv"),
+        filePath: join(tmp, "deleted-library-copy.mkv"),
         fileDev: BigInt(st.dev),
         fileIno: BigInt(st.ino),
       },
     ];
 
     const { entries: rows } = await scanDownloads({ refresh: true });
-    expect(rows.some((r) => r.file_path === vidPath && r.is_imported)).toBe(
-      true,
-    );
-    expect(mediaFileUpdates).toHaveLength(0);
+    expect(rows.find((r) => r.file_path === vidPath)?.is_imported).toBe(false);
   });
 
   it("excludes files inside the configured library subtree", async () => {

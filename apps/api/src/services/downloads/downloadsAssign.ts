@@ -11,6 +11,7 @@ import {
   pathIsInsideRoot,
   buildLibraryInodeKeySet,
   DOWNLOADS_MIN_BYTES,
+  linkedInodeKey,
 } from "@rawkoon/api/services/downloads/downloadsScanner";
 import { addOrUpdateLibraryFromTmdb } from "@rawkoon/api/services/libraryFromTmdb";
 import { emitLibraryUpdate } from "@rawkoon/api/services/libraryEvents";
@@ -26,10 +27,7 @@ import {
   sanitizePathTemplateOutput,
 } from "@rawkoon/api/utils/medias/fileTemplate";
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
-import {
-  inodeKeyFromParts,
-  normalizeInode,
-} from "@rawkoon/api/utils/medias/fileFingerprint";
+import { normalizeInode } from "@rawkoon/api/utils/medias/fileFingerprint";
 import {
   classifyDestination,
   judgePlacement,
@@ -181,10 +179,7 @@ export async function assignDownloadFromDisk(
   const srcIno = asInodeParts(srcStat);
   // A null inode means the runtime could not identify the file. Skip the
   // already-linked guard rather than assume either answer.
-  if (
-    srcIno !== null &&
-    inodeSet.has(inodeKeyFromParts(srcIno.dev, srcIno.ino))
-  )
+  if (srcIno !== null && inodeSet.has(linkedInodeKey(srcStat)))
     return {
       status: 409,
       error: "File is already linked in the library (inode match)",

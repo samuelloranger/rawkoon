@@ -9,7 +9,10 @@ import {
 import { join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { describeError } from "@rawkoon/api/utils/describeError";
-import { buildLibraryInodeKeySet } from "@rawkoon/api/services/downloads/downloadsScanner";
+import {
+  buildLibraryInodeKeySet,
+  linkedInodeKey,
+} from "@rawkoon/api/services/downloads/downloadsScanner";
 import { normalizeInode } from "@rawkoon/api/utils/medias/fileFingerprint";
 import type { DownloadEntry } from "./orphanedDownloads";
 import type { PathProbe } from "./paths";
@@ -103,16 +106,9 @@ export async function statFreeBytes(path: string): Promise<FreeBytesProbe> {
   }
 }
 
-/**
- * Every inode the library knows, without the device: mergerfs and remounts change st_dev,
- * so a stored dev goes stale while the inode stays. A cross-filesystem inode clash can only hide an orphan.
- */
+/** Every inode the library knows (media from the shared index, plus book files), matched with linkedInodeKey. */
 export async function readLibraryInodes(): Promise<Set<string>> {
-  const keys = new Set(
-    [...(await buildLibraryInodeKeySet())].map((k) =>
-      k.slice(k.indexOf(":") + 1),
-    ),
-  );
+  const keys = new Set(await buildLibraryInodeKeySet());
   const books = await prisma.bookFile.findMany({
     where: { fileIno: { not: null } },
     select: { fileIno: true },
@@ -149,8 +145,7 @@ async function walk(
     total.newestMtimeMs = Number(info.mtimeMs);
     if (!info.isDirectory()) {
       total.sizeBytes = Number(info.size);
-      total.linkedToLibrary =
-        info.nlink > 1n && inodes.has(normalizeInode(info.ino) ?? "?");
+      total.linkedToLibrary = inodes.has(linkedInodeKey(info));
       return total;
     }
     for (const child of await readdir(path)) {
