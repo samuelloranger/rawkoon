@@ -40,6 +40,7 @@ mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
 }));
 mock.module("@rawkoon/api/services/library/targetHasFileOnDisk", () => ({
   targetHasFileOnDisk,
+  reopenedStatus: async () => (hasFile ? "downloaded" : "wanted"),
 }));
 mock.module("@rawkoon/api/services/searchLibraryTarget", () => ({
   searchLibraryTarget,
