@@ -23,6 +23,7 @@ let dhRow: {
   mediaId: number;
   torrentHash: string | null;
   episodeId: number | null;
+  postProcessDestinationPath: string | null;
 } | null = null;
 const deleted: number[] = [];
 const qbCalls: Array<{ fn: string; hash: string; delete_files?: boolean }> = [];
@@ -30,6 +31,7 @@ const qbCalls: Array<{ fn: string; hash: string; delete_files?: boolean }> = [];
 // makes to check whether other active grabs exist. Used to assert the revert was invoked.
 const dhCountCalls: Array<unknown> = [];
 let pauseSucceeds = true;
+let sameHashRows = 0;
 let torrentList: Array<Record<string, unknown>> = [];
 
 mock.module("@rawkoon/api/db", () => ({
@@ -43,7 +45,8 @@ mock.module("@rawkoon/api/db", () => ({
     },
     downloadHistory: {
       findFirst: async () => dhRow,
-      count: async (args: unknown) => {
+      count: async (args: { where?: { torrentHash?: string } }) => {
+        if (args.where?.torrentHash) return sameHashRows;
         dhCountCalls.push(args);
         return 0;
       },
@@ -117,11 +120,18 @@ const ADMIN_USER: NonNullable<FakeUser> = {
 
 beforeEach(() => {
   injectedDbUser = ADMIN_USER;
-  dhRow = { id: 5, mediaId: 1, torrentHash: "h1", episodeId: null };
+  dhRow = {
+    id: 5,
+    mediaId: 1,
+    torrentHash: "h1",
+    episodeId: null,
+    postProcessDestinationPath: "/lib/a.mkv",
+  };
   deleted.length = 0;
   qbCalls.length = 0;
   dhCountCalls.length = 0;
   pauseSucceeds = true;
+  sameHashRows = 0;
   torrentList = [{ hash: "h1", name: "T1", contentPath: "/dl/T1" }];
 });
 
@@ -148,7 +158,7 @@ describe("POST /:id/downloads/:dhId/action", () => {
     expect(qbCalls[0].fn).toBe("resume");
   });
 
-  it("remove deletes the torrent, its files and the DH row by default", async () => {
+  it("remove deletes the torrent, its files and the DH row for an imported download", async () => {
     const res = await post({ action: "remove" });
     expect(res.status).toBe(200);
     expect(qbCalls).toEqual([{ fn: "delete", hash: "h1", delete_files: true }]);
@@ -160,6 +170,20 @@ describe("POST /:id/downloads/:dhId/action", () => {
     expect(qbCalls[0].delete_files).toBe(false);
   });
 
+  it("remove keeps the files of a row that was never imported unless asked", async () => {
+    dhRow = { ...dhRow!, postProcessDestinationPath: null };
+    await post({ action: "remove" });
+    expect(qbCalls[0].delete_files).toBe(false);
+    await post({ action: "remove", delete_files: true });
+    expect(qbCalls[1].delete_files).toBe(true);
+  });
+
+  it("remove keeps the files when a regrab row shares the torrent hash", async () => {
+    sameHashRows = 1;
+    await post({ action: "remove", delete_files: true });
+    expect(qbCalls[0].delete_files).toBe(false);
+  });
+
   it("remove keeps the files when another torrent shares the content", async () => {
     torrentList.push({ hash: "h2", name: "T2", contentPath: "/dl/T1" });
     await post({ action: "remove" });
@@ -167,7 +191,13 @@ describe("POST /:id/downloads/:dhId/action", () => {
   });
 
   it("remove of a row with no hash still deletes the DH row", async () => {
-    dhRow = { id: 5, mediaId: 1, torrentHash: null, episodeId: null };
+    dhRow = {
+      id: 5,
+      mediaId: 1,
+      torrentHash: null,
+      episodeId: null,
+      postProcessDestinationPath: null,
+    };
     const res = await post({ action: "remove" });
     expect(res.status).toBe(200);
     expect(qbCalls.length).toBe(0);
@@ -175,7 +205,13 @@ describe("POST /:id/downloads/:dhId/action", () => {
   });
 
   it("pause with no hash returns 400", async () => {
-    dhRow = { id: 5, mediaId: 1, torrentHash: null, episodeId: null };
+    dhRow = {
+      id: 5,
+      mediaId: 1,
+      torrentHash: null,
+      episodeId: null,
+      postProcessDestinationPath: null,
+    };
     const res = await post({ action: "pause" });
     expect(res.status).toBe(400);
     expect(qbCalls.length).toBe(0);

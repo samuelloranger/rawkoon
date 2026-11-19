@@ -12,6 +12,7 @@ const entry = (over: Partial<DownloadEntry> = {}): DownloadEntry => ({
   sizeBytes: 1024 ** 3,
   newestMtimeMs: 0,
   linkedToLibrary: false,
+  unreadable: false,
   ...over,
 });
 const torrent = (over: Record<string, string | null> = {}) => ({
@@ -50,6 +51,12 @@ describe("selectOrphans", () => {
     expect(
       selectOrphans([entry({ linkedToLibrary: true })], [], NOW),
     ).toHaveLength(0);
+  });
+
+  it("skips entries it could not read", () => {
+    expect(selectOrphans([entry({ unreadable: true })], [], NOW)).toHaveLength(
+      0,
+    );
   });
 
   it("skips entries younger than the grace period", () => {

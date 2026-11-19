@@ -9,6 +9,14 @@ import {
 import { join } from "node:path";
 import { prisma } from "@rawkoon/api/db";
 import { describeError } from "@rawkoon/api/utils/describeError";
+import {
+  buildLibraryInodeKeySet,
+  inodeKey,
+} from "@rawkoon/api/services/downloads/downloadsScanner";
+import {
+  inodeKeyFromParts,
+  normalizeInode,
+} from "@rawkoon/api/utils/medias/fileFingerprint";
 import type { DownloadEntry } from "./orphanedDownloads";
 import type { PathProbe } from "./paths";
 
@@ -101,55 +109,81 @@ export async function statFreeBytes(path: string): Promise<FreeBytesProbe> {
   }
 }
 
-/** Every (dev:ino) the library knows, from the cached stat of each media and book file. */
+/** Every (dev:ino) the library knows; media keys come from the shared index that re-stats rows with no stored inode. */
 export async function readLibraryInodes(): Promise<Set<string>> {
-  const where = { fileDev: { not: null }, fileIno: { not: null } };
-  const select = { fileDev: true, fileIno: true };
-  const [media, books] = await Promise.all([
-    prisma.mediaFile.findMany({ where, select }),
-    prisma.bookFile.findMany({ where, select }),
-  ]);
-  return new Set(
-    [...media, ...books].map((row) => `${row.fileDev}:${row.fileIno}`),
-  );
+  const keys = new Set(await buildLibraryInodeKeySet());
+  const books = await prisma.bookFile.findMany({
+    where: { fileDev: { not: null }, fileIno: { not: null } },
+    select: { fileDev: true, fileIno: true },
+  });
+  for (const row of books) {
+    const ino = normalizeInode(BigInt(row.fileIno!));
+    if (ino !== null) keys.add(inodeKeyFromParts(row.fileDev!, ino));
+  }
+  return keys;
 }
 
+type Walked = Pick<
+  DownloadEntry,
+  "sizeBytes" | "newestMtimeMs" | "linkedToLibrary" | "unreadable"
+>;
+
+const code = (error: unknown) => (error as { code?: unknown }).code;
+
+/** null: the path vanished mid-walk. Unreadable paths come back flagged, never as errors. */
 async function walk(
   path: string,
   inodes: ReadonlySet<string>,
-): Promise<
-  Pick<DownloadEntry, "sizeBytes" | "newestMtimeMs" | "linkedToLibrary">
-> {
-  const info = await lstat(path, { bigint: true });
-  let sizeBytes = 0;
-  let newestMtimeMs = Number(info.mtimeMs);
-  let linkedToLibrary = false;
-  if (info.isDirectory()) {
-    for (const child of await readdir(path)) {
-      const sub = await walk(join(path, child), inodes);
-      sizeBytes += sub.sizeBytes;
-      newestMtimeMs = Math.max(newestMtimeMs, sub.newestMtimeMs);
-      linkedToLibrary ||= sub.linkedToLibrary;
+  deadlineMs: number,
+): Promise<Walked | null> {
+  if (Date.now() > deadlineMs) throw new Error("downloads scan timed out");
+  const total: Walked = {
+    sizeBytes: 0,
+    newestMtimeMs: 0,
+    linkedToLibrary: false,
+    unreadable: false,
+  };
+  try {
+    const info = await lstat(path, { bigint: true });
+    total.newestMtimeMs = Number(info.mtimeMs);
+    if (!info.isDirectory()) {
+      total.sizeBytes = Number(info.size);
+      total.linkedToLibrary =
+        info.nlink > 1n && inodes.has(inodeKey(info.dev, info.ino));
+      return total;
     }
-  } else {
-    sizeBytes = Number(info.size);
-    linkedToLibrary = info.nlink > 1n && inodes.has(`${info.dev}:${info.ino}`);
+    for (const child of await readdir(path)) {
+      const sub = await walk(join(path, child), inodes, deadlineMs);
+      if (!sub) continue;
+      total.sizeBytes += sub.sizeBytes;
+      total.newestMtimeMs = Math.max(total.newestMtimeMs, sub.newestMtimeMs);
+      total.linkedToLibrary ||= sub.linkedToLibrary;
+      total.unreadable ||= sub.unreadable;
+    }
+    return total;
+  } catch (error) {
+    if (code(error) === "ENOENT") return null;
+    if (error instanceof Error && error.message.endsWith("timed out")) {
+      throw error;
+    }
+    // EACCES, EPERM and anything else: unknown, so never reported as an orphan.
+    return { ...total, unreadable: true };
   }
-  return { sizeBytes, newestMtimeMs, linkedToLibrary };
 }
 
 /** Top-level entries of the downloads folder with size, freshness and library-link facts. */
 export async function scanDownloads(
   downloadsPath: string,
   inodes: ReadonlySet<string>,
+  deadlineMs: number,
 ): Promise<DownloadEntry[]> {
   const names = (await readdir(downloadsPath)).filter(
     (name) => !name.startsWith(".") && name.toLowerCase() !== "incomplete",
   );
-  return Promise.all(
-    names.map(async (name) => ({
-      name,
-      ...(await walk(join(downloadsPath, name), inodes)),
-    })),
-  );
+  const entries: DownloadEntry[] = [];
+  for (const name of names) {
+    const walked = await walk(join(downloadsPath, name), inodes, deadlineMs);
+    if (walked) entries.push({ name, ...walked });
+  }
+  return entries;
 }

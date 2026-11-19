@@ -9,6 +9,8 @@ export interface DownloadEntry {
   newestMtimeMs: number;
   /** Some file inside is hardlinked into the library. */
   linkedToLibrary: boolean;
+  /** Part of it could not be read, so nothing is known about it. */
+  unreadable: boolean;
 }
 
 export type TorrentLocation = Pick<
@@ -39,6 +41,7 @@ export function selectOrphans(
   return entries.filter(
     (e) =>
       !e.linkedToLibrary &&
+      !e.unreadable &&
       nowMs - e.newestMtimeMs >= ORPHAN_MIN_AGE_MS &&
       !belongsToTorrent(e.name, torrents),
   );

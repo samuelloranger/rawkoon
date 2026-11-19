@@ -206,11 +206,18 @@ export async function performDownloadAction(
   mediaId: number,
   dhId: number,
   action: DownloadAction,
-  deleteFiles: boolean,
+  /** Undefined: delete only what was imported (the library holds its own link). */
+  deleteFiles: boolean | undefined,
 ): Promise<DownloadActionResult> {
   const dh = await prisma.downloadHistory.findFirst({
     where: { id: dhId, mediaId },
-    select: { id: true, mediaId: true, torrentHash: true, episodeId: true },
+    select: {
+      id: true,
+      mediaId: true,
+      torrentHash: true,
+      episodeId: true,
+      postProcessDestinationPath: true,
+    },
   });
   if (!dh) return "not_found";
 
@@ -227,8 +234,14 @@ export async function performDownloadAction(
       if (active) {
         // Best-effort: a missing torrent shouldn't block removing the row.
         // The library's hardlinks survive a data delete; a shared torrent's data must not.
+        // A regrab row with the same hash still points at this data.
+        const sharedWithRow =
+          (await prisma.downloadHistory.count({
+            where: { torrentHash: dh.torrentHash, id: { not: dh.id } },
+          })) > 0;
         const deleteData =
-          deleteFiles &&
+          (deleteFiles ?? dh.postProcessDestinationPath != null) &&
+          !sharedWithRow &&
           (await ownsTorrentData(active.adapter, dh.torrentHash).catch(
             () => false,
           ));

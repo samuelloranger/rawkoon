@@ -24,7 +24,10 @@ import {
 } from "./migrations";
 import { evaluateHardlinks } from "./hardlinks";
 import { mapGrabReadiness } from "./grabMapping";
-import { checkOrphanedDownloads } from "./orphanedDownloadsCheck";
+import {
+  checkOrphanedDownloads,
+  ORPHANS_TIMEOUT_MS,
+} from "./orphanedDownloadsCheck";
 import { evaluateFreeSpace, evaluatePathAccess, type PathProbe } from "./paths";
 import {
   probePath,
@@ -193,8 +196,6 @@ function hardlinksDef(
     },
   };
 }
-
-const ORPHANS_TIMEOUT_MS = 60_000;
 
 function orphanedDownloadsDef(settings: Promise<LibrarySettings>): CheckDef {
   const id = "orphaned_downloads";
