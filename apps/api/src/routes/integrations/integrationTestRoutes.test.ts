@@ -1,10 +1,21 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 
+let storedRow: { enabled: boolean; config: unknown } | null = null;
 mock.module("@rawkoon/api/db", () => ({
-  prisma: { integration: { findFirst: async () => null } },
+  prisma: {
+    integration: { findFirst: async () => storedRow },
+    oidcProvider: { findMany: async () => [] },
+  },
+}));
+
+let current: { id: string; is_admin: boolean } | null = null;
+mock.module("@rawkoon/api/middleware/auth", () => ({
+  resolveUser: async () => current,
 }));
 
 const { Hono } = await import("hono");
+const { encrypt } = await import("@rawkoon/api/services/crypto");
+const { integrationsRoutes } = await import("./index");
 const { jackettIntegrationRoutes } = await import("./jackett");
 const { prowlarrIntegrationRoutes } = await import("./prowlarr");
 const { jellyfinIntegrationRoutes } = await import("./jellyfin");
@@ -47,7 +58,11 @@ function stubFetch(impl: () => Response | Promise<Response>) {
   fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () =>
     impl()) as unknown as typeof fetch);
 }
-afterEach(() => fetchSpy?.mockRestore());
+afterEach(() => {
+  fetchSpy?.mockRestore();
+  storedRow = null;
+  current = null;
+});
 
 const post = (
   routes: (typeof cases)[number]["routes"],
@@ -113,4 +128,78 @@ describe("jackett torznab errors", () => {
     const res = await post(jackettIntegrationRoutes, "jackett", cases[0].body);
     expect(((await res.json()) as { cause: string }).cause).toBe("auth");
   });
+});
+
+describe("stored key is only sent to the stored URL", () => {
+  const STORED_KEY = "stored-secret";
+  const store = () => {
+    storedRow = {
+      enabled: true,
+      config: {
+        website_url: "http://saved.test",
+        api_key: encrypt(STORED_KEY),
+        rss_indexers: [],
+      },
+    };
+  };
+  const seen = () =>
+    (fetchSpy?.mock.calls ?? []).map((call: unknown[]) => JSON.stringify(call));
+
+  for (const name of ["jackett", "prowlarr", "jellyfin"] as const) {
+    const routes = cases.find((c) => c.name === name)!.routes;
+    const ok = cases.find((c) => c.name === name)!.ok;
+
+    it(`${name}: a different URL with a blank key is a 400 and sends nothing`, async () => {
+      store();
+      stubFetch(ok);
+      const res = await post(routes, name, {
+        website_url: "http://other.example",
+      });
+      expect(res.status).toBe(400);
+      expect(fetchSpy?.mock.calls.length).toBe(0);
+    });
+
+    it(`${name}: the same URL (trailing slash ignored) uses the stored key`, async () => {
+      store();
+      stubFetch(ok);
+      const res = await post(routes, name, {
+        website_url: "http://saved.test/",
+      });
+      expect(await res.json()).toEqual({ success: true });
+      expect(seen().join()).toContain(STORED_KEY);
+    });
+
+    it(`${name}: a different URL with a typed key tests that key`, async () => {
+      store();
+      stubFetch(ok);
+      await post(routes, name, {
+        website_url: "http://other.example",
+        api_key: "typed",
+      });
+      expect(seen().join()).toContain("typed");
+      expect(seen().join()).not.toContain(STORED_KEY);
+    });
+  }
+});
+
+describe("the test routes are admin-only", () => {
+  const app = new Hono().route("/api/integrations", integrationsRoutes);
+  for (const { name, body } of cases) {
+    it(`${name}: 403 for a non-admin, 401 when signed out`, async () => {
+      stubFetch(() => Response.json({}));
+      const send = () =>
+        app.fetch(
+          new Request(`http://localhost/api/integrations/${name}/test`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+        );
+      current = { id: "member", is_admin: false };
+      expect((await send()).status).toBe(403);
+      current = null;
+      expect((await send()).status).toBe(401);
+      expect(fetchSpy?.mock.calls.length).toBe(0);
+    });
+  }
 });

@@ -1289,6 +1289,7 @@
         "unknown": "Échec de la connexion"
       },
       "testConnection": "Tester la connexion",
+      "apiKeyBlankHint": "Laissez vide pour utiliser la clé enregistrée (même URL seulement)",
       "testing": "Test en cours…",
       "testSuccess": "La connexion fonctionne.",
       "testError": "Impossible de lancer le test.",

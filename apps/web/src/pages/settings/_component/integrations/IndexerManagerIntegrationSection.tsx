@@ -140,6 +140,12 @@ export function IndexerManagerIntegrationSection({
           )}
           className="focus-ring w-full rounded-lg border border-neutral-600 bg-neutral-900 px-4 py-2 font-mono text-white"
         />
+
+        {!apiKey.trim() && (
+          <p className="mt-1 text-xs text-neutral-500">
+            {t("settings.integrations.apiKeyBlankHint")}
+          </p>
+        )}
       </div>
 
       <IntegrationTestButton
