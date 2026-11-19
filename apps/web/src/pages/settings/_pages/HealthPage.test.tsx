@@ -35,6 +35,9 @@ vi.mock("@/pages/_component/RssStatusPanel", () => ({
 vi.mock("@/pages/settings/_component/GrabReadinessChecklist", () => ({
   GrabReadinessChecklist: () => <div>readiness-checklist</div>,
 }));
+vi.mock("@/pages/settings/_component/DoctorCard", () => ({
+  DoctorCard: () => <div>doctor-card</div>,
+}));
 vi.mock("@/pages/settings/_component/LibraryHealthCard", () => ({
   LibraryHealthCard: () => <div>library-health</div>,
 }));

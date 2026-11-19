@@ -1932,7 +1932,25 @@
       "libraryIssues_one": "{{count}} library issue to review",
       "libraryIssues_other": "{{count}} library issues to review",
       "alertsOpen_one": "{{count}} alert open",
-      "alertsOpen_other": "{{count}} alerts open"
+      "alertsOpen_other": "{{count}} alerts open",
+      "doctor": {
+        "title": "Doctor",
+        "description": "Run the full self-check: database, Valkey, migrations, paths, indexer, download client and integrations.",
+        "checkedAt": "Checked {{when}}",
+        "run": "Run checks",
+        "running": "Running checks…",
+        "loadError": "Could not run the checks.",
+        "overall": {
+          "ok": "Everything checks out.",
+          "warn": "Some checks have warnings.",
+          "fail": "Some checks failed."
+        },
+        "status": {
+          "ok": "OK",
+          "warn": "Warning",
+          "fail": "Failed"
+        }
+      }
     },
     "jellyfinLink": {
       "title": "Jellyfin",

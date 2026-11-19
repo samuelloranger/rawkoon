@@ -194,6 +194,7 @@ export const queryKeys = {
     webPush: () => [...queryKeys.admin.all, "web-push"] as const,
     apiKeys: () => [...queryKeys.admin.all, "api-keys"] as const,
     scheduledJobs: () => [...queryKeys.admin.all, "scheduled-jobs"] as const,
+    doctor: () => [...queryKeys.admin.all, "doctor"] as const,
     libraryHealth: () => [...queryKeys.admin.all, "library-health"] as const,
     // Under libraryHealth, so refreshing the run refreshes the ignored list too.
     libraryHealthIgnores: () =>
