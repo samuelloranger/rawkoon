@@ -100,6 +100,18 @@ describe("safeFetch redirects", () => {
     await expect(safeFetch("http://a.test/x")).rejects.toThrow("blocked IP");
   });
 
+  test("connects to the validated IP even if DNS later answers private (rebinding)", async () => {
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      fakeDns.set("a.test", ["10.0.0.5"]);
+      return calls.length === 1
+        ? redirect(302, "http://a.test/y")
+        : new Response("ok");
+    }) as unknown as typeof fetch;
+    await expect(safeFetch("http://a.test/x")).rejects.toThrow("blocked IP");
+    expect(calls.map((c) => c.url)).toEqual(["http://8.8.8.8/x"]);
+  });
+
   test("follows a redirect to another public host and re-pins it", async () => {
     responses = [redirect(302, "https://b.test/next")];
     const res = await safeFetch("http://a.test/x");
