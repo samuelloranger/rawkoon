@@ -21,7 +21,10 @@ const blocklisted: number[] = [];
 
 mock.module(
   "@rawkoon/api/services/libraryAttention/audioLanguageAlert",
-  () => ({ syncAudioLanguageAlert: async () => {} }),
+  () => ({
+    syncAudioLanguageAlert: async () => {},
+    syncSeasonAudioLanguageAlert: async () => {},
+  }),
 );
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
