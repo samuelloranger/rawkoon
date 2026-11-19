@@ -102,7 +102,8 @@ export async function buildLibraryInodeKeySet(
 
 /**
  * Key of a file that may be hardlinked into the library: its normalized inode, or "?" (never matches) when it has no
- * other link or no usable inode. Requiring a second link keeps an inode-number clash with another disk from matching.
+ * other link or no usable inode. Requiring a second link narrows, but cannot rule out, an inode-number clash with a
+ * library on another disk; that setup cannot hardlink-import anyway, and pooled filesystems use 64-bit inodes.
  */
 export function linkedInodeKey(st: {
   nlink: bigint | number;
