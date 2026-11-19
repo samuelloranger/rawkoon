@@ -59,4 +59,10 @@ struct McpSetupTests {
         #expect(McpSetup.endpoint(server: "https://h.example.com//") == "https://h.example.com/api/mcp")
         #expect(McpSetup.endpoint(server: "https://h.example.com") == "https://h.example.com/api/mcp")
     }
+
+    @Test func toggledKeepsCanonicalOrderAndUnknownScopes() {
+        #expect(McpSetup.toggled(["admin", "future"], scope: "read", on: true) == ["read", "admin", "future"])
+        #expect(McpSetup.toggled(["read", "future"], scope: "read", on: false) == ["future"])
+        #expect(McpSetup.toggled(["read"], scope: "read", on: true) == ["read"])
+    }
 }

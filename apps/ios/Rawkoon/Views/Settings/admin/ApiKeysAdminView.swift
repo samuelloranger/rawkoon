@@ -132,15 +132,13 @@ struct ApiKeyRow: View {
         func date(_ raw: String?) -> String? {
             raw.flatMap(APIClient.parseISO8601).map { $0.formatted(date: .abbreviated, time: .omitted) }
         }
-        let never = String(localized: "Never")
         return [
             String(localized: "Created \(date(key.createdAt) ?? "—")"),
-            String(localized: "Last used \(date(key.lastUsedAt) ?? never)"),
-            String(localized: "Expires \(date(key.expiresAt) ?? never)"),
+            date(key.lastUsedAt).map { String(localized: "Last used \($0)") } ?? String(localized: "Never used"),
+            date(key.expiresAt).map { String(localized: "Expires \($0)") } ?? String(localized: "No expiry"),
         ].joined(separator: " \u{2022} ")
     }
 }
-
 
 private struct McpScopeToggles: View {
     @Binding var scopes: [String]
@@ -156,13 +154,7 @@ private struct McpScopeToggles: View {
         ForEach(labels, id: \.scope) { item in
             Toggle(item.label, isOn: Binding(
                 get: { scopes.contains(item.scope) },
-                set: { on in
-                    scopes.removeAll { $0 == item.scope }
-                    if on {
-                        scopes.append(item.scope)
-                    }
-                    scopes = McpSetup.scopes.filter(scopes.contains)
-                }
+                set: { on in scopes = McpSetup.toggled(scopes, scope: item.scope, on: on) }
             ))
             .listRowBackground(Theme.raised)
         }
@@ -235,7 +227,10 @@ struct CreateApiKeySheet: View {
     @State private var expiresDays: Int? = nil
     @State private var scopes: [String] = []
     @State private var createdOverride: CreateApiKeyResponse?
-    private var created: CreateApiKeyResponse? { createdOverride ?? initialCreated }
+    private var created: CreateApiKeyResponse? {
+        createdOverride ?? initialCreated
+    }
+
     @State private var working = false
     @State private var error: String?
 
@@ -279,6 +274,7 @@ struct CreateApiKeySheet: View {
                 Section { Text(error).foregroundStyle(Theme.danger) }.listRowBackground(Theme.raised)
             }
         }
+        .interactiveDismissDisabled(created != nil)
         .scrollContentBackground(.hidden)
         .readableWidth()
         .background(Theme.base)

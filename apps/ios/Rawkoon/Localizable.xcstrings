@@ -1,6 +1,26 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Never used": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jamais utilisée"
+          }
+        }
+      }
+    },
+    "No expiry": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N'expire pas"
+          }
+        }
+      }
+    },
     "Key": {
       "localizations": {
         "fr": {

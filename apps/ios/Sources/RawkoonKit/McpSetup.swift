@@ -12,6 +12,19 @@ public enum McpSetup {
     /// The scopes a key can carry, in the order the web UI lists them.
     public static let scopes = ["read", "request", "approve", "admin"]
 
+    /// Flips one scope; known scopes keep canonical order and unknown ones (from a newer server) are preserved after them.
+    public static func toggled(_ current: [String], scope: String, on: Bool) -> [String] {
+        var set = Set(current)
+        if on {
+            set.insert(scope)
+        } else {
+            set.remove(scope)
+        }
+        let known = scopes.filter(set.contains)
+        let unknown = current.filter { !scopes.contains($0) && set.contains($0) }
+        return known + unknown
+    }
+
     public static let keyPlaceholder = "<your key>"
 
     /// `<server>/api/mcp`, tolerating trailing slashes on the stored server address.
