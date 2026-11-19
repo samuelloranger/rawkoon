@@ -79,14 +79,14 @@ jobs:
           generate-routes: "true"
       # Normally ~20s; a stalled apt mirror used to hold the job until its 25-minute timeout.
       - name: Install ffmpeg
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
           # man-db re-indexes every manual page after an install, which crawls on hosted runners.
           sudo rm -f /var/lib/man-db/auto-update
           APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
-          # A stalled mirror hangs a whole attempt, so bound each one and retry within the step guard.
+          # A stalled mirror hangs a whole attempt, so bound each one and retry; fetched .debs are kept, so a slow mirror resumes.
           for attempt in 1 2 3; do
-            sudo timeout 50 sh -c "dpkg --configure -a; apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
+            sudo timeout 90 sh -c "dpkg --configure -a; apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
             [ "$attempt" = 3 ] && exit 1
             echo "apt attempt $attempt failed, retrying"
             sleep 3
