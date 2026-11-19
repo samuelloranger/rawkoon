@@ -1,5 +1,6 @@
 import { prisma } from "@rawkoon/api/db";
 import { libraryMediaInclude } from "@rawkoon/api/routes/library/libraryHelpers";
+import { reopenedStatus } from "@rawkoon/api/services/library/targetHasFileOnDisk";
 import { upgradeFileSelect } from "@rawkoon/api/services/upgradeTargets";
 
 export type LibraryStatusValue =
@@ -8,11 +9,18 @@ export type LibraryStatusValue =
   | "downloaded"
   | "skipped";
 
-export function updateLibraryStatus(id: number, status: LibraryStatusValue) {
+export async function updateLibraryStatus(
+  id: number,
+  status: LibraryStatusValue,
+) {
+  const next =
+    status === "wanted"
+      ? await reopenedStatus({ mediaId: id, episodeId: null })
+      : status;
   return prisma.libraryMedia.update({
     where: { id },
     data: {
-      status,
+      status: next,
       ...(status === "wanted" ? { searchAttempts: 0 } : {}),
     },
     include: libraryMediaInclude,
@@ -91,15 +99,17 @@ export function setEpisodeMonitored(
   });
 }
 
-export function setEpisodeStatus(
+export async function setEpisodeStatus(
   mediaId: number,
   episodeId: number,
   status: LibraryStatusValue,
 ) {
+  const next =
+    status === "wanted" ? await reopenedStatus({ mediaId, episodeId }) : status;
   return prisma.libraryEpisode.update({
     where: { id: episodeId, mediaId },
     data: {
-      status,
+      status: next,
       ...(status === "wanted" ? { searchAttempts: 0 } : {}),
     },
   });

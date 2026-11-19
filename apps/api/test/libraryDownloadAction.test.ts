@@ -33,6 +33,7 @@ let pauseSucceeds = true;
 
 mock.module("@rawkoon/api/db", () => ({
   prisma: {
+    mediaFile: { findMany: async () => [] },
     libraryMedia: {
       findUnique: async () => ({ id: 1 }),
       updateMany: async () => ({ count: 0 }),

@@ -10,8 +10,8 @@ import { cancelActiveMovieDownloads } from "@rawkoon/api/services/replaceActiveD
 import {
   grabRelease,
   preflightGrab,
-  targetHasFileOnDisk,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
+import { targetHasFileOnDisk } from "@rawkoon/api/services/library/targetHasFileOnDisk";
 import type {
   LanguageFallbackSummary,
   SearchResultPayload,
@@ -257,7 +257,7 @@ export const libraryGrabRoutes = new Hono<Env>()
         }
 
         // Manual search resets counter + status so users can always retry.
-        await resetEpisodeForManualSearch(episodeId);
+        await resetEpisodeForManualSearch(mediaId, episodeId);
 
         const { result, payload: searchResult } = await searchLibraryTarget(
           media,

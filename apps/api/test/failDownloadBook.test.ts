@@ -7,6 +7,7 @@ mock.module("@rawkoon/api/db", () => ({
       update: async () => ({}),
       count: async () => 0,
     },
+    mediaFile: { findMany: async () => [] },
     libraryMedia: {
       updateMany: async () => ({ count: 0 }),
       update: async () => ({}),

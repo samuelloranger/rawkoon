@@ -37,6 +37,8 @@ mock.module("@rawkoon/api/middleware/hono/auth", () => ({
 mock.module("@rawkoon/api/services/mediaGrabber/mediaGrabberGrab", () => ({
   grabRelease,
   preflightGrab,
+}));
+mock.module("@rawkoon/api/services/library/targetHasFileOnDisk", () => ({
   targetHasFileOnDisk,
 }));
 mock.module("@rawkoon/api/services/searchLibraryTarget", () => ({

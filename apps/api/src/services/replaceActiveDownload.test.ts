@@ -29,6 +29,7 @@ mock.module("@rawkoon/api/db", () => ({
         return { count: 1 };
       },
     },
+    mediaFile: { findMany: async () => [] },
     libraryMedia: { updateMany: mediaUpdateMany },
   },
 }));
