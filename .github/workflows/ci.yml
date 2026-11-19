@@ -84,8 +84,13 @@ jobs:
           # man-db re-indexes every manual page after an install, which crawls on hosted runners.
           sudo rm -f /var/lib/man-db/auto-update
           APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
-          sudo apt-get update -y $APT
-          sudo apt-get install -y --no-install-recommends $APT ffmpeg
+          # A stalled mirror hangs a whole attempt, so bound each one and retry within the step guard.
+          for attempt in 1 2 3; do
+            sudo timeout 50 sh -c "apt-get update -y $APT && apt-get install -y --no-install-recommends $APT ffmpeg" && break
+            [ "$attempt" = 3 ] && exit 1
+            echo "apt attempt $attempt failed, retrying"
+            sleep 3
+          done
           ffprobe -version | head -1
       # One step per suite, each with its own timeout, so a hang fails fast and names its suite.
       - name: Web tests
