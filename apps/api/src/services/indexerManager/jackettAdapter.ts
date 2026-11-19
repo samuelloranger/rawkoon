@@ -11,6 +11,7 @@ import { parsePublishDate } from "./publishDate";
 import { httpUrlOrNull } from "./httpUrl";
 import type { IndexerIntegrationConfig } from "../../utils/integrations/types";
 import { randomUUID } from "crypto";
+import { HttpStatusError } from "@rawkoon/api/utils/describeError";
 
 const RELEASE_TTL_MS = 10 * 60 * 1000;
 
@@ -230,7 +231,7 @@ export class JackettAdapter implements IndexerManagerAdapter {
     return { id: "jackett-connection", name: "Jackett", error };
   }
 
-  async getIndexers(): Promise<NormalizedIndexer[]> {
+  async getIndexers(opts?: { strict?: boolean }): Promise<NormalizedIndexer[]> {
     // Use the Torznab t=indexers endpoint — returns configured indexers instantly
     // without triggering a search, so down/slow indexers can't cause a timeout.
     const url = new URL(
@@ -243,12 +244,22 @@ export class JackettAdapter implements IndexerManagerAdapter {
 
     const res = await fetch(url.toString(), {
       signal: AbortSignal.timeout(10_000),
-    }).catch(() => null);
+    }).catch((error) => {
+      if (opts?.strict) throw error;
+      return null;
+    });
 
-    if (!res?.ok) return [];
+    if (!res?.ok) {
+      if (opts?.strict && res) throw new HttpStatusError(res.status);
+      return [];
+    }
 
     const text = await res.text().catch(() => null);
     if (!text) return [];
+    // Torznab reports a bad key as 200 + <error code="100">.
+    if (opts?.strict && /<error\s[^>]*code="10[0-9]"/.test(text)) {
+      throw new HttpStatusError(401);
+    }
 
     return parseJackettIndexers(text);
   }

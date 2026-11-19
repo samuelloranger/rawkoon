@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useJellyfinIntegration } from "@/pages/settings/useJellyfinIntegration";
 import { useUpdateJellyfinIntegration } from "@/pages/settings/useUpdateJellyfinIntegration";
 import { toast } from "sonner";
+import { IntegrationTestButton } from "@/pages/settings/_component/integrations/IntegrationTestButton";
+import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
 import { Switch } from "@/components/ui/switch";
 import { IntegrationUrlInput } from "@/pages/settings/_component/integrations/IntegrationUrlInput";
@@ -108,6 +110,12 @@ function JellyfinIntegrationSectionImpl({
           className="focus-ring w-full px-4 py-2 border border-neutral-600 rounded-lg bg-neutral-900 text-white font-mono"
         />
       </div>
+
+      <IntegrationTestButton
+        endpoint={INTEGRATION_ENDPOINTS.JELLYFIN_TEST}
+        website_url={websiteUrl}
+        api_key={apiKey}
+      />
 
       <div className="flex items-center justify-between gap-4">
         <div>

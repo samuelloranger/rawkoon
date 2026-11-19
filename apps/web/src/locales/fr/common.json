@@ -1289,6 +1289,9 @@
         "unknown": "Échec de la connexion"
       },
       "testConnection": "Tester la connexion",
+      "testing": "Test en cours…",
+      "testSuccess": "La connexion fonctionne.",
+      "testError": "Impossible de lancer le test.",
       "indexers": "Indexeurs",
       "groups": {
         "media": "Médias",

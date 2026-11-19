@@ -1289,6 +1289,9 @@
         "unknown": "Connection failed"
       },
       "testConnection": "Test connection",
+      "testing": "Testing…",
+      "testSuccess": "Connection works.",
+      "testError": "Could not run the test.",
       "indexers": "Indexers",
       "groups": {
         "media": "Media",
