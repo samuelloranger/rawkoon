@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from "bun:test";
+import { afterEach, describe, it, expect, mock } from "bun:test";
 import { Hono } from "hono";
 import type { Env } from "@rawkoon/api/honoEnv";
 
@@ -76,6 +76,10 @@ const { bookDiscoveryRoutes } = await import(
 const app = new Hono<Env>().route("/", bookDiscoveryRoutes);
 
 describe("book discovery routes", () => {
+  afterEach(() => {
+    state.fail = false;
+  });
+
   it("GET /discovery/sources returns configured sources", async () => {
     const res = await app.request("/discovery/sources");
     expect(res.status).toBe(200);

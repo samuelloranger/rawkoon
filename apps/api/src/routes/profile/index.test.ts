@@ -126,6 +126,10 @@ beforeEach(() => {
     avatarUrl: "/mine.png",
   }));
   passkeyCount.mockImplementation(async () => 0);
+  // mockClear keeps implementations, and a test overrides this one.
+  getSession.mockImplementation(async () => ({
+    session: { id: "session-current" },
+  }));
 });
 afterEach(() => fetchSpy?.mockRestore());
 
