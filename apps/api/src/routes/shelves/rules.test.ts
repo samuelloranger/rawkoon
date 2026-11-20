@@ -17,7 +17,7 @@ mock.module("@rawkoon/api/utils/medias/libraryHelpers", () => ({
       return { results: [{ id: 207317, name: "christmas" }] };
     if (path === "search/company")
       return { results: [{ id: 3, name: "Pixar" }] };
-    if (path.startsWith("keyword/")) return { name: `kw ${path.slice(8)}` };
+    if (path.startsWith("keyword/")) return { name: "christmas" }; // same as search/keyword: the service name cache is module-wide, so test order must not matter
     return {};
   },
 }));
@@ -141,7 +141,7 @@ describe("rules on a shelf", () => {
     expect(asAdmin.shelf.rule_names).toMatchObject({
       "genre:27": "Horror",
       "genre:35": "Comedy",
-      "keyword:207317": "kw 207317",
+      "keyword:207317": "christmas",
     });
     session.user = { ...user };
     const asUser = (await (await call(`/${shelf.id}`)).json()) as View;

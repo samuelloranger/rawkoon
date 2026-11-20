@@ -73,6 +73,14 @@ describe("searchAndGrab AI judge", () => {
     pickReleaseWithAi.mockClear();
     findManyBlocklist.mockClear();
     grabRelease.mockImplementation(async () => ({ grabbed: true }));
+    // The movie suite re-points this mock for good, so restore the tv row.
+    findUniqueMedia.mockImplementation(async () => ({
+      title: "Show",
+      year: 2020,
+      type: "tv",
+      searchTitle: null,
+      originalTitle: null,
+    }));
     searchReleases = [release(1, 10), release(2, 50)];
   });
 

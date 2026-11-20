@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it, mock } from "bun:test";
 
 // The confirm store is Valkey-backed; an in-memory stand-in keeps the
 // single-use semantics visible in the test. The checked write can be made
@@ -49,6 +49,10 @@ describe("canonicalJson", () => {
 });
 
 describe("confirm tokens", () => {
+  afterEach(() => {
+    checkedWriteFails = false;
+  });
+
   it("is a 128-bit hex token", () => {
     expect(newConfirmToken()).toMatch(/^[0-9a-f]{32}$/);
   });
