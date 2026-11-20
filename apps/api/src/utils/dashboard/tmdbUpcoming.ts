@@ -7,12 +7,6 @@ import type {
   DashboardUpcomingItem,
   DashboardUpcomingProvider,
 } from "@rawkoon/api/types/dashboardUpcoming";
-import {
-  fetchSonarrUpcoming,
-  mergeTmdbTvWithSonarrCalendar,
-} from "@rawkoon/api/utils/dashboard/sonarrUpcoming";
-
-export { fetchSonarrUpcoming, mergeTmdbTvWithSonarrCalendar };
 
 const TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w342";
 const TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w780";

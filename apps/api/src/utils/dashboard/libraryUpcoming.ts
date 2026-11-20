@@ -167,18 +167,26 @@ export const collectLibraryUpcoming = async (
 /**
  * Merge upcoming items, preferring `base` on id collision. Use to add library
  * entries on top of a popularity-filtered TMDB list without clobbering TMDB
- * enrichment (providers, backdrops).
+ * enrichment (providers, backdrops). A show-level TMDB entry (`tv-<id>`) is
+ * dropped when the additions hold episode entries for the same show.
  */
 export const mergeUpcomingById = (
   base: DashboardUpcomingItem[],
   additions: DashboardUpcomingItem[],
 ): DashboardUpcomingItem[] => {
+  const showId = (id: string) => id.split("-", 2).join("-");
+  const showsWithEpisodes = new Set(
+    additions
+      .filter((item) => item.media_type === "tv" && item.id !== showId(item.id))
+      .map((item) => showId(item.id)),
+  );
   // TMDB discover can list one title on two pages, so base is de-duplicated too.
   const seen = new Set<string>();
   const merged: DashboardUpcomingItem[] = [];
   for (const item of base) {
     if (seen.has(item.id)) continue;
     seen.add(item.id);
+    if (item.media_type === "tv" && showsWithEpisodes.has(item.id)) continue;
     merged.push(item);
   }
   for (const item of additions) {
