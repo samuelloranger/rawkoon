@@ -75,4 +75,16 @@ describe("mergeUpcomingById", () => {
     );
     expect(merged.map((i) => i.title)).toEqual(["base", "tv-3"]);
   });
+
+  it("drops a show-level entry when an episode of that show is listed", () => {
+    const merged = mergeUpcomingById(
+      [item("tv-1"), item("tv-10"), item("movie-1")],
+      [item("tv-1-2026-01-01-s1e1")],
+    );
+    expect(merged.map((i) => i.id)).toEqual([
+      "tv-10",
+      "movie-1",
+      "tv-1-2026-01-01-s1e1",
+    ]);
+  });
 });
