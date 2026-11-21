@@ -1,4 +1,5 @@
 import type { JobsOptions, Queue } from "bullmq";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -141,7 +142,7 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
     async (c) => {
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
-      const fileId = parseInt(c.req.param("fileId"), 10);
+      const fileId = strictInt(c.req.param("fileId"));
       if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
       const body = c.req.valid("json");
       if (!body.keep_audio_track_indices.length)
@@ -169,7 +170,7 @@ export const libraryJobWorkerRoutes = new Hono<Env>()
   )
 
   .get("/files/:fileId/remux/status", requireUser, async (c) => {
-    const fileId = parseInt(c.req.param("fileId"), 10);
+    const fileId = strictInt(c.req.param("fileId"));
     if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
     try {
       const jobId = `library-remux-file-${fileId}`;

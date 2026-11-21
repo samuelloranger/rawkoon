@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
@@ -106,7 +107,7 @@ export const libraryListRoutes = new Hono<Env>()
 
   .get("/item/:id", requireUser, async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
       if (!Number.isFinite(id)) return badRequest("Invalid id");
       const item = await findLibraryItemById(id);
       if (!item) return notFound("Library item not found");
@@ -214,7 +215,8 @@ export const libraryListRoutes = new Hono<Env>()
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
+        if (!Number.isFinite(id)) return badRequest("Invalid id");
         const query = c.req.valid("query");
         const result = await deleteLibraryItem(id, {
           deleteFiles: query.delete_files === "true",

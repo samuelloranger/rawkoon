@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
 import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
@@ -21,7 +22,7 @@ export const libraryImagesRoutes = new Hono<Env>().get(
   requireUser,
   queryV(imagesQuery),
   async (c) => {
-    const id = Number.parseInt(c.req.param("id"), 10);
+    const id = strictInt(c.req.param("id"));
     if (!Number.isFinite(id)) return badRequest("Invalid id");
     const { kind = "poster" } = c.req.valid("query");
 
