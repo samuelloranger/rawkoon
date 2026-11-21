@@ -6,7 +6,19 @@ describe("strictInt", () => {
     expect(strictInt("12")).toBe(12);
   });
   it("rejects trailing junk, decimals, empty and non-positive ids", () => {
-    for (const raw of ["12abc", "1.5", "", " ", "0", "-3", "1e2x", undefined]) {
+    for (const raw of [
+      "12abc",
+      "1.5",
+      "",
+      " ",
+      "0",
+      "-3",
+      "1e2x",
+      "0x10",
+      "1e3",
+      "+5",
+      undefined,
+    ]) {
       expect(strictInt(raw)).toBeNaN();
     }
   });

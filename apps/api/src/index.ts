@@ -67,10 +67,13 @@ import { startDownloadProgressBroadcaster } from "./workers/downloadProgressBroa
 // strict:false: a trailing slash matches (`/api/x/` == `/api/x`).
 export const app = new Hono<Env>({ strict: false });
 
+const corsOrigins = getCorsOrigins();
 app.use(
   "*",
   cors({
-    origin: getCorsOrigins(),
+    // A lone "*" keeps its old meaning (any origin); a list is an allowlist.
+    origin:
+      corsOrigins.length === 1 && corsOrigins[0] === "*" ? "*" : corsOrigins,
     credentials: true,
   }),
 );
