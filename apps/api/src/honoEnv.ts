@@ -28,10 +28,14 @@ export const factory = createFactory<Env>();
  */
 export const honoOnError = (err: Error, _c: Context): Response => {
   if (err instanceof HTTPException && err.status < 500) {
-    return errorForStatus(err.status, err.message);
+    // Middleware like bodyLimit throws with an empty message and a prepared response.
+    if (!err.message && err.res) return err.getResponse();
+    return errorForStatus(err.status, err.message || "Bad request");
   }
-  // Duck-typed: a Prisma "record not found" that a handler let bubble.
+  // Duck-typed: a Prisma "record not found" that a handler let bubble. Still
+  // logged, since it can also be an internal write racing a delete.
   if ((err as { code?: unknown }).code === "P2025") {
+    console.warn("[unhandled P2025 → 404]", err);
     return notFound("Not found");
   }
   console.error("[unhandled]", err);
