@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { prisma } from "@rawkoon/api/db";
-import { unauthorized } from "@rawkoon/api/errors";
+import { forbidden, unauthorized } from "@rawkoon/api/errors";
 import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
 
 /**
@@ -10,18 +10,19 @@ import { apiKeyApi } from "@rawkoon/api/lib/apiKeyApi";
  */
 export const requireApiKey = createMiddleware(async (c, next) => {
   const key = c.req.header("x-api-key");
-  if (!key) return unauthorized();
+  if (!key) return unauthorized("Missing API key (send x-api-key)");
 
   const { valid, key: record } = await apiKeyApi.verifyApiKey({
     body: { key },
   });
-  if (!valid || !record) return unauthorized();
+  if (!valid || !record) return unauthorized("Invalid or expired API key");
 
   const owner = await prisma.user.findUnique({
     where: { id: record.referenceId },
     select: { isAdmin: true },
   });
-  if (!owner?.isAdmin) return unauthorized();
+  if (!owner?.isAdmin)
+    return forbidden("This API key's owner must be an administrator");
 
   await next();
 });

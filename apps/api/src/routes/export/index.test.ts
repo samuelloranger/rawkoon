@@ -88,7 +88,7 @@ describe("Export API", () => {
   it("rejects a valid key owned by a non-admin", async () => {
     findUser.mockImplementation(async () => ({ isAdmin: false }));
     const res = await get("/library");
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect(findMany).not.toHaveBeenCalled();
   });
 
