@@ -119,6 +119,13 @@ const rpc = (method: string, params: unknown) =>
 const call = (name: string, arguments_: unknown) =>
   rpc("tools/call", { name, arguments: arguments_ });
 
+const callRpc = async (name: string, args: unknown) =>
+  (
+    (await (await call(name, args)).json()) as {
+      result: { isError: boolean; structuredContent?: unknown };
+    }
+  ).result;
+
 beforeEach(() => {
   verifyResult = {
     valid: true,
@@ -390,5 +397,65 @@ describe("per-key rate limits", () => {
     });
     expect(counters.has("mcp:rl:key-1:action")).toBe(false);
     expect(counters.get("mcp:rl:key-1:read")).toBeUndefined();
+  });
+});
+
+describe("read tool shaping", () => {
+  it("keeps numeric resolution and tmdb_id in library_lookup", async () => {
+    respond = async () =>
+      Response.json({
+        items: [{ id: 1, tmdb_id: 42, title: "X", resolution: 1080 }],
+        has_more: false,
+      });
+    const result = await callRpc("library_lookup", { query: "x" });
+    const item = (
+      result.structuredContent as {
+        items: { resolution: number; tmdb_id: number }[];
+      }
+    ).items[0];
+    expect(item.resolution).toBe(1080);
+    expect(item.tmdb_id).toBe(42);
+  });
+
+  it("reports download progress as a percent and speed in bytes per second", async () => {
+    respond = async () =>
+      Response.json({
+        enabled: true,
+        connected: true,
+        items: [{ progress: 0.456, download_speed: 2048 }],
+      });
+    const result = await callRpc("downloads", {});
+    const item = (
+      result.structuredContent as {
+        items: {
+          progress_percent: number;
+          download_speed_bytes_per_s: number;
+        }[];
+      }
+    ).items[0];
+    expect(item.progress_percent).toBe(46);
+    expect(item.download_speed_bytes_per_s).toBe(2048);
+  });
+
+  it("lists quality profiles with their ids", async () => {
+    respond = async () =>
+      Response.json({
+        profiles: [{ id: 3, name: "HD", min_resolution: 1080 }],
+      });
+    const result = await callRpc("quality_profiles", {});
+    expect(
+      (result.structuredContent as { items: { id: number }[] }).items[0].id,
+    ).toBe(3);
+  });
+
+  it("sends no structuredContent on a tool error", async () => {
+    verifyResult.key!.permissions = { mcp: ["read"] };
+    const result = await callRpc("request_title", {
+      kind: "movie",
+      tmdb_id: 1,
+      title: "X",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toBeUndefined();
   });
 });
