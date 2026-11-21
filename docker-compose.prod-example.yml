@@ -7,6 +7,10 @@ services:
     volumes:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys
+      # Mount your media under ONE parent so downloads and the library share a
+      # filesystem (needed for hardlinks), e.g. /data/downloads and /data/media.
+      # The container user is uid 1000 and needs write access to the library.
+      # - /path/to/data:/data
     restart: unless-stopped
     # Optional: GPU re-encoding (VA-API). See docs/self-hosting.md.
     # devices:
@@ -15,6 +19,8 @@ services:
     #   - "${RENDER_GID}"
     depends_on:
       db:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     networks:
       - rawkoon-network
@@ -46,6 +52,9 @@ services:
     container_name: rawkoon-valkey
     restart: unless-stopped
     command: valkey-server --requirepass ${VALKEY_PASSWORD:-${REDIS_PASSWORD}} --bind 0.0.0.0 --protected-mode yes
+    environment:
+      # valkey-cli reads this, so the healthcheck needs no password on its command line.
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:-${REDIS_PASSWORD}}
     volumes:
       - valkey_data:/data
     networks:
@@ -53,6 +62,12 @@ services:
         # Alias so an existing .env with VALKEY_HOST/REDIS_HOST=redis still resolves.
         aliases:
           - redis
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 networks:
   rawkoon-network:
