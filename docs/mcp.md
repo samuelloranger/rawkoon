@@ -23,11 +23,13 @@ the user, and can be edited later from the same dialog.
 | Scope | Allows |
 | --- | --- |
 | `read` | `search`, `library_lookup`, `downloads`, `quality_profiles`, `calendar`, `my_requests`, `listening_progress` |
-| `request` | `request_title` (add a title, or create a request) |
+| `request` | `request_title` (add a title, or create a request), `cancel_request` |
 | `approve` | `pending_requests`, `decide_request` |
 | `admin` | `health` (the [doctor self-check](#the-health-tool)); additionally requires the key's owner to still be an admin |
 
-A new key has no scopes by default. The key acts as its owner: every tool call
+A new key has no scopes by default. A valid key with no MCP scopes gets a 403
+saying so; a missing or invalid key gets a 401 with `WWW-Authenticate: Bearer realm="rawkoon"`.
+`GET` and `DELETE` on the endpoint answer 405 (`Allow: POST`). The key acts as its owner: every tool call
 replays Rawkoon's own routes in-process as that user, so normal permission
 checks apply — an `admin` scope on a key owned by a non-admin is ignored, and
 `approve` tools only work for an admin owner.
@@ -105,14 +107,15 @@ bearer_token_env_var = "RAWKOON_API_KEY"
 
 | Tool | Scope | What it does |
 | --- | --- | --- |
-| `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. |
+| `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. The query needs at least 2 characters; with books turned off, `books` carries `enabled: false` and a note. |
 | `library_lookup` | read | Is a title in the library: status, missing episodes, file quality (`resolution` as a number), audio languages, and `tmdb_id` to match search results. |
 | `downloads` | read | The current download queue (admin owner only): `progress_percent` (0-100), `state`, `download_speed_bytes_per_s` and `eta_seconds`. |
 | `quality_profiles` | read | Quality profiles with their ids and `default_for` (movie/show; `null` when the key's owner can't read the defaults): the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
-| `calendar` | read | Upcoming releases and episodes for the next N days (default 7, max 30). |
+| `calendar` | read | Upcoming releases and episodes from today through the next N days (default 7, max 30); "today" is the server's `TZ`, so same-day releases are included. |
 | `my_requests` | read | The key owner's requests and their state. |
-| `listening_progress` | read | Where the owner is in their audiobooks and ebooks. |
+| `listening_progress` | read | Where the owner is in their audiobooks and ebooks (audiobook positions in whole seconds). |
 | `request_title` | request | Add a title (admin owner) or create a request (anyone else), with quality profile and season choice. |
+| `cancel_request` | request | Withdraw one of the key owner's own pending or denied requests (by id from `my_requests`). Refused up front for anyone else's request, even for an admin owner: turning those down is `decide_request`. |
 | `pending_requests` | approve | Requests waiting for approval, with `tmdb_id` / `google_volume_id`, `season_mode` and any `quality_profile_id`. |
 | `decide_request` | approve | Approve (with a quality profile) or deny one request (admin owner; checked before a token is issued). |
 | `health` | admin | The doctor self-check report. |
@@ -126,7 +129,7 @@ carry no `structuredContent`, since MCP requires that to be an object.
 
 ## The confirm flow for ACTION tools
 
-`request_title` and `decide_request` change state, so they run in two steps:
+`request_title`, `cancel_request` and `decide_request` change state, so they run in two steps:
 
 1. The first call **does nothing**. It returns a plain-English `summary` of
    what will happen, a `confirm_token`, and `expires_in_s: 300`.

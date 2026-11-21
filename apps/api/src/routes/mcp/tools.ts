@@ -118,8 +118,19 @@ export async function callTool(
           true,
         );
       }
-      const summary =
-        (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
+      let summary: string;
+      try {
+        summary =
+          (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
+      } catch (error) {
+        // A summary may refuse up front (e.g. a request that isn't yours), before any token exists.
+        return finish(
+          error instanceof ToolFailure
+            ? error.message
+            : "The tool failed unexpectedly while talking to Rawkoon.",
+          true,
+        );
+      }
       const token = newConfirmToken();
       const stored = await storeConfirmBinding(token, {
         keyId: ctx.keyId,
@@ -211,7 +222,7 @@ export interface InitializeResult {
 
 export const SERVER_INSTRUCTIONS =
   "Rawkoon: a self-hosted movie, TV show and book library. Read tools search and " +
-  "inspect the library, requests and downloads; ACTION tools (request_title, decide_request) " +
+  "inspect the library, requests and downloads; ACTION tools (request_title, cancel_request, decide_request) " +
   "work in two steps: the first call returns a summary and a confirm_token — show the summary " +
   "to the person, and call the same tool again with that token to perform the action. " +
   "Tools marked admin need an admin API-key owner.";

@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { loadConfig } from "@rawkoon/api/config";
 import { innerRequest } from "./dispatcher";
 import { capList } from "./shape";
 import {
   asArray,
   asRecord,
   inner,
+  localDate,
   num,
   str,
   ToolFailure,
@@ -12,7 +14,8 @@ import {
 } from "./toolShared";
 
 const searchArgs = z.object({
-  query: z.string().min(1),
+  // The TMDB and books routes need 2+ characters; shorter would silently return nothing.
+  query: z.string().trim().min(2, "query must be at least 2 characters"),
   kind: z.enum(["movie", "show", "book", "all"]).optional(),
 });
 
@@ -27,7 +30,11 @@ const searchTool: McpTool = {
   inputSchema: {
     type: "object",
     properties: {
-      query: { type: "string", description: "Title to search for." },
+      query: {
+        type: "string",
+        minLength: 2,
+        description: "Title to search for (at least 2 characters).",
+      },
       kind: {
         type: "string",
         enum: ["movie", "show", "book", "all"],
@@ -75,9 +82,21 @@ const searchTool: McpTool = {
         innerRequest("/api/system/features"),
         ctx.owner,
       );
-      const booksEnabled =
-        features.ok && asRecord(features.body).books_enabled === true;
-      if (booksEnabled) {
+      const booksFlag = features.ok
+        ? asRecord(features.body).books_enabled
+        : undefined;
+      if (booksFlag === false) {
+        result.books = {
+          enabled: false,
+          note: "Books are turned off on this server.",
+        };
+      } else if (booksFlag !== true) {
+        // Don't claim books are off when we simply couldn't check.
+        result.books = {
+          enabled: null,
+          note: "Couldn't check whether books are enabled; book results were skipped.",
+        };
+      } else {
         const books = await inner(
           innerRequest(`/api/books/search?q=${encodeURIComponent(args.query)}`),
           ctx.owner,
@@ -305,8 +324,15 @@ const calendarTool: McpTool = {
         note: "TMDB is not configured, so no upcoming releases are available.",
       };
     }
-    const today = new Date();
-    const until = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+    // Release dates are date-only, so compare calendar days (not instants):
+    // a UTC-midnight parse would drop anything releasing today.
+    const { TZ } = loadConfig();
+    const now = new Date();
+    const today = localDate(now, TZ);
+    // Add whole days to the date itself so a DST change can't shorten the window.
+    const until = new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     const items = asArray(body.items)
       .map((item) => {
         const r = asRecord(item);
@@ -321,13 +347,11 @@ const calendarTool: McpTool = {
         };
       })
       .filter((item) => {
-        const date = item.release_date ? new Date(item.release_date) : null;
+        const date = item.release_date?.slice(0, 10);
         return date != null && date >= today && date <= until;
       })
-      .sort(
-        (a, b) =>
-          new Date(a.release_date ?? 0).getTime() -
-          new Date(b.release_date ?? 0).getTime(),
+      .sort((a, b) =>
+        (a.release_date ?? "").localeCompare(b.release_date ?? ""),
       );
     return { ...capList(items), days };
   },
@@ -365,6 +389,8 @@ const myRequestsTool: McpTool = {
     );
   },
 };
+
+const roundSecs = (v: number | null) => (v == null ? null : Math.round(v));
 
 const listeningProgressArgs = z.object({
   query: z.string().optional(),
@@ -407,8 +433,9 @@ const listeningProgressTool: McpTool = {
       .filter((item) => titleMatch(asRecord(item).title))
       .map((item) => {
         const r = asRecord(item);
-        const position = num(r.position_secs);
-        const total = num(r.total_duration_secs);
+        // Raw values carry float noise; whole seconds are plenty.
+        const position = roundSecs(num(r.position_secs));
+        const total = roundSecs(num(r.total_duration_secs));
         return {
           book_id: num(r.book_id),
           edition_id: num(r.edition_id),

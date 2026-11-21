@@ -25,11 +25,25 @@ const requestTitleArgs = z
     season_mode: z.enum(["all", "future", "latest", "pick"]).optional(),
     confirm_token: z.string().optional(),
   })
-  .refine((a) => (a.kind === "book" ? a.google_volume_id : a.tmdb_id), {
-    message: "tmdb_id is required for movies and shows",
-  })
-  .refine((a) => (a.kind === "movie" ? a.seasons === undefined : true), {
-    message: "seasons are only valid for shows",
+  .superRefine((a, ctx) => {
+    if (a.kind === "book" && !a.google_volume_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: "google_volume_id is required for books",
+      });
+    }
+    if (a.kind !== "book" && !a.tmdb_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: "tmdb_id is required for movies and shows",
+      });
+    }
+    if (a.kind !== "show" && a.seasons !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "seasons are only valid for shows",
+      });
+    }
   });
 
 type RequestTitleArgs = z.infer<typeof requestTitleArgs>;
@@ -379,8 +393,87 @@ const decideRequestTool: McpTool = {
   },
 };
 
+const cancelRequestArgs = z.object({
+  request_id: z.number().int().positive(),
+  confirm_token: z.string().optional(),
+});
+
+type CancelRequestArgs = z.infer<typeof cancelRequestArgs>;
+
+/**
+ * The owner's own pending or denied request, or a ToolFailure. Kept to the
+ * owner's requests even for admins: removing someone else's is decide_request's
+ * job, which sits behind the approve scope.
+ */
+async function ownWithdrawableRequest(
+  requestId: number,
+  ctx: Parameters<NonNullable<McpTool["summarize"]>>[1],
+): Promise<Record<string, unknown>> {
+  const res = await inner(innerRequest("/api/requests"), ctx.owner);
+  if (!res.ok) throw new ToolFailure(res.text);
+  const found = asArray(asRecord(res.body).requests)
+    .map(asRecord)
+    .find(
+      (r) => r.id === requestId && asRecord(r.requested_by).id === ctx.owner.id,
+    );
+  if (!found) {
+    throw new ToolFailure(
+      `Request ${requestId} isn't one of your requests (see my_requests).`,
+    );
+  }
+  if (found.status !== "pending" && found.status !== "denied") {
+    throw new ToolFailure(
+      `Request ${requestId} is ${String(found.status)}; only pending or denied requests can be withdrawn.`,
+    );
+  }
+  return found;
+}
+
+const cancelRequestTool: McpTool = {
+  name: "cancel_request",
+  scope: "request",
+  action: true,
+  description:
+    "Withdraws (deletes) one of the API key owner's own title requests, by its id from my_requests. " +
+    "Only pending or denied requests can be withdrawn; to turn down someone else's request use decide_request. " +
+    "This is a two-step ACTION tool: the first call returns a confirm_token to show the person; " +
+    "call again with it to perform.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      request_id: {
+        type: "integer",
+        description: "The request's id, from my_requests.",
+      },
+      confirm_token: CONFIRM_TOKEN_PROPERTY,
+    },
+    required: ["request_id"],
+  },
+  args: cancelRequestArgs,
+  async summarize(raw, ctx) {
+    const args = raw as CancelRequestArgs;
+    const found = await ownWithdrawableRequest(args.request_id, ctx);
+    const rawTitle = str(found.title);
+    const title = rawTitle ? untrustedInline(rawTitle) : null;
+    return title
+      ? `Withdraw request ${args.request_id} ("${title}").`
+      : `Withdraw request ${args.request_id}.`;
+  },
+  async run(raw, ctx) {
+    const args = cancelRequestArgs.parse(raw) as CancelRequestArgs;
+    await ownWithdrawableRequest(args.request_id, ctx);
+    const res = await inner(
+      innerRequest(`/api/requests/${args.request_id}`, { method: "DELETE" }),
+      ctx.owner,
+    );
+    if (!res.ok) throw new ToolFailure(res.text);
+    return { cancelled: true, request_id: args.request_id };
+  },
+};
+
 export const actionTools: McpTool[] = [
   requestTitleTool,
+  cancelRequestTool,
   pendingRequestsTool,
   decideRequestTool,
 ];

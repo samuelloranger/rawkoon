@@ -85,3 +85,8 @@ export function untrustedInline(value: string, max = 80): string {
     .trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
+
+/** YYYY-MM-DD for an instant in the server's configured timezone. */
+export function localDate(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(instant);
+}
