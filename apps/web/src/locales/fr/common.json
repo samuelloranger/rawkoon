@@ -226,6 +226,8 @@
       "grabNow": "Récupérer maintenant",
       "nothingDownloading": "Aucun téléchargement en cours",
       "downloadClientUnreachable": "Client de téléchargement injoignable",
+      "downloadClientOpenSettings": "Ouvrir les paramètres de connexion",
+      "downloadsUnavailableAskAdmin": "Les téléchargements sont indisponibles pour le moment — demandez à un administrateur.",
       "etaLeft": "{{time}} restant",
       "nothingGrabbed": "Rien n'a été récupéré",
       "grabMiss": {

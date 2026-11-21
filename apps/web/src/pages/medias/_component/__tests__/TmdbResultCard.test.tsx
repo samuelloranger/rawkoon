@@ -24,6 +24,10 @@ vi.mock("@/features/medias/hooks/useAddTitle", () => ({
   useAddTitle: () => ({ addTitle, isAdding: false }),
 }));
 
+vi.mock("@/pages/medias/_component/RequestButton", () => ({
+  RequestButton: () => <button type="button">request-button</button>,
+}));
+
 const item = (
   over: Partial<TmdbMediaSearchItem> = {},
 ): TmdbMediaSearchItem => ({
@@ -198,5 +202,26 @@ describe("TmdbResultCard", () => {
       />,
     );
     expect(screen.queryByText("medias.tmdb.addAction")).not.toBeInTheDocument();
+  });
+
+  it("shows Request instead of Add for members when not in the library", () => {
+    isAdmin = false;
+    render(
+      <TmdbResultCard item={item()} onOpenDetails={vi.fn()} onAdded={vi.fn()} />,
+    );
+    expect(screen.getByText("request-button")).toBeTruthy();
+    expect(screen.queryByText("medias.tmdb.addAction")).toBeNull();
+  });
+
+  it("hides Request for members when the title is already in the library", () => {
+    isAdmin = false;
+    render(
+      <TmdbResultCard
+        item={item({ already_exists: true, library_id: 3 })}
+        onOpenDetails={vi.fn()}
+        onAdded={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("request-button")).toBeNull();
   });
 });
