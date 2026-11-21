@@ -86,7 +86,6 @@ export async function processLibraryReindexLanguagesJob(
   const scanFile = async (file: {
     id: number;
     filePath: string;
-    fileName: string;
     sizeBytes: bigint;
     fileMtimeMs: bigint | null;
     audioTracks: unknown;
@@ -172,7 +171,6 @@ export async function processLibraryReindexLanguagesJob(
       select: {
         id: true,
         filePath: true,
-        fileName: true,
         sizeBytes: true,
         fileMtimeMs: true,
         audioTracks: true,

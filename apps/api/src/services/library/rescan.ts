@@ -229,8 +229,13 @@ async function rescanLibraryItemInner(
           source: mi.source ?? fnData.source,
           audioTracks: mi.audioTracks as object[],
           subtitleTracks: mi.subtitleTracks as object[],
-          // Fresh tracks fill tags/format only where the row has none.
-          ...missingAudioFields({ ...file, audioTracks: mi.audioTracks }),
+          // The file changed, so its tags follow the fresh tracks (as the
+          // reindex job does); the format is only filled where missing.
+          ...missingAudioFields({
+            audioTracks: mi.audioTracks,
+            languageTags: [],
+            audioFormat: file.audioFormat,
+          }),
           scannedAt: new Date(),
         },
       }),

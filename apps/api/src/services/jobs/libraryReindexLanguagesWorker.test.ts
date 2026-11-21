@@ -5,7 +5,7 @@ const rows = [
     // Unchanged on disk, tracks stored, tags/format never derived.
     id: 1,
     filePath: "/lib/a.mkv",
-    fileName: "Movie.2020.VFQ.mkv",
+    fileName: "Movie.2020.VFQ.mkv", // ignored: tags come from tracks
     sizeBytes: 10n,
     fileMtimeMs: 5n,
     audioTracks: [
@@ -82,7 +82,7 @@ describe("processLibraryReindexLanguagesJob", () => {
     } as never);
     expect(scanMediaInfo).not.toHaveBeenCalled();
     expect(updates).toEqual([
-      { where: { id: 1 }, data: { languageTags: ["VFQ"], audioFormat: "AC3" } },
+      { where: { id: 1 }, data: { languageTags: ["FR"], audioFormat: "AC3" } },
     ]);
     expect(result).toEqual({ updated: 1, skipped: 1, errors: 0 });
   });

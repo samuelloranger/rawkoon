@@ -50,12 +50,14 @@ describe("missingAudioFields", () => {
     ).toEqual({ languageTags: ["EN"], audioFormat: "EAC3" });
   });
 
-  it("uses the file name to tell VFQ from a plain French track", () => {
+  it("tags from track metadata only, so a title word can't fake a version", () => {
+    expect(
+      missingAudioFields({ ...base, audioTracks: [track({})] }).languageTags,
+    ).toEqual(["FR"]);
     expect(
       missingAudioFields({
         ...base,
-        fileName: "Movie.2020.VFQ.1080p.mkv",
-        audioTracks: [track({})],
+        audioTracks: [track({ title: "VFQ AC3 5.1" })],
       }).languageTags,
     ).toEqual(["VFQ"]);
   });
@@ -66,9 +68,17 @@ describe("missingAudioFields", () => {
         audioTracks: [track({ codec: "AAC" })],
         languageTags: ["VFQ"],
         audioFormat: "TrueHD Atmos",
-        fileName: "x.mkv",
       }),
     ).toEqual({});
+  });
+
+  it("skips malformed entries in a stored track array", () => {
+    expect(
+      missingAudioFields({
+        ...base,
+        audioTracks: [null, "x", track({ language: "en", codec: "AAC" })],
+      }),
+    ).toEqual({ languageTags: ["EN"], audioFormat: "AAC" });
   });
 
   it("does nothing without stored tracks", () => {

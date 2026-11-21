@@ -9,6 +9,15 @@ const CODEC_LABELS: Record<string, string> = {
   "MPEG Audio": "MP3",
 };
 
+/** Stored tracks, skipping anything that isn't a track object (old or hand-edited rows). */
+export function tracksOf(audioTracks: unknown): LibraryAudioTrack[] {
+  return Array.isArray(audioTracks)
+    ? (audioTracks.filter(
+        (t) => t != null && typeof t === "object",
+      ) as LibraryAudioTrack[])
+    : [];
+}
+
 /** The default-flagged track, else the first: what a player opens with. */
 function mainTrack(tracks: LibraryAudioTrack[]): LibraryAudioTrack | null {
   return tracks.find((t) => t.default) ?? tracks[0] ?? null;
@@ -32,16 +41,14 @@ export function missingAudioFields(row: {
   audioTracks: unknown;
   languageTags: string[];
   audioFormat: string | null;
-  fileName: string;
 }): { languageTags?: string[]; audioFormat?: string } {
-  const tracks = Array.isArray(row.audioTracks)
-    ? (row.audioTracks as LibraryAudioTrack[])
-    : [];
+  const tracks = tracksOf(row.audioTracks);
   if (tracks.length === 0) return {};
   const out: { languageTags?: string[]; audioFormat?: string } = {};
   if (row.languageTags.length === 0) {
-    // The file name often still carries the release's VFQ/VFF tag.
-    const tags = classifyLanguageTags(tracks, row.fileName);
+    // No name hint: a renamed file carries the title, and a title like
+    // "Men in Black: International" would read as a VFI release.
+    const tags = classifyLanguageTags(tracks, null);
     if (tags.length > 0) out.languageTags = tags;
   }
   if (row.audioFormat == null) {
