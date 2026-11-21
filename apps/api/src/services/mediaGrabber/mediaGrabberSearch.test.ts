@@ -38,7 +38,11 @@ mock.module("@rawkoon/api/services/indexerManager", () => ({
 }));
 
 const grabRelease = mock(
-  async (_o: { releaseTitle: string; aiPicked?: boolean }) =>
+  async (_o: {
+    releaseTitle: string;
+    aiPicked?: boolean;
+    indexer?: string | null;
+  }) =>
     ({ grabbed: true }) as
       | { grabbed: true; releaseTitle?: string }
       | { grabbed: false; reason: string },
