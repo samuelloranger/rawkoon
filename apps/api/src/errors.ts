@@ -4,8 +4,11 @@
  * `return errorHelper(msg)`.
  */
 
-const errorResponse = (status: number, message: string) =>
-  Response.json({ error: message }, { status });
+const errorResponse = (
+  status: number,
+  message: string,
+  extra?: Record<string, unknown>,
+) => Response.json({ error: message, ...extra }, { status });
 
 /**
  * Success counterpart to the error helpers. Hono does not auto-serialize a
@@ -15,7 +18,8 @@ const errorResponse = (status: number, message: string) =>
 export const ok = (body: unknown, status = 200) =>
   Response.json(body, { status });
 
-export const badRequest = (message: string) => errorResponse(400, message);
+export const badRequest = (message: string, extra?: Record<string, unknown>) =>
+  errorResponse(400, message, extra);
 
 export const unauthorized = (message = "Unauthorized") =>
   errorResponse(401, message);
@@ -29,6 +33,9 @@ export const conflict = (message: string) => errorResponse(409, message);
 export const tooManyRequests = (message: string) => errorResponse(429, message);
 
 export const unprocessable = (message: string) => errorResponse(422, message);
+
+export const errorForStatus = (status: number, message: string) =>
+  errorResponse(status, message);
 
 export const serverError = (message: string) => errorResponse(500, message);
 
