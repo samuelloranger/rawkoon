@@ -98,8 +98,21 @@ mock.module("@rawkoon/api/workers/notifyBookEvents", () => ({
   notifyAdminsAuthorNewReleases: () => Promise.resolve(),
 }));
 
-const { checkBookReleases, searchWantedBookEditions, searchBookUpgrades } =
-  await import("@rawkoon/api/workers/checkBookReleases");
+const cache = new Map<string, { value: unknown; ttl: number }>();
+mock.module("@rawkoon/api/services/cache", () => ({
+  getJsonCache: (key: string) => Promise.resolve(cache.get(key)?.value ?? null),
+  setJsonCache: (key: string, value: unknown, ttl: number) => {
+    cache.set(key, { value, ttl });
+    return Promise.resolve();
+  },
+}));
+
+const {
+  checkBookReleases,
+  searchWantedBookEditions,
+  searchBookUpgrades,
+  UPGRADE_SEARCH_COOLDOWN_S,
+} = await import("@rawkoon/api/workers/checkBookReleases");
 
 const release = (over: Record<string, unknown> = {}) => ({
   title: "Some Release",
@@ -223,6 +236,7 @@ describe("checkBookReleases", () => {
 
 describe("searchBookUpgrades", () => {
   beforeEach(() => {
+    cache.clear();
     state.upgradable = [];
     state.searchCalls = [];
     state.grabCalls = [];
@@ -266,6 +280,48 @@ describe("searchBookUpgrades", () => {
     expect(state.grabCalls).toHaveLength(1);
     expect(state.grabCalls[0]?.isUpgrade).toBe(true);
     expect(state.grabCalls[0]?.editionId).toBe(5);
+  });
+
+  // Without a rest, an edition with no better release is searched every sweep forever.
+  it("rests an edition for a week after a search finds no upgrade", async () => {
+    state.upgradable = [
+      {
+        id: 7,
+        files: [{ format: "pdf" }],
+        bookQualityProfile: {
+          allowedFormats: ["epub", "azw3", "pdf"],
+          cutoffFormat: "epub",
+        },
+      },
+    ];
+    state.searchResult = { releases: [release({ format: "pdf" })] };
+
+    await searchBookUpgrades();
+    await searchBookUpgrades();
+
+    expect(state.searchCalls).toEqual([7]);
+    expect(cache.get("books:upgrade-searched:7")?.ttl).toBe(
+      UPGRADE_SEARCH_COOLDOWN_S,
+    );
+  });
+
+  it("searches again next sweep when the indexer search errored", async () => {
+    state.upgradable = [
+      {
+        id: 8,
+        files: [{ format: "pdf" }],
+        bookQualityProfile: {
+          allowedFormats: ["epub", "azw3", "pdf"],
+          cutoffFormat: "epub",
+        },
+      },
+    ];
+    state.searchResult = { releases: [], error: "indexer unreachable" };
+
+    await searchBookUpgrades();
+    await searchBookUpgrades();
+
+    expect(state.searchCalls).toEqual([8, 8]);
   });
 
   it("ignores a release no better than what is already held", async () => {
