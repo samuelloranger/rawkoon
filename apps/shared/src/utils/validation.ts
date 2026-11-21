@@ -6,7 +6,7 @@ export function validateEmail(email: string): boolean {
   return EMAIL_REGEX.test(email);
 }
 
-const PASSWORD_RULES = {
+export const PASSWORD_RULES = {
   minLength: 8,
   requireUppercase: true,
   requireLowercase: true,

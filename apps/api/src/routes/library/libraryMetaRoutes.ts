@@ -2,7 +2,13 @@ import { Hono } from "hono";
 import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  notFound,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -197,7 +203,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         if (!existing) return notFound("Library item not found");
 
         const apiKey = await getLibraryTmdbApiKey();
-        if (!apiKey) return badRequest("TMDB is not configured");
+        if (!apiKey) return tmdbNotConfigured();
 
         const mediaType = existing.type === "show" ? "tv" : "movie";
         const path =

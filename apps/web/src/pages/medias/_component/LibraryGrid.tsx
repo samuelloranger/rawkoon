@@ -46,6 +46,7 @@ interface LibraryGridProps {
   /** The list failed to load; shown instead of the empty state. */
   error?: boolean;
   onRetry?: () => void;
+  retrying?: boolean;
   viewMode: ViewMode;
   /** A search or filter is narrowing the list, so empty means no match. */
   filtered?: boolean;
@@ -62,6 +63,7 @@ export function LibraryGrid({
   isLoading,
   error = false,
   onRetry,
+  retrying = false,
   viewMode,
   filtered = false,
   onMovieSearch,
@@ -104,7 +106,7 @@ export function LibraryGrid({
   }
 
   if (error && items.length === 0 && onRetry) {
-    return <LoadError onRetry={onRetry} />;
+    return <LoadError onRetry={onRetry} retrying={retrying} />;
   }
 
   if (items.length === 0) {

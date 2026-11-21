@@ -10,7 +10,12 @@ import {
   RSS_POLL_INTERVAL_MINUTES,
   type RssPollIntervalMinutes,
 } from "@rawkoon/shared/utils";
-import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -299,7 +304,7 @@ export const libraryMediaAdminRoutes = new Hono<Env>()
     async (c) => {
       const body = c.req.valid("json");
       const key = await getLibraryTmdbApiKey();
-      if (!key) return badRequest("TMDB is not configured");
+      if (!key) return tmdbNotConfigured();
 
       const absPath = resolve(body.path);
       try {

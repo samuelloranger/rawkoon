@@ -8,6 +8,7 @@ import {
   notFound,
   ok,
   serverError,
+  tmdbNotConfigured,
 } from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
@@ -228,7 +229,7 @@ export const shelfRoutes = new Hono<Env>()
     if (!kind) return notFound("Not found");
     try {
       const items = await searchLookup(kind, c.req.valid("query").q);
-      return items ? ok({ items }) : badRequest("TMDB is not configured");
+      return items ? ok({ items }) : tmdbNotConfigured();
     } catch {
       return badGateway("TMDB search failed");
     }
@@ -251,7 +252,7 @@ export const shelfRoutes = new Hono<Env>()
     async (c) => {
       const { tmdb_id, type } = c.req.valid("query");
       const apiKey = await fetchShelfTmdbKey();
-      if (!apiKey) return badRequest("TMDB is not configured");
+      if (!apiKey) return tmdbNotConfigured();
       return ok({
         backdrops: await fetchShelfBackdropCandidates(apiKey, tmdb_id, type),
       });
@@ -291,7 +292,7 @@ export const shelfRoutes = new Hono<Env>()
       if (created.reason === "seed_not_found")
         return badRequest("Unknown seed");
       if (created.reason === "tmdb_not_configured") {
-        return badRequest("TMDB is not configured");
+        return tmdbNotConfigured();
       }
       if (created.reason === "seed_failed") {
         return badGateway("TMDB did not answer; try the seed again");
@@ -401,7 +402,7 @@ export const shelfRoutes = new Hono<Env>()
         case "invalid_season":
           return badRequest("A season needs a show");
         case "tmdb_not_configured":
-          return badRequest("TMDB is not configured");
+          return tmdbNotConfigured();
         case "title_not_found":
           return badRequest("Title not found on TMDB");
         default:

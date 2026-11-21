@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { CheckCircle, AlertTriangle, Lock } from "lucide-react";
 import { useResetPassword } from "@/lib/auth/useAuth";
 import { getCurrentUser } from "@/lib/auth";
+import { validatePasswordComplexity } from "@/lib/utils/passwordRules";
 
 export const Route = createFileRoute("/reset-password")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -21,33 +22,6 @@ export const Route = createFileRoute("/reset-password")({
 interface ResetPasswordFormData {
   password: string;
   confirmPassword: string;
-}
-
-function validatePasswordComplexity(
-  value: string,
-  t: (key: string) => string,
-): string | true {
-  if (!/[A-Z]/.test(value))
-    return (
-      t("login.passwordNeedsUppercase") ||
-      "Password must contain at least one uppercase letter"
-    );
-  if (!/[a-z]/.test(value))
-    return (
-      t("login.passwordNeedsLowercase") ||
-      "Password must contain at least one lowercase letter"
-    );
-  if (!/[0-9]/.test(value))
-    return (
-      t("login.passwordNeedsNumber") ||
-      "Password must contain at least one number"
-    );
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(value))
-    return (
-      t("login.passwordNeedsSpecialChar") ||
-      "Password must contain at least one special character"
-    );
-  return true;
 }
 
 function ResetPasswordPage() {

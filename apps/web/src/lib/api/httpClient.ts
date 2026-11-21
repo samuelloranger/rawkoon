@@ -38,6 +38,13 @@ export class HttpError extends Error {
   }
 }
 
+/** The server's error message for an HttpError, else the caller's fallback. */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  return (
+    (error instanceof HttpError ? error.apiError() : undefined) ?? fallback
+  );
+}
+
 type AuthMode = "cookie" | "bearer";
 
 type TokenProvider = () => Promise<string | null> | string | null;

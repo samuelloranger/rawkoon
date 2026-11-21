@@ -106,6 +106,7 @@
     "releasesSection": "Media releases",
     "loadingReleases": "Loading releases…",
     "nothingScheduled": "Nothing scheduled this day",
+    "clearSelectedDate": "Clear selected day",
     "noReleasesThisDay": "No media releases this day",
     "film": "Film",
     "tv": "TV",
@@ -226,6 +227,8 @@
       "grabNow": "Grab now",
       "nothingDownloading": "Nothing downloading",
       "downloadClientUnreachable": "Download client unreachable",
+      "downloadClientOpenSettings": "Open connection settings",
+      "downloadsUnavailableAskAdmin": "Downloads are unavailable right now — ask an admin.",
       "etaLeft": "{{time}} left",
       "nothingGrabbed": "Nothing was grabbed",
       "grabMiss": {
@@ -468,6 +471,8 @@
     "clear": "Clear",
     "deleting": "Deleting...",
     "edit": "Edit",
+    "previous": "Previous",
+    "next": "Next",
     "copy": "Copy",
     "open": "Open",
     "requestFailed": "Request failed",
@@ -604,6 +609,7 @@
         "testError": "Failed to send test notification.",
         "deleted": "Channel deleted.",
         "deleteError": "Failed to delete channel.",
+        "deleteConfirm": "Delete channel \"{{label}}\"? Notifications will stop going to it.",
         "added": "Channel added.",
         "addError": "Failed to add channel.",
         "updated": "Channel updated.",
@@ -1422,6 +1428,8 @@
         "redirectUriHelp": "Add this URL as an allowed redirect URI in your identity provider.",
         "deleteConfirm": "Delete {{name}}?",
         "deleteConfirmHelp": "This will remove the provider and any users who signed in through it will lose SSO access.",
+        "deleted": "Provider deleted.",
+        "deleteError": "Could not delete the provider.",
         "editProvider": "Edit provider",
         "saveProvider": "Save",
         "cancel": "Cancel",
@@ -2099,6 +2107,7 @@
       "noMatchDescription": "Try removing a filter or clearing the search."
     },
     "watchlist": {
+      "remove": "Remove {{title}} from watchlist",
       "pageTitle": "Watchlist",
       "pageSubtitle": "Movies and shows you want to watch",
       "empty": "Your watchlist is empty",
@@ -3262,6 +3271,8 @@
     "dvNote": "Dolby Vision → HDR10",
     "admin": {
       "runWindow": "Run window",
+      "windowStart": "Run window start",
+      "windowEnd": "Run window end",
       "pause": "Pause queue",
       "resume": "Resume queue",
       "stats": {

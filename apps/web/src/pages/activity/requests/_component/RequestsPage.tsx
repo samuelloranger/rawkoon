@@ -161,6 +161,10 @@ function RequestRow({
   const [pickedProfile, setPickedProfile] = useState<number | null>(null);
   const [denying, setDenying] = useState(false);
   const [denyReason, setDenyReason] = useState("");
+  const closeDeny = () => {
+    setDenying(false);
+    setDenyReason("");
+  };
   // Set only when the admin changes the requester's seasons; otherwise the server uses theirs.
   const [seasonOverride, setSeasonOverride] = useState<SeasonChoice | null>(
     null,
@@ -278,7 +282,7 @@ function RequestRow({
 
           <button
             type="button"
-            onClick={() => setDenying((open) => !open)}
+            onClick={() => (denying ? closeDeny() : setDenying(true))}
             aria-expanded={denying}
             disabled={deny.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-neutral-800 disabled:opacity-50"
@@ -290,6 +294,9 @@ function RequestRow({
           {denying ? (
             <form
               className="flex w-full items-center gap-2"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeDeny();
+              }}
               onSubmit={(e) => {
                 e.preventDefault();
                 const reason = denyReason.trim();

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useFanartIntegration } from "@/pages/settings/useFanartIntegration";
 import { useUpdateFanartIntegration } from "@/pages/settings/useUpdateFanartIntegration";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 export function FanartIntegrationSection() {
   const { data, isLoading } = useFanartIntegration();
@@ -47,7 +48,11 @@ function FanartIntegrationSectionImpl({
         setApiKey("");
         toast.success(t("settings.integrations.saveSuccess"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   return (

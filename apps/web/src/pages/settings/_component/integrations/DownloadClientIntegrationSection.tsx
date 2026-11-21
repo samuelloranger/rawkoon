@@ -15,6 +15,7 @@ import { useUpdateDownloadClientIntegration } from "@/pages/settings/useUpdateDo
 import { LabeledField, TextField } from "./DownloadClientFields";
 import { IntegrationSectionCard } from "./IntegrationSectionCard";
 import { IntegrationUrlInput } from "./IntegrationUrlInput";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 export function DownloadClientIntegrationSection() {
   const query = useDownloadClientIntegration();
@@ -95,7 +96,11 @@ function DownloadClientIntegrationSectionImpl({
         setPassword("");
         toast.success(t("settings.integrations.saveSuccess"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   const handleTest = async () => {

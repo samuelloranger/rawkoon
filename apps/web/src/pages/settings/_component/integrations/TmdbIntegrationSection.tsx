@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { IntegrationTestButton } from "@/pages/settings/_component/integrations/IntegrationTestButton";
 import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 export function TmdbIntegrationSection() {
   const { data, isLoading } = useTmdbIntegration();
@@ -57,7 +58,11 @@ function TmdbIntegrationSectionImpl({
         popularity_threshold: popularityThreshold,
       })
       .then(() => toast.success(t("settings.integrations.saveSuccess")))
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   return (

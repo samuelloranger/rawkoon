@@ -106,6 +106,7 @@
     "releasesSection": "Sorties média",
     "loadingReleases": "Chargement des sorties…",
     "nothingScheduled": "Rien de prévu ce jour",
+    "clearSelectedDate": "Désélectionner le jour",
     "noReleasesThisDay": "Aucune sortie média ce jour",
     "film": "Film",
     "tv": "Série",
@@ -226,6 +227,8 @@
       "grabNow": "Récupérer maintenant",
       "nothingDownloading": "Aucun téléchargement en cours",
       "downloadClientUnreachable": "Client de téléchargement injoignable",
+      "downloadClientOpenSettings": "Ouvrir les paramètres de connexion",
+      "downloadsUnavailableAskAdmin": "Les téléchargements sont indisponibles pour le moment — demandez à un administrateur.",
       "etaLeft": "{{time}} restant",
       "nothingGrabbed": "Rien n'a été récupéré",
       "grabMiss": {
@@ -468,6 +471,8 @@
     "clear": "Effacer",
     "deleting": "Suppression...",
     "edit": "Modifier",
+    "previous": "Précédent",
+    "next": "Suivant",
     "copy": "Copier",
     "open": "Ouvrir",
     "requestFailed": "La requête a échoué",
@@ -604,6 +609,7 @@
         "testError": "Échec de l'envoi de la notification de test.",
         "deleted": "Canal supprimé.",
         "deleteError": "Échec de la suppression du canal.",
+        "deleteConfirm": "Supprimer le canal « {{label}} » ? Il ne recevra plus de notifications.",
         "added": "Canal ajouté.",
         "addError": "Échec de l'ajout du canal.",
         "updated": "Canal mis à jour.",
@@ -1422,6 +1428,8 @@
         "redirectUriHelp": "Ajoutez cette URL comme URI de redirection autorisée dans votre fournisseur d'identité.",
         "deleteConfirm": "Supprimer {{name}} ?",
         "deleteConfirmHelp": "Cela supprimera le fournisseur et les utilisateurs connectés via celui-ci perdront l'accès SSO.",
+        "deleted": "Fournisseur supprimé.",
+        "deleteError": "Impossible de supprimer le fournisseur.",
         "editProvider": "Modifier le fournisseur",
         "saveProvider": "Enregistrer",
         "cancel": "Annuler",
@@ -2099,6 +2107,7 @@
       "noMatchDescription": "Essayez de retirer un filtre ou d’effacer la recherche."
     },
     "watchlist": {
+      "remove": "Retirer {{title}} de la liste de visionnage",
       "pageTitle": "Liste de visionnage",
       "pageSubtitle": "Films et séries que vous souhaitez regarder",
       "empty": "Votre liste est vide",
@@ -3262,6 +3271,8 @@
     "dvNote": "Dolby Vision → HDR10",
     "admin": {
       "runWindow": "Plage horaire",
+      "windowStart": "Début de la plage d’exécution",
+      "windowEnd": "Fin de la plage d’exécution",
       "pause": "Mettre en pause",
       "resume": "Reprendre",
       "stats": {

@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badGateway,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { queryV } from "@rawkoon/api/middleware/validate";
@@ -47,10 +52,7 @@ export const tmdbSearchRoutes = new Hono<Env>().get(
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
         // Stable code so the web can tell "not set up" from a failed search.
-        return Response.json(
-          { error: "TMDB is not configured", code: "tmdb_not_configured" },
-          { status: 400 },
-        );
+        return tmdbNotConfigured();
       }
 
       const searchUrl = new URL("https://api.themoviedb.org/3/search/multi");

@@ -37,6 +37,13 @@ export const unprocessable = (message: string) => errorResponse(422, message);
 export const errorForStatus = (status: number, message: string) =>
   errorResponse(status, message);
 
+/** Stable `code` lets the web tell "TMDB not set up" from a failed request. */
+export const tmdbNotConfigured = () =>
+  Response.json(
+    { error: "TMDB is not configured", code: "tmdb_not_configured" },
+    { status: 400 },
+  );
+
 export const serverError = (message: string) => errorResponse(500, message);
 
 export const badGateway = (message: string) => errorResponse(502, message);

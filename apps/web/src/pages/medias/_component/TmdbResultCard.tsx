@@ -7,6 +7,7 @@ import { useAddTitle } from "@/features/medias/hooks/useAddTitle";
 import { useSearchOnAddEnabled } from "@/features/medias/hooks/useSearchOnAddEnabled";
 import { AddOnlyMenu } from "@/features/medias/components/AddSearchControls";
 import { LibraryStatusChip } from "@/features/medias/components/LibraryStatusChip";
+import { RequestButton } from "@/pages/medias/_component/RequestButton";
 
 interface TmdbResultCardProps {
   item: TmdbMediaSearchItem;
@@ -30,7 +31,9 @@ export function TmdbResultCard({
   const libraryId =
     item.library_id != null && item.library_id > 0 ? item.library_id : null;
   const inLibrary = item.already_exists;
-  const canAdd = !inLibrary && item.can_add && user?.is_admin === true;
+  const isAdmin = user?.is_admin === true;
+  const canAdd = !inLibrary && item.can_add && isAdmin;
+  const canRequest = !inLibrary && item.can_add && user != null && !isAdmin;
 
   const openLibraryItem = (search?: { tab: "releases" }) => {
     if (libraryId == null) return;
@@ -141,6 +144,20 @@ export function TmdbResultCard({
             <ListVideo size={12} />
             {t("medias.tmdb.chooseRelease")}
           </button>
+        </div>
+      )}
+
+      {canRequest && (
+        <div className="flex">
+          <RequestButton
+            media={{
+              tmdb_id: item.tmdb_id,
+              type: item.media_type === "tv" ? "show" : "movie",
+              title: item.title,
+              poster_url: item.poster_url,
+              year: item.release_year,
+            }}
+          />
         </div>
       )}
 
