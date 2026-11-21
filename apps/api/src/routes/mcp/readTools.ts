@@ -226,7 +226,7 @@ const qualityProfilesTool: McpTool = {
   action: false,
   description:
     "Lists the quality profiles (id, name, minimum resolution, preferred languages) and which " +
-    "one is the default for movies and shows (default_for). Use it to find the quality_profile_id " +
+    "one is the default for movies and shows (default_for; null when this key's owner can't read the defaults). Use it to find the quality_profile_id " +
     "that decide_request (approve) and request_title need; prefer the default for the title's kind.",
   inputSchema: { type: "object", properties: {} },
   args: z.object({}),
@@ -247,10 +247,13 @@ const qualityProfilesTool: McpTool = {
         return {
           id,
           name: str(r.name),
-          default_for: [
-            ...(id != null && id === movieDefault ? ["movie"] : []),
-            ...(id != null && id === showDefault ? ["show"] : []),
-          ],
+          // null = unknown (the settings route refused this owner), not "no default".
+          default_for: settings.ok
+            ? [
+                ...(id != null && id === movieDefault ? ["movie"] : []),
+                ...(id != null && id === showDefault ? ["show"] : []),
+              ]
+            : null,
           min_resolution: num(r.min_resolution),
           cutoff_resolution: num(r.cutoff_resolution),
           preferred_languages: r.preferred_languages,

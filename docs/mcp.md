@@ -108,7 +108,7 @@ bearer_token_env_var = "RAWKOON_API_KEY"
 | `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. |
 | `library_lookup` | read | Is a title in the library: status, missing episodes, file quality (`resolution` as a number), audio languages, and `tmdb_id` to match search results. |
 | `downloads` | read | The current download queue (admin owner only): `progress_percent` (0-100), `state`, `download_speed_bytes_per_s` and `eta_seconds`. |
-| `quality_profiles` | read | Quality profiles with their ids and `default_for` (movie/show): the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
+| `quality_profiles` | read | Quality profiles with their ids and `default_for` (movie/show; `null` when the key's owner can't read the defaults): the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
 | `calendar` | read | Upcoming releases and episodes for the next N days (default 7, max 30). |
 | `my_requests` | read | The key owner's requests and their state. |
 | `listening_progress` | read | Where the owner is in their audiobooks and ebooks. |
@@ -141,14 +141,16 @@ A token is consumed the moment the confirmed call is accepted: if the
 arguments don't match, or the action itself then fails, the error says the
 token is used up and the client must call the tool again without
 `confirm_token` for a new one. The `decide_request` summary names the request
-and the quality profile (falling back to ids if the lookup fails).
+and the quality profile (falling back to ids if the lookup fails); the
+requester-written title is flattened and shortened so it reads as data, not
+instructions.
 
 ## Rate limits
 
 Each key gets 60 read tools per minute and 10 performed actions per hour in
 Valkey. Over the limit, the tool answers with an error saying when to retry.
-Unconfirmed summary calls are free; only the performed action spends the
-action budget.
+An unconfirmed summary call counts as one read; only the performed action
+spends the action budget.
 
 ## The health tool
 

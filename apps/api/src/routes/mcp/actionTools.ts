@@ -8,6 +8,7 @@ import {
   num,
   str,
   ToolFailure,
+  untrustedInline,
   type McpTool,
 } from "./toolShared";
 
@@ -323,7 +324,9 @@ const decideRequestTool: McpTool = {
           (r) => asRecord(r).id === args.request_id,
         )
       : undefined;
-    const title = str(asRecord(found).title);
+    const rawTitle = str(asRecord(found).title);
+    // The requester wrote this title; keep it from steering the approver's agent.
+    const title = rawTitle ? untrustedInline(rawTitle) : null;
     const subject = title
       ? `request ${args.request_id} ("${title}")`
       : `request ${args.request_id}`;
@@ -334,7 +337,8 @@ const decideRequestTool: McpTool = {
               (p) => asRecord(p).id === args.quality_profile_id,
             )
           : undefined;
-      const profileName = str(asRecord(profile).name);
+      const rawName = str(asRecord(profile).name);
+      const profileName = rawName ? untrustedInline(rawName) : null;
       return `Approve ${subject} and add the title to the library with quality profile ${args.quality_profile_id}${profileName ? ` ("${profileName}")` : ""}.`;
     }
     return args.reason

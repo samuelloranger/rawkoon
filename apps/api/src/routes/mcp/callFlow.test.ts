@@ -234,6 +234,7 @@ describe("the two-step confirm flow (request_title)", () => {
     };
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain("different arguments");
+    expect(body.result.content[0].text).toContain("now used up");
     expect(dispatched).toHaveLength(0);
   });
 
@@ -247,6 +248,7 @@ describe("the two-step confirm flow (request_title)", () => {
     };
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain("Start over");
+    expect(body.result.content[0].text).not.toContain("now used up");
   });
 
   it("fails before issuing a token when the caller can't run the tool", async () => {
@@ -389,14 +391,14 @@ describe("per-key rate limits", () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  it("does not spend the action budget on the unconfirmed summary call", async () => {
+  it("charges the unconfirmed summary call to the read budget, not the action one", async () => {
     await call("request_title", {
       kind: "movie",
       tmdb_id: 1,
       title: "A",
     });
     expect(counters.has("mcp:rl:key-1:action")).toBe(false);
-    expect(counters.get("mcp:rl:key-1:read")).toBeUndefined();
+    expect(counters.get("mcp:rl:key-1:read")).toBeDefined();
   });
 });
 
@@ -461,6 +463,18 @@ describe("read tool shaping", () => {
       result.structuredContent as { items: { default_for: string[] }[] }
     ).items;
     expect(items.map((p) => p.default_for)).toEqual([["movie", "show"], []]);
+  });
+
+  it("reports defaults as unknown when the owner can't read the settings", async () => {
+    respond = async (req) =>
+      new URL(req.url).pathname === "/api/library/post-processing/settings"
+        ? Response.json({ error: "Forbidden" }, { status: 403 })
+        : Response.json({ profiles: [{ id: 3 }] });
+    const result = await callRpc("quality_profiles", {});
+    const items = (
+      result.structuredContent as { items: { default_for: null }[] }
+    ).items;
+    expect(items[0].default_for).toBeNull();
   });
 
   it("sends no structuredContent on a tool error", async () => {

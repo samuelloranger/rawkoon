@@ -109,6 +109,15 @@ export async function callTool(
     if (preflightError) return finish(preflightError, true);
 
     if (!confirmToken) {
+      // The preview reads Rawkoon to build its summary, so it spends the read
+      // budget (never the action one).
+      const previewVerdict = await checkMcpRateLimit(ctx.keyId, "read");
+      if (!previewVerdict.allowed) {
+        return finish(
+          rateLimitMessage("read", previewVerdict.retryAfterSeconds),
+          true,
+        );
+      }
       const summary =
         (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
       const token = newConfirmToken();
@@ -140,8 +149,8 @@ export async function callTool(
 
     // Budget before the token take: GETDEL is irreversible, so a refused
     // action must not burn the confirmation. One count per confirmed attempt;
-    // the summary call above stays free so a forgotten confirmation isn't
-    // punished.
+    // the summary call above spends only the read budget so a forgotten
+    // confirmation isn't punished.
     const verdict = await checkMcpRateLimit(ctx.keyId, "action");
     if (!verdict.allowed) {
       return finish(
@@ -160,8 +169,10 @@ export async function callTool(
           ? "This confirm_token was issued for different arguments."
           : null;
     if (mismatch) {
+      // An unknown token was never ours to consume; a mismatched one just was.
+      const usedUp = binding === null ? "" : ` ${TOKEN_USED_UP(tool.name)}`;
       return finish(
-        `${mismatch} ${TOKEN_USED_UP(tool.name)} Start over: show the new summary to the person, then call again with the fresh token.`,
+        `${mismatch}${usedUp} Start over: call ${tool.name} without confirm_token, show the new summary to the person, then call again with the fresh token.`,
         true,
       );
     }
