@@ -402,13 +402,19 @@ describe("MCP authentication", () => {
     expect(body.result.content[0].text).toContain('"request"');
   });
 
-  it("reports an unknown tool with -32602", async () => {
+  it("reports an unknown tool with -32602, listing only this key's tools", async () => {
+    verifyResult.key = {
+      id: "key-1",
+      name: "mcp-key",
+      referenceId: "user-1",
+      permissions: { mcp: ["read"] },
+    };
     const res = await rpc("tools/call", { name: "ghost", arguments: {} });
     const body = (await res.json()) as {
       error: { code: number; message: string };
     };
     expect(body.error.code).toBe(-32602);
-    expect(body.error.message).toContain("tools/list");
-    expect(body.error.message).toContain("decide_request");
+    expect(body.error.message).toContain("search");
+    expect(body.error.message).not.toContain("decide_request");
   });
 });
