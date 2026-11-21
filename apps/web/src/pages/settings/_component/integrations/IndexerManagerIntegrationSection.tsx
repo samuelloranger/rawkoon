@@ -7,6 +7,7 @@ import type { IndexerItem } from "@/pages/settings/useJackettIndexers";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
 import { IntegrationUrlInput } from "@/pages/settings/_component/integrations/IntegrationUrlInput";
 import { RssIndexerSelector } from "@/pages/settings/_component/integrations/RssIndexerSelector";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 interface IndexerManagerIntegration {
   website_url?: string;
@@ -100,7 +101,11 @@ export function IndexerManagerIntegrationSection({
       rss_indexers: rssIndexers,
     })
       .then(() => toast.success(t("settings.integrations.saveSuccess")))
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   return (

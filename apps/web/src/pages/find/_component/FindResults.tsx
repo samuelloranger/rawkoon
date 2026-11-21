@@ -7,6 +7,7 @@ import type {
   TmdbMediaSearchItem,
 } from "@rawkoon/shared/types";
 import { useCurrentUser } from "@/lib/auth/useAuth";
+import { HttpError } from "@/lib/api/httpClient";
 import { useQuickSearch } from "@/lib/search/useSearch";
 import { useFeatures } from "@/lib/routing/useFeatures";
 import { useTmdbMediaSearch } from "@/features/medias/hooks/useTmdbMediaSearch";
@@ -115,11 +116,33 @@ function TitlesGroup({ query }: { query: string }) {
     language: i18n.language,
   });
   const items = search.data?.items ?? [];
+  const { data: me } = useCurrentUser();
+  const notConfigured =
+    search.error instanceof HttpError &&
+    search.error.status === 400 &&
+    (search.error.data as { code?: unknown } | undefined)?.code ===
+      "tmdb_not_configured";
 
   return (
     <Group title={t("find.groups.titles")}>
       {search.isLoading ? (
         <p className="text-sm text-neutral-400">{t("medias.tmdb.searching")}</p>
+      ) : notConfigured ? (
+        <p role="alert" className="text-sm text-amber-300">
+          {me?.is_admin ? (
+            <>
+              {t("medias.tmdb.notConfiguredAdmin")}{" "}
+              <Link
+                to="/settings/connections"
+                className="underline hover:text-amber-200"
+              >
+                {t("medias.tmdb.openSettings")}
+              </Link>
+            </>
+          ) : (
+            t("medias.tmdb.notConfiguredMember")
+          )}
+        </p>
       ) : search.isError ? (
         <p role="alert" className="text-sm text-amber-300">
           {t("medias.tmdb.searchFailed")}

@@ -48,6 +48,7 @@ export function ProviderRow({
         <button
           type="button"
           onClick={onEdit}
+          aria-label={t("settings.integrations.sso.editProvider")}
           className="p-2 rounded-lg hover:bg-neutral-700 text-neutral-400 transition-colors"
         >
           <Pencil className="size-4" />
@@ -55,6 +56,7 @@ export function ProviderRow({
         <button
           type="button"
           onClick={onDelete}
+          aria-label={t("settings.integrations.sso.delete")}
           className="p-2 rounded-lg hover:bg-red-900/20 text-neutral-400 hover:text-red-400 transition-colors"
         >
           <Trash2 className="size-4" />

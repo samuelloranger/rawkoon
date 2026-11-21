@@ -29,7 +29,7 @@ export function toolsForScopes(scopes: McpScope[]): McpTool[] {
 
 export interface ToolCallResult {
   content: { type: "text"; text: string }[];
-  structuredContent: unknown;
+  structuredContent?: Record<string, unknown>;
   isError: boolean;
 }
 
@@ -37,13 +37,23 @@ const CONFIRM_NEXT =
   "Show this to the person. If they agree, call the same tool again " +
   "with the same arguments and this confirm_token.";
 
+const TOKEN_USED_UP = (tool: string) =>
+  `This confirm_token is now used up; call ${tool} again without confirm_token to get a new one.`;
+
 function toolResult(value: unknown, isError: boolean): ToolCallResult {
   // The text content carries the same JSON so clients without
   // structuredContent support still see the whole result.
   const text = isError ? String(value) : JSON.stringify(value, null, 2);
+  // MCP requires structuredContent to be an object; clients reject the whole
+  // result otherwise, so errors omit it and bare arrays get wrapped.
+  if (isError) return { content: [{ type: "text", text }], isError };
+  const structured =
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : { result: value };
   return {
     content: [{ type: "text", text }],
-    structuredContent: value,
+    structuredContent: structured,
     isError,
   };
 }
@@ -86,6 +96,7 @@ export async function callTool(
   }
   // confirm_token is pipeline state, not a tool argument: strip it before
   // binding the summary and before the tool sees the args.
+  let tokenConsumed = false;
   const argsForTool = { ...(parsed.data ?? {}) } as Record<string, unknown>;
   const confirmToken =
     typeof argsForTool.confirm_token === "string"
@@ -97,9 +108,29 @@ export async function callTool(
     const preflightError = tool.preflight?.(argsForTool, ctx) ?? null;
     if (preflightError) return finish(preflightError, true);
 
-    const summary = tool.summarize?.(argsForTool, ctx) ?? `Run ${tool.name}.`;
-
     if (!confirmToken) {
+      // The preview reads Rawkoon to build its summary, so it spends the read
+      // budget (never the action one).
+      const previewVerdict = await checkMcpRateLimit(ctx.keyId, "read");
+      if (!previewVerdict.allowed) {
+        return finish(
+          rateLimitMessage("read", previewVerdict.retryAfterSeconds),
+          true,
+        );
+      }
+      let summary: string;
+      try {
+        summary =
+          (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
+      } catch (error) {
+        // A summary may refuse up front (e.g. a request that isn't yours), before any token exists.
+        return finish(
+          error instanceof ToolFailure
+            ? error.message
+            : "The tool failed unexpectedly while talking to Rawkoon.",
+          true,
+        );
+      }
       const token = newConfirmToken();
       const stored = await storeConfirmBinding(token, {
         keyId: ctx.keyId,
@@ -118,7 +149,10 @@ export async function callTool(
           summary,
           confirm_token: token,
           expires_in_s: CONFIRM_TTL_SECONDS,
-          next: `${CONFIRM_NEXT.replace("this confirm_token", `confirm_token "${token}"`)}.`,
+          next: CONFIRM_NEXT.replace(
+            "this confirm_token",
+            `confirm_token "${token}"`,
+          ),
         },
         false,
       );
@@ -126,8 +160,8 @@ export async function callTool(
 
     // Budget before the token take: GETDEL is irreversible, so a refused
     // action must not burn the confirmation. One count per confirmed attempt;
-    // the summary call above stays free so a forgotten confirmation isn't
-    // punished.
+    // the summary call above spends only the read budget so a forgotten
+    // confirmation isn't punished.
     const verdict = await checkMcpRateLimit(ctx.keyId, "action");
     if (!verdict.allowed) {
       return finish(
@@ -139,18 +173,21 @@ export async function callTool(
     const binding = await takeConfirmBinding(confirmToken);
     const mismatch =
       binding === null
-        ? "unknown or expired"
+        ? "This confirm_token is unknown, expired or already used."
         : binding.keyId !== ctx.keyId ||
             binding.tool !== tool.name ||
             binding.args !== canonicalJson(argsForTool)
-          ? "issued for different arguments"
+          ? "This confirm_token was issued for different arguments."
           : null;
     if (mismatch) {
+      // An unknown token was never ours to consume; a mismatched one just was.
+      const usedUp = binding === null ? "" : ` ${TOKEN_USED_UP(tool.name)}`;
       return finish(
-        `This confirm_token is ${mismatch}. Start over: call ${tool.name} without a confirm_token, show the new summary to the person, then call again with the fresh token.`,
+        `${mismatch}${usedUp} Start over: call ${tool.name} without confirm_token, show the new summary to the person, then call again with the fresh token.`,
         true,
       );
     }
+    tokenConsumed = true;
   } else {
     const verdict = await checkMcpRateLimit(ctx.keyId, "read");
     if (!verdict.allowed) {
@@ -162,10 +199,12 @@ export async function callTool(
     const result = await tool.run(argsForTool, ctx);
     return finish(capToolResult(result), false);
   } catch (error) {
-    return finish(
+    const message =
       error instanceof ToolFailure
         ? error.message
-        : "The tool failed unexpectedly while talking to Rawkoon.",
+        : "The tool failed unexpectedly while talking to Rawkoon.";
+    return finish(
+      tokenConsumed ? `${message} ${TOKEN_USED_UP(tool.name)}` : message,
       true,
     );
   }
@@ -183,7 +222,7 @@ export interface InitializeResult {
 
 export const SERVER_INSTRUCTIONS =
   "Rawkoon: a self-hosted movie, TV show and book library. Read tools search and " +
-  "inspect the library, requests and downloads; ACTION tools (request_title, decide_request) " +
+  "inspect the library, requests and downloads; ACTION tools (request_title, cancel_request, decide_request) " +
   "work in two steps: the first call returns a summary and a confirm_token — show the summary " +
   "to the person, and call the same tool again with that token to perform the action. " +
   "Tools marked admin need an admin API-key owner.";

@@ -12,6 +12,10 @@ import {
   scanMediaInfo,
 } from "@rawkoon/api/utils/medias/mediainfoScanner";
 import { classifyLanguageTags, type LibraryAudioTrack } from "@rawkoon/shared";
+import {
+  audioFormatFromTracks,
+  missingAudioFields,
+} from "@rawkoon/api/utils/medias/audioFields";
 
 export type LibraryReindexLanguagesProgress = {
   current: number;
@@ -35,8 +39,9 @@ const PROGRESS_EVERY = 25;
 const DB_PAGE_SIZE = 500;
 
 /**
- * Re-runs mediainfo on every MediaFile and recomputes `languageTags`.
- * Skips files whose size+mtime fingerprint is unchanged (idempotent re-runs).
+ * Re-runs mediainfo on every changed MediaFile and recomputes `languageTags`.
+ * Unchanged files (same size+mtime) are not re-probed, but missing tags or
+ * audio format are still derived from their stored tracks.
  */
 export async function processLibraryReindexLanguagesJob(
   job: Job,
@@ -83,6 +88,9 @@ export async function processLibraryReindexLanguagesJob(
     filePath: string;
     sizeBytes: bigint;
     fileMtimeMs: bigint | null;
+    audioTracks: unknown;
+    languageTags: string[];
+    audioFormat: string | null;
   }) => {
     try {
       let st;
@@ -106,7 +114,15 @@ export async function processLibraryReindexLanguagesJob(
           fp,
         )
       ) {
-        progress.skipped += 1;
+        // Unchanged on disk, but an earlier scan may have stored tracks without
+        // deriving tags/format; fill those from the stored tracks, no re-probe.
+        const gaps = missingAudioFields(file);
+        if (Object.keys(gaps).length > 0) {
+          pendingWrites.push({ id: file.id, data: gaps });
+          progress.updated += 1;
+        } else {
+          progress.skipped += 1;
+        }
         await bumpProgress(file.filePath);
         return;
       }
@@ -126,6 +142,9 @@ export async function processLibraryReindexLanguagesJob(
             audioTracks: mi.audioTracks as object[],
             subtitleTracks: mi.subtitleTracks as object[],
             languageTags: tags,
+            ...(file.audioFormat == null
+              ? { audioFormat: audioFormatFromTracks(mi.audioTracks) }
+              : {}),
             scannedAt: new Date(),
           },
         });
@@ -154,6 +173,9 @@ export async function processLibraryReindexLanguagesJob(
         filePath: true,
         sizeBytes: true,
         fileMtimeMs: true,
+        audioTracks: true,
+        languageTags: true,
+        audioFormat: true,
       },
       orderBy: { id: "asc" },
     });

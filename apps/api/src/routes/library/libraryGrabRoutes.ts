@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
 import { withKeyedLock } from "@rawkoon/api/utils/keyedLock";
@@ -75,7 +76,8 @@ export const libraryGrabRoutes = new Hono<Env>()
     ),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
+        if (!Number.isFinite(id)) return badRequest("Invalid id");
         const body = c.req.valid("json");
         const media = await findLibraryMediaRow(id);
         if (!media) return notFound("Library item not found");
@@ -184,7 +186,8 @@ export const libraryGrabRoutes = new Hono<Env>()
 
   .post("/:id/search", requireAdmin, jsonV(searchQueryBody), async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const body = c.req.valid("json");
       const media = await findLibraryMediaRow(id);
       if (!media) return notFound("Library item not found");
@@ -232,8 +235,10 @@ export const libraryGrabRoutes = new Hono<Env>()
     jsonV(searchQueryBody),
     async (c) => {
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const episodeId = parseInt(c.req.param("episodeId"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const episodeId = strictInt(c.req.param("episodeId"));
+        if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId))
+          return badRequest("Invalid id");
         const body = c.req.valid("json");
 
         const media = await findLibraryMediaRow(mediaId);
@@ -289,8 +294,10 @@ export const libraryGrabRoutes = new Hono<Env>()
 
   .post("/:id/seasons/:season/retry-skipped", requireAdmin, async (c) => {
     try {
-      const mediaId = parseInt(c.req.param("id"), 10);
-      const season = parseInt(c.req.param("season"), 10);
+      const mediaId = strictInt(c.req.param("id"));
+      const season = strictInt(c.req.param("season"), 0);
+      if (!Number.isFinite(mediaId) || !Number.isFinite(season))
+        return badRequest("Invalid id");
       return ok({ retried: await retrySkippedEpisodes(mediaId, season) });
     } catch {
       return serverError("Failed to retry skipped episodes");
@@ -303,8 +310,10 @@ export const libraryGrabRoutes = new Hono<Env>()
     jsonV(searchQueryBody),
     async (c) => {
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const season = parseInt(c.req.param("season"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const season = strictInt(c.req.param("season"), 0);
+        if (!Number.isFinite(mediaId) || !Number.isFinite(season))
+          return badRequest("Invalid id");
         const body = c.req.valid("json");
 
         const media = await findLibraryMediaRow(mediaId);
@@ -362,7 +371,7 @@ export const libraryGrabRoutes = new Hono<Env>()
     ),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
         if (isNaN(id)) return badRequest("Invalid library id");
         const body = c.req.valid("json");
 

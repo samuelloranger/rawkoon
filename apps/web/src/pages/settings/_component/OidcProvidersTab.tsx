@@ -16,6 +16,7 @@ import {
   type OidcProviderFormValues,
 } from "@/pages/settings/_component/OidcProviderForm";
 import { ProviderRow } from "@/pages/settings/_component/OidcProviderRow";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 export function OidcProvidersTab() {
   const { t } = useTranslation("common");
@@ -45,7 +46,11 @@ export function OidcProvidersTab() {
         setAdding(false);
         toast.success(t("settings.integrations.saveSuccess"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   const handleUpdate = (
@@ -66,7 +71,11 @@ export function OidcProvidersTab() {
         setEditingId(null);
         toast.success(t("settings.integrations.saveSuccess"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   const handleDelete = (provider: OidcProvider) => {
@@ -74,9 +83,9 @@ export function OidcProvidersTab() {
       .mutateAsync(provider.id)
       .then(() => {
         setDeletingId(null);
-        toast.success(t("settings.integrations.saveSuccess"));
+        toast.success(t("settings.integrations.sso.deleted"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch(() => toast.error(t("settings.integrations.sso.deleteError")));
   };
 
   return (

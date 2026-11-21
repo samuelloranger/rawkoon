@@ -6,10 +6,12 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "@tanstack/react-router";
 import { Clapperboard } from "lucide-react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { LibraryMedia } from "@rawkoon/shared/types";
 import { EmptyState } from "@/components/EmptyState";
+import { LoadError } from "@/components/LoadError";
 import { cn } from "@/lib/utils";
 import type { ViewMode } from "@/utils/libraryUtils";
 import { LibraryItemCard } from "./LibraryItemCard";
@@ -41,6 +43,10 @@ const LIST_ROW_HEIGHT = 64;
 interface LibraryGridProps {
   items: LibraryMedia[];
   isLoading: boolean;
+  /** The list failed to load; shown instead of the empty state. */
+  error?: boolean;
+  onRetry?: () => void;
+  retrying?: boolean;
   viewMode: ViewMode;
   /** A search or filter is narrowing the list, so empty means no match. */
   filtered?: boolean;
@@ -55,6 +61,9 @@ interface LibraryGridProps {
 export function LibraryGrid({
   items,
   isLoading,
+  error = false,
+  onRetry,
+  retrying = false,
   viewMode,
   filtered = false,
   onMovieSearch,
@@ -96,6 +105,10 @@ export function LibraryGrid({
     );
   }
 
+  if (error && items.length === 0 && onRetry) {
+    return <LoadError onRetry={onRetry} retrying={retrying} />;
+  }
+
   if (items.length === 0) {
     return (
       <div className="animate-in fade-in duration-300">
@@ -111,6 +124,16 @@ export function LibraryGrid({
               ? "medias.library.noMatchDescription"
               : "medias.library.emptyDescription",
           )}
+          action={
+            filtered ? undefined : (
+              <Link
+                to="/find"
+                className="focus-ring inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-primary-500"
+              >
+                {t("medias.library.emptyAction")}
+              </Link>
+            )
+          }
         />
       </div>
     );

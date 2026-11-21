@@ -293,6 +293,7 @@ export async function searchAndGrab(opts: {
           title,
           size,
           seeders: release.seeders,
+          release,
         });
       }
     }
@@ -384,7 +385,8 @@ export async function searchAndGrab(opts: {
           !completeSeasons && isMultiSeasonRelease(candidate.title)
             ? null
             : season,
-        indexer: null,
+        // Seed rules and the blocklist key on the indexer; null reads as "private".
+        indexer: candidate.release?.indexer ?? null,
         qualityParsed: candidate.parsed,
         isUpgrade,
         aiPicked: candidate === aiRow,

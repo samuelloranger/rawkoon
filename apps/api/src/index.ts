@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { loadConfig } from "@rawkoon/api/config";
 import { notFound, ok } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 
@@ -52,6 +53,7 @@ import {
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
+import { getCorsOrigins } from "@rawkoon/api/config";
 import { compressJson } from "@rawkoon/api/middleware/hono/compressJson";
 import { conditionalGet } from "@rawkoon/api/middleware/hono/conditionalGet";
 import {
@@ -66,16 +68,19 @@ import { startDownloadProgressBroadcaster } from "./workers/downloadProgressBroa
 // strict:false: a trailing slash matches (`/api/x/` == `/api/x`).
 export const app = new Hono<Env>({ strict: false });
 
+const corsOrigins = getCorsOrigins();
 app.use(
   "*",
   cors({
-    origin: Bun.env.CORS_ORIGIN || "http://localhost:5173",
+    // A lone "*" keeps its old meaning (any origin); a list is an allowlist.
+    origin:
+      corsOrigins.length === 1 && corsOrigins[0] === "*" ? "*" : corsOrigins,
     credentials: true,
   }),
 );
 app.use("*", requestTiming);
 
-if (Bun.env.LOG_LEVEL === "debug") {
+if (loadConfig().LOG_LEVEL === "debug") {
   app.use("*", async (c, next) => {
     console.log(
       `Incoming request: ${c.req.method} ${new URL(c.req.url).pathname}`,

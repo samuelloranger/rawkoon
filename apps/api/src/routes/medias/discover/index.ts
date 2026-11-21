@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { badRequest, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -32,7 +37,7 @@ export const mediasDiscoverRoutes = new Hono<Env>()
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest("TMDB is not configured");
+        return tmdbNotConfigured();
       }
       const q = c.req.query() as Record<string, string | undefined>;
       const language = resolveLanguage(q);

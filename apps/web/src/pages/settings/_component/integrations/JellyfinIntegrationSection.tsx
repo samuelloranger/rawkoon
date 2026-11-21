@@ -8,6 +8,7 @@ import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
 import { IntegrationSectionCard } from "@/pages/settings/_component/integrations/IntegrationSectionCard";
 import { Switch } from "@/components/ui/switch";
 import { IntegrationUrlInput } from "@/pages/settings/_component/integrations/IntegrationUrlInput";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 export function JellyfinIntegrationSection() {
   const { data, isLoading } = useJellyfinIntegration();
@@ -71,7 +72,11 @@ function JellyfinIntegrationSectionImpl({
         open_sign_in: openSignIn,
       })
       .then(() => toast.success(t("settings.integrations.saveSuccess")))
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   return (

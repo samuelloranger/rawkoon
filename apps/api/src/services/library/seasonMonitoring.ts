@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@rawkoon/api/db";
 import type { SeasonMode } from "@rawkoon/shared/types";
+import { APP_DISPLAY_TIMEZONE, localDateYmd } from "@rawkoon/shared/utils/date";
 
 export const seasonModeSchema = z.enum(["all", "future", "latest", "pick"]);
 
@@ -16,9 +17,14 @@ export function planMonitoredEpisodes(
   choice: SeasonChoice,
   episodes: PlanEpisode[],
   now: Date = new Date(),
+  timeZone: string = APP_DISPLAY_TIMEZONE,
 ): Set<number> {
   const regular = episodes.filter((e) => e.season > 0);
-  const isFuture = (e: PlanEpisode) => e.airDate == null || e.airDate > now;
+  // airDate is date-only (UTC midnight): compare calendar days in the app's
+  // timezone, so tonight's episode is still future and tomorrow's isn't aired.
+  const today = localDateYmd(timeZone, now);
+  const isFuture = (e: PlanEpisode) =>
+    e.airDate == null || e.airDate.toISOString().slice(0, 10) >= today;
   let picked: PlanEpisode[];
   switch (choice.seasonMode) {
     case "all":

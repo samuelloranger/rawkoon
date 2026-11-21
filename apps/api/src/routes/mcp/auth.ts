@@ -20,29 +20,36 @@ export function extractApiKey(request: Request): string | null {
   return bearer?.trim() || null;
 }
 
+export type McpAuthResult =
+  | { ok: true; caller: McpCaller }
+  | { ok: false; reason: "unauthorized" | "no_scopes" };
+
+const UNAUTHORIZED = { ok: false, reason: "unauthorized" } as const;
+
 /**
  * Verifies the key with better-auth's api-key plugin (which also refuses
  * disabled, expired and quota-exhausted keys), resolves the owner, and reads
- * the "mcp" permissions entry. Returns null for any reason to refuse.
+ * the "mcp" permissions entry. A valid key without MCP scopes is told apart
+ * from a bad key so the client can say so.
  */
 export async function authenticateMcpCaller(
   request: Request,
-): Promise<McpCaller | null> {
+): Promise<McpAuthResult> {
   const key = extractApiKey(request);
-  if (!key) return null;
+  if (!key) return UNAUTHORIZED;
 
   const { valid, key: record } = await apiKeyApi.verifyApiKey({
     body: { key },
   });
-  if (!valid || !record) return null;
+  if (!valid || !record) return UNAUTHORIZED;
 
   // A key with no "mcp" entry is a plain service key (e.g. an existing Labby
   // key) and must not reach the MCP tools.
   const scopes = parseMcpScopes(record.permissions);
-  if (scopes.length === 0) return null;
+  if (scopes.length === 0) return { ok: false, reason: "no_scopes" };
 
   const owner = await findUserById(record.referenceId);
-  if (!owner) return null;
+  if (!owner) return UNAUTHORIZED;
 
   // The admin scope is re-checked at call time: losing admin must not keep the
   // health tool reachable through a stale key.
@@ -51,9 +58,12 @@ export async function authenticateMcpCaller(
     : scopes.filter((s) => s !== "admin");
 
   return {
-    keyId: record.id,
-    keyName: record.name,
-    owner,
-    scopes: effectiveScopes,
+    ok: true,
+    caller: {
+      keyId: record.id,
+      keyName: record.name,
+      owner,
+      scopes: effectiveScopes,
+    },
   };
 }

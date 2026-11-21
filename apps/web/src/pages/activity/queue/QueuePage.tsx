@@ -15,6 +15,7 @@ import {
 } from "@/pages/_component/usePendingReleases";
 import { formatSpeed } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/lib/auth/useAuth";
 import {
   buildQueueRows,
   countByStatus,
@@ -249,6 +250,7 @@ export function QueuePage() {
   const pending = usePendingReleases(true);
   const attention = useLibraryAttention();
   const grabNow = useGrabPendingNow();
+  const isAdmin = useCurrentUser().data?.is_admin === true;
   const [filter, setFilter] = useState<QueueFilter>("all");
   const [now, setNow] = useState(() => Date.now());
 
@@ -317,15 +319,31 @@ export function QueuePage() {
         </p>
       ) : (
         <>
-          {!enabled && (
-            <p className="mb-3 text-center text-sm text-neutral-400">
-              {t("dashboard.home.downloadClientNotConfigured")}
-            </p>
-          )}
-          {enabled && !connected && (
-            <p className="mb-3 text-center text-sm text-amber-400">
-              {t("dashboard.home.downloadClientUnreachable")}
-            </p>
+          {(!enabled || !connected) && (
+            <div
+              className={cn(
+                "mb-3 text-center text-sm",
+                enabled ? "text-amber-400" : "text-neutral-400",
+              )}
+            >
+              <p>
+                {enabled
+                  ? t("dashboard.home.downloadClientUnreachable")
+                  : t("dashboard.home.downloadClientNotConfigured")}
+              </p>
+              {isAdmin ? (
+                <Link
+                  to="/settings/connections"
+                  className="focus-ring mt-1 inline-block rounded text-primary-300 underline underline-offset-2"
+                >
+                  {t("dashboard.home.downloadClientOpenSettings")}
+                </Link>
+              ) : (
+                <p className="mt-1 text-neutral-400">
+                  {t("dashboard.home.downloadsUnavailableAskAdmin")}
+                </p>
+              )}
+            </div>
           )}
           {shown.length === 0 ? (
             enabled &&

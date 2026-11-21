@@ -22,12 +22,14 @@ the user, and can be edited later from the same dialog.
 
 | Scope | Allows |
 | --- | --- |
-| `read` | `search`, `library_lookup`, `downloads`, `calendar`, `my_requests`, `listening_progress` |
-| `request` | `request_title` (add a title, or create a request) |
+| `read` | `search`, `library_lookup`, `downloads`, `quality_profiles`, `calendar`, `my_requests`, `listening_progress` |
+| `request` | `request_title` (add a title, or create a request), `cancel_request` |
 | `approve` | `pending_requests`, `decide_request` |
 | `admin` | `health` (the [doctor self-check](#the-health-tool)); additionally requires the key's owner to still be an admin |
 
-A new key has no scopes by default. The key acts as its owner: every tool call
+A new key has no scopes by default. A valid key with no MCP scopes gets a 403
+saying so; a missing or invalid key gets a 401 with `WWW-Authenticate: Bearer realm="rawkoon"`.
+`GET` and `DELETE` on the endpoint answer 405 (`Allow: POST`). The key acts as its owner: every tool call
 replays Rawkoon's own routes in-process as that user, so normal permission
 checks apply — an `admin` scope on a key owned by a non-admin is ignored, and
 `approve` tools only work for an admin owner.
@@ -105,24 +107,29 @@ bearer_token_env_var = "RAWKOON_API_KEY"
 
 | Tool | Scope | What it does |
 | --- | --- | --- |
-| `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. |
-| `library_lookup` | read | Is a title in the library: status, missing episodes, file quality, audio languages. |
-| `downloads` | read | The current download queue with progress, state and ETA (admin owner only). |
-| `calendar` | read | Upcoming releases and episodes for the next N days (default 7, max 30). |
+| `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. The query needs at least 2 characters; with books turned off, `books` carries `enabled: false` and a note. |
+| `library_lookup` | read | Is a title in the library: status, missing episodes, file quality (`resolution` as a number), audio languages, and `tmdb_id` to match search results. |
+| `downloads` | read | The current download queue (admin owner only): `progress_percent` (0-100), `state`, `download_speed_bytes_per_s` and `eta_seconds`. |
+| `quality_profiles` | read | Quality profiles with their ids and `default_for` (movie/show; `null` when the key's owner can't read the defaults): the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
+| `calendar` | read | Upcoming releases and episodes from today through the next N days (default 7, max 30); "today" is the server's `TZ`, so same-day releases are included. |
 | `my_requests` | read | The key owner's requests and their state. |
-| `listening_progress` | read | Where the owner is in their audiobooks and ebooks. |
+| `listening_progress` | read | Where the owner is in their audiobooks and ebooks (audiobook positions in whole seconds). |
 | `request_title` | request | Add a title (admin owner) or create a request (anyone else), with quality profile and season choice. |
-| `pending_requests` | approve | Requests waiting for approval. |
-| `decide_request` | approve | Approve (with a quality profile) or deny one request. |
+| `cancel_request` | request | Withdraw one of the key owner's own pending or denied requests (by id from `my_requests`). Refused up front for anyone else's request, even for an admin owner: turning those down is `decide_request`. |
+| `pending_requests` | approve | Requests waiting for approval, with `tmdb_id` / `google_volume_id`, `season_mode` and any `quality_profile_id`. |
+| `decide_request` | approve | Approve (with a quality profile) or deny one request (admin owner; checked before a token is issued). |
 | `health` | admin | The doctor self-check report. |
 
 Results are kept model-sized: strings are capped at 300 characters and lists at
 25 items with a `truncated` flag and total count, so the client narrows its
 query instead of assuming a list is complete.
 
+Tool failures come back with `isError: true` and the message as text only; they
+carry no `structuredContent`, since MCP requires that to be an object.
+
 ## The confirm flow for ACTION tools
 
-`request_title` and `decide_request` change state, so they run in two steps:
+`request_title`, `cancel_request` and `decide_request` change state, so they run in two steps:
 
 1. The first call **does nothing**. It returns a plain-English `summary` of
    what will happen, a `confirm_token`, and `expires_in_s: 300`.
@@ -133,13 +140,20 @@ query instead of assuming a list is complete.
 The token is single-use, stored in Valkey for five minutes, and bound to the
 key, the tool, and the exact arguments. A reused, expired, or mismatched token
 returns a plain error telling the client to start over — the action never runs.
+A token is consumed the moment the confirmed call is accepted: if the
+arguments don't match, or the action itself then fails, the error says the
+token is used up and the client must call the tool again without
+`confirm_token` for a new one. The `decide_request` summary names the request
+and the quality profile (falling back to ids if the lookup fails); the
+requester-written title is flattened and shortened so it reads as data, not
+instructions.
 
 ## Rate limits
 
 Each key gets 60 read tools per minute and 10 performed actions per hour in
 Valkey. Over the limit, the tool answers with an error saying when to retry.
-Unconfirmed summary calls are free; only the performed action spends the
-action budget.
+An unconfirmed summary call counts as one read; only the performed action
+spends the action budget.
 
 ## The health tool
 

@@ -19,6 +19,13 @@ example compose file:
 - Your media-library directories at the same paths Rawkoon is configured to
   use.
 
+The container runs as the `bun` user (uid 1000), so the bind-mounted
+directories must be owned by it:
+
+    mkdir -p data vapid_keys && sudo chown -R 1000:1000 data vapid_keys
+
+After the first start, run the doctor (see below) to verify the install.
+
 The container applies pending Prisma migrations when it starts
 (`entrypoint.sh` runs `bunx prisma migrate deploy`). To apply them
 manually without restarting:
@@ -123,7 +130,7 @@ it: behind Caddy with <code>trusted_proxies</code>, set
 Cloudflare can still spoof the leftmost entry. Download-client polling uses the client URL configured in Settings, so an
 internal Docker address avoids a round trip through the public proxy.
 
-## Troubleshooting: `rawkoon doctor`
+## Troubleshooting: the doctor
 
 The doctor probes every external dependency Rawkoon needs — database,
 migrations, Valkey, scheduled jobs, library paths, free space, hardlink

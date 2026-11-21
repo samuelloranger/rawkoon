@@ -17,6 +17,8 @@ import { notificationCopy } from "@rawkoon/api/services/notification/notificatio
 import { getNotificationTarget } from "@rawkoon/api/services/notification/notificationPreferences";
 import {
   notifyAdminsRequestPending,
+  notifyBookRequestAvailable,
+  recheckRequestAvailable,
   requestTitleLabel,
 } from "@rawkoon/api/services/mediaRequestNotifications";
 
@@ -349,14 +351,31 @@ export async function approveRequest(
   };
 
   // Deciding your own request needs no "approved" notification.
-  if (adminId === req.requestedById) return approved;
+  if (adminId !== req.requestedById) {
+    // The approval is committed; a failed notification must not skip the recheck below.
+    await notifyRequestApproved(req.requestedById, req, id).catch((e) =>
+      console.warn(
+        `[mediaRequests] approved notification failed for request ${id}:`,
+        e,
+      ),
+    );
+  }
+  // Already downloaded titles never fire a completion event, so check now.
+  await recheckRequestAvailable(media.id);
+  return approved;
+}
 
-  const requester = await getNotificationTarget(req.requestedById);
+async function notifyRequestApproved(
+  requestedById: string,
+  req: { title: string; year: number | null; posterUrl: string | null },
+  id: number,
+): Promise<void> {
+  const requester = await getNotificationTarget(requestedById);
   const locale = requester?.locale ?? null;
   const label = requestTitleLabel(req.title, req.year);
 
   await createAndQueueNotification(
-    req.requestedById,
+    requestedById,
     notificationCopy(locale, "requestApprovedTitle"),
     notificationCopy(locale, "requestDecidedBodyApproved", { title: label }),
     "request_decided",
@@ -365,8 +384,6 @@ export async function approveRequest(
     req.posterUrl ?? undefined,
     { preferenceKey: "request_decided" },
   );
-
-  return approved;
 }
 
 /**
@@ -429,21 +446,16 @@ async function approveBookRequest(
     },
   });
 
-  const requester = await getNotificationTarget(req.requestedById);
-  const locale = requester?.locale ?? null;
-  const label = requestTitleLabel(req.title, req.year);
-
-  await createAndQueueNotification(
-    req.requestedById,
-    notificationCopy(locale, "requestApprovedTitle"),
-    notificationCopy(locale, "requestDecidedBodyApproved", { title: label }),
-    "request_decided",
-    APP_PATHS.activityRequests,
-    { requestId: req.id },
-    req.posterUrl ?? undefined,
-    { preferenceKey: "request_decided" },
+  // The approval is committed; a failed notification must not skip the recheck below.
+  await notifyRequestApproved(req.requestedById, req, req.id).catch((e) =>
+    console.warn(
+      `[mediaRequests] approved notification failed for request ${req.id}:`,
+      e,
+    ),
   );
 
+  // A book already on disk never fires a completion event, so check now.
+  await notifyBookRequestAvailable(result.bookId);
   return { ok: true };
 }
 

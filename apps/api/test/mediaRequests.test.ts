@@ -54,6 +54,28 @@ describe("approveRequest", () => {
     expect(state.searchQueued).toEqual([909]);
   });
 
+  it("marks the request available at once when the title is already downloaded", async () => {
+    state.requests = [
+      {
+        id: 1,
+        tmdbId: 9,
+        type: "movie",
+        status: "pending",
+        requestedById: "u1",
+        libraryMediaId: null,
+        title: "X",
+      },
+    ];
+    state.mediaStatusById = { 909: "downloaded" };
+    const r = await approveRequest(1, 3, "admin-1");
+    expect(r.ok).toBe(true);
+    expect(state.requests[0].status).toBe("available");
+    expect(state.notifications.map((n) => n.type)).toEqual([
+      "request_decided",
+      "request_available",
+    ]);
+  });
+
   it("rejects a stale/deleted quality profile without touching the request", async () => {
     state.requests = [
       {

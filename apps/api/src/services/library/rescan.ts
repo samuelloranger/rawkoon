@@ -11,6 +11,7 @@ import {
   mapPool,
 } from "@rawkoon/api/utils/medias/fileFingerprint";
 import { parseFilenameMetadata } from "@rawkoon/api/utils/medias/filenameParser";
+import { missingAudioFields } from "@rawkoon/api/utils/medias/audioFields";
 import { enqueuePostProcess } from "@rawkoon/api/services/downloads/downloadOutcome";
 import { resolveActiveAdapter } from "@rawkoon/api/services/downloadClient/registry";
 import { reconcilePendingDownloads } from "@rawkoon/api/workers/checkDownloadCompletion";
@@ -175,12 +176,18 @@ async function rescanLibraryItemInner(
         source: file.source,
         videoCodec: file.videoCodec,
       });
-      // Backfill inode columns if an older row only has mtime/size.
-      if (file.fileDev == null || file.fileIno == null) {
+      // Backfill inode columns if an older row only has mtime/size, and audio
+      // fields an earlier scan stored tracks for but never derived.
+      const audioGaps = missingAudioFields(file);
+      if (
+        file.fileDev == null ||
+        file.fileIno == null ||
+        Object.keys(audioGaps).length > 0
+      ) {
         toUpdateOps.push(() =>
           prisma.mediaFile.update({
             where: { id: file.id },
-            data: fingerprintDbFields(fp),
+            data: { ...fingerprintDbFields(fp), ...audioGaps },
           }),
         );
       }
@@ -222,6 +229,13 @@ async function rescanLibraryItemInner(
           source: mi.source ?? fnData.source,
           audioTracks: mi.audioTracks as object[],
           subtitleTracks: mi.subtitleTracks as object[],
+          // The file changed, so its tags follow the fresh tracks (as the
+          // reindex job does); the format is only filled where missing.
+          ...missingAudioFields({
+            audioTracks: mi.audioTracks,
+            languageTags: [],
+            audioFormat: file.audioFormat,
+          }),
           scannedAt: new Date(),
         },
       }),

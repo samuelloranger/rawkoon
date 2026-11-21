@@ -22,6 +22,10 @@ vi.mock("react-i18next", () => ({
       o?.count != null ? `${k}:${o.count}` : k,
   }),
 }));
+let isAdmin = true;
+vi.mock("@/lib/auth/useAuth", () => ({
+  useCurrentUser: () => ({ data: { is_admin: isAdmin } }),
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/features/medias/hooks/useActiveDownloads", () => ({
   useActiveDownloads: () => ({ data: active, isLoading: false }),
@@ -158,5 +162,23 @@ describe("QueuePage", () => {
     expect(
       screen.getByText("dashboard.home.downloadClientNotConfigured"),
     ).toBeTruthy();
+  });
+
+  it("points admins to settings and members to an admin when downloads are down", () => {
+    active = { enabled: false, connected: false, items: [] };
+    pending = { items: [] };
+    attention = { items: [] };
+    isAdmin = true;
+    const { unmount } = render(<QueuePage />);
+    expect(
+      screen.getByText("dashboard.home.downloadClientOpenSettings"),
+    ).toBeTruthy();
+    unmount();
+    isAdmin = false;
+    render(<QueuePage />);
+    expect(
+      screen.getByText("dashboard.home.downloadsUnavailableAskAdmin"),
+    ).toBeTruthy();
+    isAdmin = true;
   });
 });

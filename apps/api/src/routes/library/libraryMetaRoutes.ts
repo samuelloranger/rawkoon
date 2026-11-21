@@ -1,7 +1,14 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  notFound,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireAdmin } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV } from "@rawkoon/api/middleware/validate";
@@ -74,7 +81,7 @@ const ARTWORK_FIELDS = [
 export const libraryMetaRoutes = new Hono<Env>()
   .patch("/:id/status", requireAdmin, jsonV(statusBody), async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
       if (!Number.isFinite(id)) return badRequest("Invalid ID");
       const body = c.req.valid("json");
       const item = await updateLibraryStatus(id, body.status);
@@ -89,7 +96,7 @@ export const libraryMetaRoutes = new Hono<Env>()
 
   .patch("/:id/monitored", requireAdmin, jsonV(monitoredBody), async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
       if (!Number.isFinite(id)) return badRequest("Invalid ID");
       const item = await updateLibraryMonitored(
         id,
@@ -107,7 +114,7 @@ export const libraryMetaRoutes = new Hono<Env>()
     jsonV(z.object({ quality_profile_id: z.union([z.number(), z.null()]) })),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
         const existing = await findLibraryMedia(id);
@@ -179,7 +186,7 @@ export const libraryMetaRoutes = new Hono<Env>()
     ),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
 
@@ -196,7 +203,7 @@ export const libraryMetaRoutes = new Hono<Env>()
         if (!existing) return notFound("Library item not found");
 
         const apiKey = await getLibraryTmdbApiKey();
-        if (!apiKey) return badRequest("TMDB is not configured");
+        if (!apiKey) return tmdbNotConfigured();
 
         const mediaType = existing.type === "show" ? "tv" : "movie";
         const path =
@@ -255,8 +262,8 @@ export const libraryMetaRoutes = new Hono<Env>()
     jsonV(monitoredBody),
     async (c) => {
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const season = parseInt(c.req.param("season"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const season = strictInt(c.req.param("season"), 0);
         if (!Number.isFinite(mediaId) || !Number.isFinite(season)) {
           return badRequest("Invalid ID or season");
         }
@@ -287,7 +294,7 @@ export const libraryMetaRoutes = new Hono<Env>()
     ),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
         const existing = await findLibraryMedia(id);
@@ -332,8 +339,8 @@ export const libraryMetaRoutes = new Hono<Env>()
     jsonV(monitoredBody),
     async (c) => {
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const episodeId = parseInt(c.req.param("episodeId"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const episodeId = strictInt(c.req.param("episodeId"));
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid ID or episode ID");
         }
@@ -365,7 +372,7 @@ export const libraryMetaRoutes = new Hono<Env>()
     ),
     async (c) => {
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
         if (!Number.isFinite(id)) return badRequest("Invalid ID");
         const body = c.req.valid("json");
         const existing = await findLibraryOverrides(id);
@@ -419,8 +426,8 @@ export const libraryMetaRoutes = new Hono<Env>()
     jsonV(statusBody),
     async (c) => {
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const episodeId = parseInt(c.req.param("episodeId"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const episodeId = strictInt(c.req.param("episodeId"));
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid ID or episode ID");
         }

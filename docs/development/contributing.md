@@ -12,8 +12,14 @@ Requirements: Bun 1.4 or newer and Docker with Docker Compose.
     make dev-api
     make dev-web
 
-Run the last three commands in separate terminals. Configure the secrets and
-email allowlists in <code>.env</code> before signing in.
+Run the last three commands in separate terminals. Set the secrets in
+<code>.env</code>, and use the "Host dev" values in <code>.env.example</code>
+for the database, Valkey and <code>NODE_ENV</code>, since the services run in
+Docker but the API runs on your machine.
+
+On first run, open <code>http://localhost:5173</code> and create the first
+account; it becomes the administrator. Then add a TMDB API key under
+**Settings → Connections** so search and discovery work.
 
 ## Before opening a pull request
 

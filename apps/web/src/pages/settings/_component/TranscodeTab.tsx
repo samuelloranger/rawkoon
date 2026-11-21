@@ -105,7 +105,7 @@ export function TranscodeTab() {
             <input
               type="time"
               value={settings.window_start}
-              aria-label="start"
+              aria-label={t("transcode.admin.windowStart")}
               onChange={(e) => update.mutate({ window_start: e.target.value })}
               className="rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1 text-neutral-50"
             />
@@ -113,7 +113,7 @@ export function TranscodeTab() {
             <input
               type="time"
               value={settings.window_end}
-              aria-label="end"
+              aria-label={t("transcode.admin.windowEnd")}
               onChange={(e) => update.mutate({ window_end: e.target.value })}
               className="rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1 text-neutral-50"
             />
@@ -123,7 +123,8 @@ export function TranscodeTab() {
           <button
             type="button"
             onClick={() => update.mutate({ paused: !settings.paused })}
-            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-[13px] font-semibold text-neutral-200 hover:bg-neutral-900"
+            disabled={update.isPending}
+            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-[13px] font-semibold text-neutral-200 hover:bg-neutral-900 disabled:opacity-50"
           >
             {settings.paused
               ? t("transcode.admin.resume")

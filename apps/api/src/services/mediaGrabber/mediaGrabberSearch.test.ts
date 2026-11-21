@@ -38,7 +38,11 @@ mock.module("@rawkoon/api/services/indexerManager", () => ({
 }));
 
 const grabRelease = mock(
-  async (_o: { releaseTitle: string; aiPicked?: boolean }) =>
+  async (_o: {
+    releaseTitle: string;
+    aiPicked?: boolean;
+    indexer?: string | null;
+  }) =>
     ({ grabbed: true }) as
       | { grabbed: true; releaseTitle?: string }
       | { grabbed: false; reason: string },
@@ -147,6 +151,11 @@ describe("searchAndGrab AI judge", () => {
     expect(grabRelease).toHaveBeenCalledTimes(1);
     expect(grabRelease.mock.calls[0]![0].aiPicked).toBe(false);
     expect(grabRelease.mock.calls[0]![0].releaseTitle).toContain(".1.");
+  });
+
+  it("records the release's indexer on the grab", async () => {
+    await searchAndGrab({ ...base, aiConfig: aiConfig as never });
+    expect(grabRelease.mock.calls[0]![0].indexer).toBe("idx");
   });
 
   it("does not call the AI with a single viable candidate", async () => {

@@ -23,6 +23,7 @@ import { useCurrentUser } from "@/lib/auth/useAuth";
 import { formatDateTime } from "@rawkoon/shared/utils";
 import { LoadingState } from "@/components/LoadingState";
 import { displayEmail, isJellyfinPlaceholderEmail } from "@/lib/jellyfinEmail";
+import { ResetPasswordDialog } from "@/pages/settings/_component/users/ResetPasswordDialog";
 import { ImportJellyfinDialog } from "@/pages/settings/_component/users/ImportJellyfinDialog";
 import { useConfirm } from "@/components/confirm/ConfirmContext";
 
@@ -55,6 +56,10 @@ export function UsersListSection() {
     !(jellyfinError instanceof HttpError && jellyfinError.status === 503);
   const showJellyfinColumn = !!jellyfinUsers || jellyfinFailed;
   const [importOpen, setImportOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<{
+    id: string;
+    email: string;
+  } | null>(null);
   const { data: currentUser } = useCurrentUser();
   const {
     data: usersData,
@@ -126,16 +131,10 @@ export function UsersListSection() {
     }
   };
 
-  const handleResetPassword = async (userId: string, email: string) => {
-    const password = prompt(t("settings.users.passwordResetPrompt", { email }));
-    if (password === null) return;
-    if (password.length < 8) {
-      toast.error(t("settings.users.passwordMinLength"));
-      return;
-    }
-
+  const handleResetPassword = async (userId: string, password: string) => {
     try {
       await resetPasswordMutation.mutateAsync({ userId, password });
+      setResetTarget(null);
       toast.success(t("settings.users.passwordResetSuccess"));
     } catch (error: unknown) {
       toast.error(
@@ -161,6 +160,15 @@ export function UsersListSection() {
           </Button>
         )}
       </div>
+      <ResetPasswordDialog
+        key={resetTarget?.id ?? "none"}
+        email={resetTarget?.email ?? null}
+        isPending={resetPasswordMutation.isPending}
+        onSubmit={(password) =>
+          resetTarget && handleResetPassword(resetTarget.id, password)
+        }
+        onClose={() => setResetTarget(null)}
+      />
       {jellyfinUsers && (
         <ImportJellyfinDialog
           isOpen={importOpen}
@@ -316,7 +324,7 @@ export function UsersListSection() {
                             variant="outline"
                             size="sm"
                             onClick={() =>
-                              handleResetPassword(user.id, user.email)
+                              setResetTarget({ id: user.id, email: user.email })
                             }
                             title={t("settings.users.passwordResetTitle")}
                           >

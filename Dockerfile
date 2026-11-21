@@ -115,6 +115,8 @@ RUN chmod +x entrypoint.sh
 # volumes inherit bun ownership.
 RUN mkdir -p /app/data/images /app/vapid_keys /app/apps/api/data/images \
     && chown bun:bun /app /app/data /app/data/images /app/vapid_keys /app/apps/api/data /app/apps/api/data/images
+# Relative default would land in /app/apps/api/data, outside the /app/data volume.
+ENV IMAGE_STORAGE_DIR=/app/data/images
 USER bun
 
 # Probe /api/health (SELECT 1 + redis.ping). start-period covers migrate-on-boot.

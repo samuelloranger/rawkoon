@@ -18,6 +18,7 @@ import {
 } from "@rawkoon/shared/types";
 import { useFetcher } from "@/lib/api/context";
 import { INTEGRATION_ENDPOINTS } from "@/lib/endpoints";
+import { apiErrorMessage } from "@/lib/api/httpClient";
 
 const isFeatureOn = (toggles: AiFeatureToggles, feature: AiFeature) =>
   toggles[feature] !== false;
@@ -128,7 +129,11 @@ function AiProviderIntegrationSectionImpl({
         setApiKey("");
         toast.success(t("settings.integrations.saveSuccess"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch((error) =>
+        toast.error(
+          apiErrorMessage(error, t("settings.integrations.saveError")),
+        ),
+      );
   };
 
   const handleTest = async () => {

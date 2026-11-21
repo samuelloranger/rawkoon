@@ -49,7 +49,11 @@ import {
 } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
-import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
+import {
+  jsonV,
+  queryV,
+  validationFailure,
+} from "@rawkoon/api/middleware/validate";
 import {
   assertSseContractIDs,
   SSE_ROUTE_DECLARATIONS,
@@ -323,7 +327,7 @@ export const notificationsRoutes = new Hono<Env>()
       await c.req.json().catch(() => undefined),
     );
     if (!parsed.success) {
-      return badRequest(parsed.error.issues[0]?.message ?? "Invalid request");
+      return validationFailure(parsed.error.issues);
     }
     try {
       const subscription = parsed.data?.subscription;
@@ -350,7 +354,7 @@ export const notificationsRoutes = new Hono<Env>()
       await c.req.json().catch(() => undefined),
     );
     if (!parsed.success) {
-      return badRequest(parsed.error.issues[0]?.message ?? "Invalid request");
+      return validationFailure(parsed.error.issues);
     }
     // Admin-only, but returns 401 (not 403) to match the original behavior.
     if (!c.get("user").is_admin) {

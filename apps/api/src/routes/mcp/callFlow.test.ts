@@ -119,6 +119,13 @@ const rpc = (method: string, params: unknown) =>
 const call = (name: string, arguments_: unknown) =>
   rpc("tools/call", { name, arguments: arguments_ });
 
+const callRpc = async (name: string, args: unknown) =>
+  (
+    (await (await call(name, args)).json()) as {
+      result: { isError: boolean; structuredContent?: unknown };
+    }
+  ).result;
+
 beforeEach(() => {
   verifyResult = {
     valid: true,
@@ -227,6 +234,7 @@ describe("the two-step confirm flow (request_title)", () => {
     };
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain("different arguments");
+    expect(body.result.content[0].text).toContain("now used up");
     expect(dispatched).toHaveLength(0);
   });
 
@@ -240,6 +248,7 @@ describe("the two-step confirm flow (request_title)", () => {
     };
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain("Start over");
+    expect(body.result.content[0].text).not.toContain("now used up");
   });
 
   it("fails before issuing a token when the caller can't run the tool", async () => {
@@ -382,13 +391,100 @@ describe("per-key rate limits", () => {
     expect(dispatched).toHaveLength(0);
   });
 
-  it("does not spend the action budget on the unconfirmed summary call", async () => {
+  it("charges the unconfirmed summary call to the read budget, not the action one", async () => {
     await call("request_title", {
       kind: "movie",
       tmdb_id: 1,
       title: "A",
     });
     expect(counters.has("mcp:rl:key-1:action")).toBe(false);
-    expect(counters.get("mcp:rl:key-1:read")).toBeUndefined();
+    expect(counters.get("mcp:rl:key-1:read")).toBeDefined();
+  });
+});
+
+describe("read tool shaping", () => {
+  it("keeps numeric resolution and tmdb_id in library_lookup", async () => {
+    respond = async () =>
+      Response.json({
+        items: [{ id: 1, tmdb_id: 42, title: "X", resolution: 1080 }],
+        has_more: false,
+      });
+    const result = await callRpc("library_lookup", { query: "x" });
+    const item = (
+      result.structuredContent as {
+        items: { resolution: number; tmdb_id: number }[];
+      }
+    ).items[0];
+    expect(item.resolution).toBe(1080);
+    expect(item.tmdb_id).toBe(42);
+  });
+
+  it("reports download progress as a percent and speed in bytes per second", async () => {
+    respond = async () =>
+      Response.json({
+        enabled: true,
+        connected: true,
+        items: [{ progress: 0.456, download_speed: 2048 }],
+      });
+    const result = await callRpc("downloads", {});
+    const item = (
+      result.structuredContent as {
+        items: {
+          progress_percent: number;
+          download_speed_bytes_per_s: number;
+        }[];
+      }
+    ).items[0];
+    expect(item.progress_percent).toBe(46);
+    expect(item.download_speed_bytes_per_s).toBe(2048);
+  });
+
+  it("lists quality profiles with their ids", async () => {
+    respond = async () =>
+      Response.json({
+        profiles: [{ id: 3, name: "HD", min_resolution: 1080 }],
+      });
+    const result = await callRpc("quality_profiles", {});
+    expect(
+      (result.structuredContent as { items: { id: number }[] }).items[0].id,
+    ).toBe(3);
+  });
+
+  it("flags the default movie and show profiles", async () => {
+    respond = async (req) =>
+      new URL(req.url).pathname === "/api/library/post-processing/settings"
+        ? Response.json({
+            default_movie_quality_profile_id: 3,
+            default_show_quality_profile_id: 3,
+          })
+        : Response.json({ profiles: [{ id: 3 }, { id: 4 }] });
+    const result = await callRpc("quality_profiles", {});
+    const items = (
+      result.structuredContent as { items: { default_for: string[] }[] }
+    ).items;
+    expect(items.map((p) => p.default_for)).toEqual([["movie", "show"], []]);
+  });
+
+  it("reports defaults as unknown when the owner can't read the settings", async () => {
+    respond = async (req) =>
+      new URL(req.url).pathname === "/api/library/post-processing/settings"
+        ? Response.json({ error: "Forbidden" }, { status: 403 })
+        : Response.json({ profiles: [{ id: 3 }] });
+    const result = await callRpc("quality_profiles", {});
+    const items = (
+      result.structuredContent as { items: { default_for: null }[] }
+    ).items;
+    expect(items[0].default_for).toBeNull();
+  });
+
+  it("sends no structuredContent on a tool error", async () => {
+    verifyResult.key!.permissions = { mcp: ["read"] };
+    const result = await callRpc("request_title", {
+      kind: "movie",
+      tmdb_id: 1,
+      title: "X",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toBeUndefined();
   });
 });

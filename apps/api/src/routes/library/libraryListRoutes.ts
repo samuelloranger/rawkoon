@@ -1,7 +1,14 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { z } from "zod";
 
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  notFound,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
@@ -106,7 +113,7 @@ export const libraryListRoutes = new Hono<Env>()
 
   .get("/item/:id", requireUser, async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
       if (!Number.isFinite(id)) return badRequest("Invalid id");
       const item = await findLibraryItemById(id);
       if (!item) return notFound("Library item not found");
@@ -187,7 +194,7 @@ export const libraryListRoutes = new Hono<Env>()
         } catch (e) {
           const msg = e instanceof Error ? e.message : "";
           if (msg === "TMDB is not configured") {
-            return badRequest(msg);
+            return tmdbNotConfigured();
           }
           throw e;
         }
@@ -214,7 +221,8 @@ export const libraryListRoutes = new Hono<Env>()
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const id = parseInt(c.req.param("id"), 10);
+        const id = strictInt(c.req.param("id"));
+        if (!Number.isFinite(id)) return badRequest("Invalid id");
         const query = c.req.valid("query");
         const result = await deleteLibraryItem(id, {
           deleteFiles: query.delete_files === "true",

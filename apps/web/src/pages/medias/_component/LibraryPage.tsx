@@ -51,24 +51,38 @@ export function LibraryPage() {
   } = state;
 
   // ─── Data fetch (server filters + sort + pagination via query params) ───────
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteLibrary({
-      type: typeFilter !== "all" ? typeFilter : undefined,
-      status: statusFilter !== "all" ? statusFilter : undefined,
-      q: search || undefined,
-      language: languageFilter !== "all" ? languageFilter : undefined,
-      sortBy,
-      sortDir,
-    });
+  const {
+    data,
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteLibrary({
+    type: typeFilter !== "all" ? typeFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    q: search || undefined,
+    language: languageFilter !== "all" ? languageFilter : undefined,
+    sortBy,
+    sortDir,
+  });
 
   const { data: languageTagsData } = useLibraryLanguageTags();
   const languageTags = languageTagsData?.tags ?? [];
 
+  // Only reset once the tags have loaded: an empty list while loading would
+  // wipe a ?language= filter from the URL on a cold start.
   useEffect(() => {
-    if (languageTags.length === 0 && languageFilter !== "all") {
+    if (
+      languageTagsData &&
+      languageTags.length === 0 &&
+      languageFilter !== "all"
+    ) {
       setState({ language: "all" });
     }
-  }, [languageTags.length, languageFilter, setState]);
+  }, [languageTagsData, languageTags.length, languageFilter, setState]);
 
   // Server returns already-sorted, already-filtered pages; the client only
   // flattens the loaded pages into one list for the virtualized grid.
@@ -142,6 +156,9 @@ export function LibraryPage() {
         <LibraryGrid
           items={sorted}
           isLoading={isLoading}
+          error={isError}
+          onRetry={() => void refetch()}
+          retrying={isRefetching}
           viewMode={viewMode}
           filtered={
             typeFilter !== "all" ||

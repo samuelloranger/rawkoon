@@ -20,6 +20,10 @@
     "requestFailed": "Couldn't request \"{{title}}\"",
     "book": "Book",
     "viewBook": "View book",
+    "denyReason": "Reason: {{reason}}",
+    "denyReasonLabel": "Reason for denying (optional)",
+    "denyReasonPlaceholder": "Reason (optional)",
+    "denyConfirm": "Deny request",
     "qualityPlaceholder": "Quality profile",
     "approve": "Approve",
     "deny": "Deny",
@@ -102,6 +106,7 @@
     "releasesSection": "Media releases",
     "loadingReleases": "Loading releases…",
     "nothingScheduled": "Nothing scheduled this day",
+    "clearSelectedDate": "Clear selected day",
     "noReleasesThisDay": "No media releases this day",
     "film": "Film",
     "tv": "TV",
@@ -222,6 +227,8 @@
       "grabNow": "Grab now",
       "nothingDownloading": "Nothing downloading",
       "downloadClientUnreachable": "Download client unreachable",
+      "downloadClientOpenSettings": "Open connection settings",
+      "downloadsUnavailableAskAdmin": "Downloads are unavailable right now — ask an admin.",
       "etaLeft": "{{time}} left",
       "nothingGrabbed": "Nothing was grabbed",
       "grabMiss": {
@@ -388,12 +395,8 @@
   },
   "forgotPassword": {
     "title": "Forgot your password?",
-    "description": "Enter your email address and we'll send you a link to reset your password.",
-    "submit": "Send reset link",
-    "backToLogin": "Back to login",
-    "checkEmail": "Check your email",
-    "emailSent": "If an account exists with this email, you will receive a password reset link shortly.",
-    "error": "An error occurred. Please try again."
+    "description": "This server can't email password reset links. Ask an administrator to reset your password from Settings → Users, then sign in with the new one.",
+    "backToLogin": "Back to login"
   },
   "resetPassword": {
     "title": "Reset your password",
@@ -456,6 +459,8 @@
     "somethingWentWrong": "Something went wrong",
     "unexpectedError": "An unexpected error occurred",
     "reloadPage": "Reload page",
+    "loadErrorDescription": "Check your connection and try again.",
+    "retry": "Retry",
     "failedToLoad": "Failed to load",
     "create": "Create",
     "creating": "Creating...",
@@ -466,6 +471,8 @@
     "clear": "Clear",
     "deleting": "Deleting...",
     "edit": "Edit",
+    "previous": "Previous",
+    "next": "Next",
     "copy": "Copy",
     "open": "Open",
     "requestFailed": "Request failed",
@@ -602,6 +609,7 @@
         "testError": "Failed to send test notification.",
         "deleted": "Channel deleted.",
         "deleteError": "Failed to delete channel.",
+        "deleteConfirm": "Delete channel \"{{label}}\"? Notifications will stop going to it.",
         "added": "Channel added.",
         "addError": "Failed to add channel.",
         "updated": "Channel updated.",
@@ -1420,6 +1428,8 @@
         "redirectUriHelp": "Add this URL as an allowed redirect URI in your identity provider.",
         "deleteConfirm": "Delete {{name}}?",
         "deleteConfirmHelp": "This will remove the provider and any users who signed in through it will lose SSO access.",
+        "deleted": "Provider deleted.",
+        "deleteError": "Could not delete the provider.",
         "editProvider": "Edit provider",
         "saveProvider": "Save",
         "cancel": "Cancel",
@@ -2003,7 +2013,8 @@
         "done": "Remuxed {{processed}} files ({{skipped}} skipped, {{errors}} errors)"
       },
       "emptyTitle": "No items in library",
-      "emptyDescription": "Search for movies or shows in the panel on the right and add them to your library.",
+      "emptyDescription": "Use the Find page to search for movies or shows and add them to your library.",
+      "emptyAction": "Go to Find",
       "paginationRange": "{{start}}–{{end}} of {{total}}",
       "digitalRelease": "Digital {{date}}",
       "sort": {
@@ -2096,6 +2107,7 @@
       "noMatchDescription": "Try removing a filter or clearing the search."
     },
     "watchlist": {
+      "remove": "Remove {{title}} from watchlist",
       "pageTitle": "Watchlist",
       "pageSubtitle": "Movies and shows you want to watch",
       "empty": "Your watchlist is empty",
@@ -2324,6 +2336,9 @@
       "inLibrary": "Already in library",
       "notConfigured": "Service not configured",
       "searchFailed": "Title search failed. Try again.",
+      "notConfiguredAdmin": "Title search isn't set up (TMDB isn't connected).",
+      "openSettings": "Open Settings",
+      "notConfiguredMember": "Title search isn't set up on this server. Ask your admin to connect TMDB.",
       "addAction": "Add",
       "chooseRelease": "Choose release",
       "openInLibrary": "Open"
@@ -3256,6 +3271,8 @@
     "dvNote": "Dolby Vision → HDR10",
     "admin": {
       "runWindow": "Run window",
+      "windowStart": "Run window start",
+      "windowEnd": "Run window end",
       "pause": "Pause queue",
       "resume": "Resume queue",
       "stats": {
