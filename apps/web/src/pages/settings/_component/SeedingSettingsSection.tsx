@@ -156,7 +156,7 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
             <Button
               type="button"
               size="sm"
-              disabled={!parsed}
+              disabled={!parsed || upsert.isPending}
               onClick={async () => {
                 if (!parsed) return;
                 await upsert.mutateAsync({
@@ -182,6 +182,7 @@ function IndexerRuleRow({ row }: { row: IndexerSeedRuleRow }) {
             type="button"
             size="sm"
             variant="ghost"
+            disabled={remove.isPending}
             onClick={() => remove.mutateAsync(row.indexer)}
           >
             {t("settings.seeding.indexers.useDefault")}

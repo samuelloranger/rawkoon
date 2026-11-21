@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 function PageDot({
@@ -37,6 +38,7 @@ export function DiscoverPagination({
   isFetching: boolean;
   onPageChange: (page: number) => void;
 }) {
+  const { t } = useTranslation("common");
   if (totalPages <= 1) return null;
 
   const goPrev = () => onPageChange(Math.max(1, page - 1));
@@ -52,7 +54,7 @@ export function DiscoverPagination({
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 text-sm text-neutral-300 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-30"
         >
           <ChevronLeft size={16} />
-          <span className="font-medium">Prev</span>
+          <span className="font-medium">{t("common.previous")}</span>
         </button>
 
         <span className="shrink-0 text-sm tabular-nums text-neutral-500">
@@ -65,7 +67,7 @@ export function DiscoverPagination({
           disabled={page === totalPages || isFetching}
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 text-sm text-neutral-300 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-30"
         >
-          <span className="font-medium">Next</span>
+          <span className="font-medium">{t("common.next")}</span>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -75,6 +77,7 @@ export function DiscoverPagination({
           type="button"
           onClick={goPrev}
           disabled={page === 1 || isFetching}
+          aria-label={t("common.previous")}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-400 transition-colors hover:border-neutral-600 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
         >
           <ChevronLeft size={15} />
@@ -118,6 +121,7 @@ export function DiscoverPagination({
           type="button"
           onClick={goNext}
           disabled={page === totalPages || isFetching}
+          aria-label={t("common.next")}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-400 transition-colors hover:border-neutral-600 hover:text-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
         >
           <ChevronRight size={15} />

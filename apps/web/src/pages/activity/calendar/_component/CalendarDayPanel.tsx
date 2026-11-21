@@ -44,6 +44,7 @@ export function CalendarDayPanel({
             </div>
             <button
               onClick={onClearSelectedDate}
+              aria-label={t("calendar.clearSelectedDate")}
               className="p-1.5 rounded-lg hover:bg-neutral-700/60 transition-colors"
             >
               <CalendarDays className="w-4 h-4 text-neutral-400" />

@@ -106,6 +106,7 @@
     "releasesSection": "Sorties média",
     "loadingReleases": "Chargement des sorties…",
     "nothingScheduled": "Rien de prévu ce jour",
+    "clearSelectedDate": "Désélectionner le jour",
     "noReleasesThisDay": "Aucune sortie média ce jour",
     "film": "Film",
     "tv": "Série",
@@ -470,6 +471,8 @@
     "clear": "Effacer",
     "deleting": "Suppression...",
     "edit": "Modifier",
+    "previous": "Précédent",
+    "next": "Suivant",
     "copy": "Copier",
     "open": "Ouvrir",
     "requestFailed": "La requête a échoué",
@@ -3266,6 +3269,8 @@
     "dvNote": "Dolby Vision → HDR10",
     "admin": {
       "runWindow": "Plage horaire",
+      "windowStart": "Début de la plage d’exécution",
+      "windowEnd": "Fin de la plage d’exécution",
       "pause": "Mettre en pause",
       "resume": "Reprendre",
       "stats": {

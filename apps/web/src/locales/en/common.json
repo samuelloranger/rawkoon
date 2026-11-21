@@ -106,6 +106,7 @@
     "releasesSection": "Media releases",
     "loadingReleases": "Loading releases…",
     "nothingScheduled": "Nothing scheduled this day",
+    "clearSelectedDate": "Clear selected day",
     "noReleasesThisDay": "No media releases this day",
     "film": "Film",
     "tv": "TV",
@@ -470,6 +471,8 @@
     "clear": "Clear",
     "deleting": "Deleting...",
     "edit": "Edit",
+    "previous": "Previous",
+    "next": "Next",
     "copy": "Copy",
     "open": "Open",
     "requestFailed": "Request failed",
@@ -3266,6 +3269,8 @@
     "dvNote": "Dolby Vision → HDR10",
     "admin": {
       "runWindow": "Run window",
+      "windowStart": "Run window start",
+      "windowEnd": "Run window end",
       "pause": "Pause queue",
       "resume": "Resume queue",
       "stats": {
