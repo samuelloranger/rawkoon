@@ -42,7 +42,7 @@ services:
       # The container user is uid 1000 and needs write access to the library.
       # - /path/to/data:/data
     restart: unless-stopped
-    # Optional: GPU re-encoding (VA-API). See docs/self-hosting.md.
+    # Optional: GPU re-encoding (VA-API). See the GPU section of docs/self-hosting.md.
     # devices:
     #   - /dev/dri:/dev/dri
     # group_add:
@@ -81,10 +81,10 @@ services:
     image: valkey/valkey:8-alpine
     container_name: rawkoon-valkey
     restart: unless-stopped
-    command: valkey-server --requirepass ${VALKEY_PASSWORD:-${REDIS_PASSWORD}} --bind 0.0.0.0 --protected-mode yes
+    command: valkey-server --requirepass ${VALKEY_PASSWORD:-${REDIS_PASSWORD:?Set VALKEY_PASSWORD in .env}} --bind 0.0.0.0 --protected-mode yes
     environment:
       # valkey-cli reads this, so the healthcheck needs no password on its command line.
-      REDISCLI_AUTH: ${VALKEY_PASSWORD:-${REDIS_PASSWORD}}
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:-${REDIS_PASSWORD:?Set VALKEY_PASSWORD in .env}}
     volumes:
       - valkey_data:/data
     networks:
