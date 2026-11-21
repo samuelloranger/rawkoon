@@ -227,10 +227,13 @@ function isClientRejected(
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ");
 
-  // Year check: if release title contains a year and it doesn't match, reject.
+  // Year check: reject only when the release names years and none is the media's
+  // (titles like "Blade Runner 2049" carry a year-like number before the real one).
   if (mediaYear) {
-    const yearMatch = normalizedRelease.match(/\b((?:19|20)\d{2})\b/);
-    if (yearMatch && parseInt(yearMatch[1], 10) !== mediaYear) return true;
+    const years = [...normalizedRelease.matchAll(/\b((?:19|20)\d{2})\b/g)].map(
+      (m) => Number(m[1]),
+    );
+    if (years.length > 0 && !years.includes(mediaYear)) return true;
   }
 
   // Distinctive words (3+ chars, non-stop) of the expected title must match at 70%.

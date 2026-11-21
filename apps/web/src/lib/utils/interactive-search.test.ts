@@ -92,6 +92,19 @@ describe("filterAndSortReleases — isClientRejected with accented French title"
     expect(result).toHaveLength(0);
   });
 
+  it("keeps a release whose title holds a year-like number before the real year", () => {
+    const result = filterAndSortReleases(
+      [
+        makeRelease("Blade.Runner.2049.2017.1080p.BluRay"),
+        makeRelease("Blade.Runner.2049.2019.1080p.BluRay"),
+      ],
+      { ...BASE_FILTER, mediaTitle: "Blade Runner 2049", mediaYear: 2017 },
+    );
+    expect(result.map((r) => r.title)).toEqual([
+      "Blade.Runner.2049.2017.1080p.BluRay",
+    ]);
+  });
+
   // -------------------------------------------------------------------------
   // Regression: before the NFD fix, titleWords for "Jérémie: rendez-vous à
   // la plage" were ["mie","rendez","vous","plage"] instead of the correct
