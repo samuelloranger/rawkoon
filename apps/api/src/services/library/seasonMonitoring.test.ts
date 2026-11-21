@@ -44,6 +44,24 @@ const plan = (
 ) => [...planMonitoredEpisodes({ seasonMode, seasons }, eps, NOW)].sort();
 
 describe("planMonitoredEpisodes", () => {
+  it("compares air dates by calendar day in the app timezone", () => {
+    // 21:00 in Toronto on Jun 1 is already Jun 2 in UTC.
+    const evening = new Date("2026-06-02T01:00:00Z");
+    const day = [
+      { id: 1, season: 1, airDate: new Date("2026-05-31T00:00:00Z") },
+      { id: 2, season: 1, airDate: new Date("2026-06-01T00:00:00Z") },
+      { id: 3, season: 1, airDate: new Date("2026-06-02T00:00:00Z") },
+    ];
+    const picked = planMonitoredEpisodes(
+      { seasonMode: "future" },
+      day,
+      evening,
+      "America/Toronto",
+    );
+    // Tonight's and tomorrow's episodes are still to come; yesterday's aired.
+    expect([...picked].sort()).toEqual([2, 3]);
+  });
+
   it("all: every regular episode, never specials", () => {
     expect(plan("all")).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });

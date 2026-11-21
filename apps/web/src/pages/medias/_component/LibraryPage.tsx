@@ -72,11 +72,17 @@ export function LibraryPage() {
   const { data: languageTagsData } = useLibraryLanguageTags();
   const languageTags = languageTagsData?.tags ?? [];
 
+  // Only reset once the tags have loaded: an empty list while loading would
+  // wipe a ?language= filter from the URL on a cold start.
   useEffect(() => {
-    if (languageTags.length === 0 && languageFilter !== "all") {
+    if (
+      languageTagsData &&
+      languageTags.length === 0 &&
+      languageFilter !== "all"
+    ) {
       setState({ language: "all" });
     }
-  }, [languageTags.length, languageFilter, setState]);
+  }, [languageTagsData, languageTags.length, languageFilter, setState]);
 
   // Server returns already-sorted, already-filtered pages; the client only
   // flattens the loaded pages into one list for the virtualized grid.
