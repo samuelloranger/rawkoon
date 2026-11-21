@@ -11,6 +11,7 @@ import {
   useTestNotificationChannel,
 } from "@/lib/notifications/useNotificationChannels";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm/ConfirmContext";
 import { Switch } from "@/components/ui/switch";
 import { AddNotificationChannelModal } from "./AddNotificationChannelModal";
 import { EditNotificationChannelModal } from "./EditNotificationChannelModal";
@@ -21,6 +22,7 @@ export function NotificationChannelsSection() {
   const updateMutation = useUpdateNotificationChannel();
   const deleteMutation = useDeleteNotificationChannel();
   const testMutation = useTestNotificationChannel();
+  const { confirm } = useConfirm();
 
   const channels = data?.channels ?? [];
 
@@ -67,7 +69,19 @@ export function NotificationChannelsSection() {
     });
   }
 
-  async function handleDelete(id: number) {
+  function handleDelete(channel: NotificationChannel) {
+    confirm({
+      variant: "destructive",
+      title: t("settings.notifications.channels.deleteChannel"),
+      description: t("settings.notifications.channels.deleteConfirm", {
+        label: channel.label,
+      }),
+      confirmLabel: t("common.delete"),
+      onConfirm: () => deleteChannel(channel.id),
+    });
+  }
+
+  function deleteChannel(id: number) {
     deleteMutation.mutate(id, {
       onSuccess: () =>
         toast.success(t("settings.notifications.channels.deleted")),
@@ -157,7 +171,7 @@ export function NotificationChannelsSection() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleDelete(channel.id)}
+                    onClick={() => handleDelete(channel)}
                     disabled={deleteMutation.isPending}
                     title={t("settings.notifications.channels.deleteChannel")}
                     className="text-red-500 hover:text-red-400 hover:bg-red-500/10"

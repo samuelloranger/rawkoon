@@ -606,6 +606,7 @@
         "testError": "Échec de l'envoi de la notification de test.",
         "deleted": "Canal supprimé.",
         "deleteError": "Échec de la suppression du canal.",
+        "deleteConfirm": "Supprimer le canal « {{label}} » ? Il ne recevra plus de notifications.",
         "added": "Canal ajouté.",
         "addError": "Échec de l'ajout du canal.",
         "updated": "Canal mis à jour.",

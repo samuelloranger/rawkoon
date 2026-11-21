@@ -606,6 +606,7 @@
         "testError": "Failed to send test notification.",
         "deleted": "Channel deleted.",
         "deleteError": "Failed to delete channel.",
+        "deleteConfirm": "Delete channel \"{{label}}\"? Notifications will stop going to it.",
         "added": "Channel added.",
         "addError": "Failed to add channel.",
         "updated": "Channel updated.",
