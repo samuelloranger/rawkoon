@@ -27,14 +27,20 @@ const envSchema = z.object({
   API_PORT: portNumber.optional().default(3000),
   SECRET_KEY: z
     .string()
-    .min(32, "SECRET_KEY must be at least 32 characters")
+    .min(
+      32,
+      "SECRET_KEY must be at least 32 characters — generate one with `openssl rand -base64 32`",
+    )
     .refine(
       (val) => val !== "generate-a-random-secret-here",
       "SECRET_KEY cannot be the default placeholder",
     ),
   BETTER_AUTH_SECRET: z
     .string()
-    .min(32, "BETTER_AUTH_SECRET must be at least 32 characters")
+    .min(
+      32,
+      "BETTER_AUTH_SECRET must be at least 32 characters — generate one with `openssl rand -base64 32`",
+    )
     .refine(
       (val) => val !== "generate-a-random-secret-here",
       "BETTER_AUTH_SECRET cannot be the default placeholder",
@@ -46,7 +52,11 @@ const envSchema = z.object({
   WEBAUTHN_ORIGIN: z.string().optional(),
   BASE_URL: z.url().optional().default("http://localhost:3000"),
   CORS_ORIGIN: z.string().optional().default("http://localhost:5173"),
-  LOG_LEVEL: z.string().optional().default("info"),
+  LOG_LEVEL: z
+    .string()
+    .optional()
+    .default("info")
+    .transform((v) => v.toLowerCase()),
   TZ: z.string().optional().default("America/New_York"),
 
   DATABASE_URL: databaseUrl,
