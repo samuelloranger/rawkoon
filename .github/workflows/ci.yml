@@ -25,9 +25,6 @@ jobs:
       - name: Lint (Biome on web + API + shared — Makefile `make lint` matches)
         run: bun run lint
       - name: Dead code (knip)
-        # apps/api/prisma.config.ts resolves DATABASE_URL at load; any value works.
-        env:
-          DATABASE_URL: postgresql://knip:knip@localhost:5432/knip
         run: bun run knip
       - name: No hardcoded toast copy
         run: |
