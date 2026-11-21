@@ -207,7 +207,11 @@ describe("TmdbResultCard", () => {
   it("shows Request instead of Add for members when not in the library", () => {
     isAdmin = false;
     render(
-      <TmdbResultCard item={item()} onOpenDetails={vi.fn()} onAdded={vi.fn()} />,
+      <TmdbResultCard
+        item={item()}
+        onOpenDetails={vi.fn()}
+        onAdded={vi.fn()}
+      />,
     );
     expect(screen.getByText("request-button")).toBeTruthy();
     expect(screen.queryByText("medias.tmdb.addAction")).toBeNull();
