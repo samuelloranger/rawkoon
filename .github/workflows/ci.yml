@@ -111,7 +111,7 @@ jobs:
       # One step per suite, each with its own timeout, so a hang fails fast and names its suite.
       - name: Web tests
         timeout-minutes: 5
-        run: cd apps/web && bun run test --run
+        run: cd apps/web && bun run test
       - name: API tests
         timeout-minutes: 10
         run: cd apps/api && bun run test
