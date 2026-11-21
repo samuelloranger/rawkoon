@@ -16,7 +16,6 @@ import {
 import {
   callTool,
   initializeResult,
-  MCP_TOOLS,
   toolByName,
   toolsForScopes,
 } from "./tools";
@@ -91,7 +90,11 @@ async function handleOneMessage(
           error: errorResponse(
             id,
             INVALID_PARAMS,
-            `Unknown tool: ${name}. Available tools: ${MCP_TOOLS.map((t) => t.name).join(", ")}. Call tools/list for the ones this key can use.`,
+            `Unknown tool: ${name}. This key can use: ${toolsForScopes(
+              caller.scopes,
+            )
+              .map((t) => t.name)
+              .join(", ")}.`,
           ).error,
         };
       }
