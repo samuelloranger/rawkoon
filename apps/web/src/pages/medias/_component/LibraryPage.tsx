@@ -55,6 +55,7 @@ export function LibraryPage() {
     data,
     isLoading,
     isError,
+    isRefetching,
     refetch,
     fetchNextPage,
     hasNextPage,
@@ -151,6 +152,7 @@ export function LibraryPage() {
           isLoading={isLoading}
           error={isError}
           onRetry={() => void refetch()}
+          retrying={isRefetching}
           viewMode={viewMode}
           filtered={
             typeFilter !== "all" ||

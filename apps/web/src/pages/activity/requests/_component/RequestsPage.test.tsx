@@ -263,6 +263,21 @@ describe("RequestsPage moderation", () => {
     expect(deny).toHaveBeenCalledWith({ id: 1 });
   });
 
+  it("closes the deny form on Escape and drops the typed reason", () => {
+    rows.list = [base];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.deny"));
+    const input = screen.getByLabelText("requests.denyReasonLabel");
+    fireEvent.change(input, { target: { value: "draft" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.queryByLabelText("requests.denyReasonLabel")).toBeNull();
+    fireEvent.click(screen.getByText("requests.deny"));
+    expect(
+      (screen.getByLabelText("requests.denyReasonLabel") as HTMLInputElement)
+        .value,
+    ).toBe("");
+  });
+
   it("shows the requester why a request was denied", () => {
     auth.isAdmin = false;
     rows.list = [{ ...base, status: "denied", deny_reason: "Out of scope" }];
