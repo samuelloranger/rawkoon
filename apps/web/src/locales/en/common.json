@@ -388,12 +388,8 @@
   },
   "forgotPassword": {
     "title": "Forgot your password?",
-    "description": "Enter your email address and we'll send you a link to reset your password.",
-    "submit": "Send reset link",
-    "backToLogin": "Back to login",
-    "checkEmail": "Check your email",
-    "emailSent": "If an account exists with this email, you will receive a password reset link shortly.",
-    "error": "An error occurred. Please try again."
+    "description": "This server can't email password reset links. Ask an administrator to reset your password from Settings → Users, then sign in with the new one.",
+    "backToLogin": "Back to login"
   },
   "resetPassword": {
     "title": "Reset your password",

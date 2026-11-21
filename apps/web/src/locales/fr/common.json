@@ -388,12 +388,8 @@
   },
   "forgotPassword": {
     "title": "Mot de passe oublié ?",
-    "description": "Entrez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
-    "submit": "Envoyer le lien",
-    "backToLogin": "Retour à la connexion",
-    "checkEmail": "Vérifiez votre e-mail",
-    "emailSent": "Si un compte existe avec cet e-mail, vous recevrez un lien de réinitialisation sous peu.",
-    "error": "Une erreur est survenue. Veuillez réessayer."
+    "description": "Ce serveur ne peut pas envoyer de liens de réinitialisation par courriel. Demandez à un administrateur de réinitialiser votre mot de passe dans Paramètres → Utilisateurs, puis connectez-vous avec le nouveau.",
+    "backToLogin": "Retour à la connexion"
   },
   "resetPassword": {
     "title": "Réinitialiser votre mot de passe",

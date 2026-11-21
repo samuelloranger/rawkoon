@@ -129,21 +129,6 @@ export function useLogout() {
   });
 }
 
-export function useForgotPassword() {
-  const fetcher = useFetcher();
-
-  return useMutation({
-    mutationFn: (data: { email: string }) =>
-      fetcher<{ status: boolean }>(AUTH_ENDPOINTS.FORGOT_PASSWORD, {
-        method: "POST",
-        body: {
-          email: data.email,
-          redirectTo: `${window.location.origin}/reset-password`,
-        },
-      }),
-  });
-}
-
 export function useResetPassword() {
   const fetcher = useFetcher();
 
