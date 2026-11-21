@@ -24,7 +24,7 @@ export interface McpTool {
    */
   preflight?: (args: unknown, ctx: McpToolContext) => string | null;
   /** ACTION tools only: the human-facing summary of what will happen. */
-  summarize?: (args: unknown, ctx: McpToolContext) => string;
+  summarize?: (args: unknown, ctx: McpToolContext) => string | Promise<string>;
   run: (args: unknown, ctx: McpToolContext) => Promise<unknown>;
 }
 
