@@ -19,8 +19,8 @@ build: ## Build frontend for production
 typecheck: ## Typecheck all workspaces that define typecheck (web, api, shared)
 	bun run typecheck
 
-dev-services: ## Start only database and Redis services
-	docker compose -p rawkoon-dev -f docker-compose.yml up db redis -d
+dev-services: ## Start only database and Valkey services
+	docker compose -p rawkoon-dev -f docker-compose.yml up db valkey -d
 
 dev-api: ## Start TypeScript/Bun API locally with hot reload
 	cd apps/api && bun run dev
@@ -31,13 +31,13 @@ dev-web: ## Start React frontend with live reload
 dev: ## Show development setup instructions
 	@echo "Development setup:"
 	@echo ""
-	@echo "  Repo docker-compose.yml: PostgreSQL + Redis only."
+	@echo "  Repo docker-compose.yml: PostgreSQL + Valkey only."
 	@echo "  Run API and web on the host:"
-	@echo "    1. make dev-services  # Start PostgreSQL + Redis"
+	@echo "    1. make dev-services  # Start PostgreSQL + Valkey"
 	@echo "    2. make dev-api       # Bun API with hot reload"
 	@echo "    3. make dev-web       # Vite frontend"
 	@echo ""
-	@echo "Production-like Docker (API + frontend + DB + Redis): copy"
+	@echo "Production-like Docker (API + frontend + DB + Valkey): copy"
 	@echo "  docker-compose.prod-example.yml → docker-compose.prod.yml and use that file."
 
 down: ## Stop Docker containers
@@ -60,11 +60,8 @@ clean: ## Clean all build artifacts and caches
 	rm -rf node_modules apps/*/node_modules
 	docker compose -p rawkoon-dev -f docker-compose.yml down -v
 
-cc: ## Run Claude headless: make cc "your message"
-	@claude -p "$(filter-out $@,$(MAKECMDGOALS))" --allowedTools "Edit,Read,Bash,Grep"
-
-%:
-	@:
+cc: ## Run Claude headless: make cc MSG="your message"
+	@claude -p "$(MSG)" --allowedTools "Edit,Read,Bash,Grep"
 
 # ===== Database Migrations (Prisma) =====
 
