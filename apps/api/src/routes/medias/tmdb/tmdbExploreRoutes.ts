@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
-import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badGateway,
+  badRequest,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import {
@@ -33,7 +39,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest("TMDB is not configured");
+        return tmdbNotConfigured();
       }
 
       const q = c.req.query() as Record<string, string | undefined>;
@@ -103,7 +109,7 @@ export const tmdbExploreRoutes = new Hono<Env>()
 
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest("TMDB is not configured");
+        return tmdbNotConfigured();
       }
 
       const url = new URL(

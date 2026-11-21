@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { badRequest, notFound, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badRequest,
+  notFound,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { ensureAdmin, requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { jsonV, queryV } from "@rawkoon/api/middleware/validate";
@@ -187,7 +193,7 @@ export const libraryListRoutes = new Hono<Env>()
         } catch (e) {
           const msg = e instanceof Error ? e.message : "";
           if (msg === "TMDB is not configured") {
-            return badRequest(msg);
+            return tmdbNotConfigured();
           }
           throw e;
         }

@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
-import { badGateway, badRequest, ok, serverError } from "@rawkoon/api/errors";
+import {
+  badGateway,
+  badRequest,
+  ok,
+  serverError,
+  tmdbNotConfigured,
+} from "@rawkoon/api/errors";
 import type { Env } from "@rawkoon/api/honoEnv";
 import { requireUser } from "@rawkoon/api/middleware/hono/auth";
 import { findWatchlistItemId } from "@rawkoon/api/services/medias/watchlist";
@@ -96,7 +102,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
       if (cached) return ok({ genres: cached });
 
       const tmdbConfig = await loadEnabledTmdbConfig();
-      if (!tmdbConfig) return badRequest("TMDB is not configured");
+      if (!tmdbConfig) return tmdbNotConfigured();
 
       const url = new URL(`https://api.themoviedb.org/3/genre/${type}/list`);
       url.searchParams.set("api_key", tmdbConfig.api_key);
@@ -154,7 +160,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
 
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
-      if (!tmdbConfig) return badRequest("TMDB is not configured");
+      if (!tmdbConfig) return tmdbNotConfigured();
 
       const discoverOpts = {
         language,
@@ -234,7 +240,7 @@ export const tmdbMetaRoutes = new Hono<Env>()
       loadTmdbConfig(),
       findWatchlistItemId(c.get("user").id, tmdbId, mediaType),
     ]);
-    if (!tmdbConfig) return badRequest("TMDB is not configured");
+    if (!tmdbConfig) return tmdbNotConfigured();
 
     const [
       { trailer, ratings, credits, details, providers },
