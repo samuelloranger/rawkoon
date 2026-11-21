@@ -228,7 +228,6 @@
       "nothingDownloading": "Nothing downloading",
       "downloadClientUnreachable": "Download client unreachable",
       "downloadClientOpenSettings": "Open connection settings",
-      "downloadsUnavailableAskAdmin": "Downloads are unavailable right now — ask an admin.",
       "etaLeft": "{{time}} left",
       "nothingGrabbed": "Nothing was grabbed",
       "grabMiss": {

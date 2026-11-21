@@ -454,8 +454,10 @@ describe("read tool shaping", () => {
     respond = async (req) =>
       new URL(req.url).pathname === "/api/library/post-processing/settings"
         ? Response.json({
-            default_movie_quality_profile_id: 3,
-            default_show_quality_profile_id: 3,
+            settings: {
+              default_movie_quality_profile_id: 3,
+              default_show_quality_profile_id: 3,
+            },
           })
         : Response.json({ profiles: [{ id: 3 }, { id: 4 }] });
     const result = await callRpc("quality_profiles", {});

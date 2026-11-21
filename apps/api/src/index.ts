@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import { loadConfig } from "@rawkoon/api/config";
-import { notFound, ok } from "@rawkoon/api/errors";
+import { normalizeAuthRateLimit, notFound, ok } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 
 import { registerStaticRoutes } from "./staticRoutes";
@@ -105,7 +105,9 @@ app.route("/", ssoProvidersRoute);
 app.route("/", mobileAuthRoutes);
 app.route("/", jellyfinSessionRoutes);
 app.route("/", protectedAuthRoutes);
-app.all("/api/auth/*", (c) => betterAuthInstance.handler(c.req.raw));
+app.all("/api/auth/*", async (c) =>
+  normalizeAuthRateLimit(await betterAuthInstance.handler(c.req.raw)),
+);
 app.route("/api/download-client", downloadClientHookRoutes);
 
 app.use("*", globalRateLimit);

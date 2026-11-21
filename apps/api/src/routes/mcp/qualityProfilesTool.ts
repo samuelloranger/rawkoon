@@ -28,7 +28,7 @@ export const qualityProfilesTool: McpTool = {
     ]);
     if (!res.ok) throw new ToolFailure(res.text);
     // Defaults are best-effort: the settings route may refuse a non-admin owner.
-    const s = settings.ok ? asRecord(settings.body) : {};
+    const s = settings.ok ? asRecord(asRecord(settings.body).settings) : {};
     const movieDefault = num(s.default_movie_quality_profile_id);
     const showDefault = num(s.default_show_quality_profile_id);
     return capList(

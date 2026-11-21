@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REQUEST_LIST_LIMIT } from "@rawkoon/api/services/medias/requestQueries";
 import { innerJson, innerRequest } from "./dispatcher";
 import { capList } from "./shape";
 import {
@@ -117,7 +118,7 @@ const requestTitleTool: McpTool = {
   },
   summarize(raw, ctx) {
     const args = raw as RequestTitleArgs;
-    const quoted = args.title ? `"${args.title}"` : "";
+    const quoted = args.title ? ` "${untrustedInline(args.title)}"` : "";
     const label =
       args.kind === "book" ? "book" : args.kind === "movie" ? "movie" : "show";
     const id =
@@ -137,8 +138,8 @@ const requestTitleTool: McpTool = {
     const adminSearch =
       args.kind === "book" ? "" : " and start a release search";
     return ctx.owner.is_admin
-      ? `Add the ${label} ${quoted} (${id}) to the Rawkoon library${seasons}${profile}${adminSearch}.`
-      : `Create a request for the ${label} ${quoted} (${id})${seasons}, pending an admin's approval.`;
+      ? `Add the ${label}${quoted} (${id}) to the Rawkoon library${seasons}${profile}${adminSearch}.`
+      : `Create a request for the ${label}${quoted} (${id})${seasons}, pending an admin's approval.`;
   },
   async run(raw, ctx) {
     const args = requestTitleArgs.parse(raw) as RequestTitleArgs;
@@ -333,11 +334,23 @@ const decideRequestTool: McpTool = {
         ? inner(innerRequest("/api/quality-profiles"), ctx.owner)
         : null,
     ]);
-    const found = requests.ok
-      ? asArray(asRecord(requests.body).requests).find(
-          (r) => asRecord(r).id === args.request_id,
-        )
-      : undefined;
+    const listed = requests.ok ? asArray(asRecord(requests.body).requests) : [];
+    const found = listed.find((r) => asRecord(r).id === args.request_id);
+    // Approve/deny only accept pending requests; don't issue a token that can only fail.
+    if (requests.ok) {
+      // The list is capped, so absence only proves anything when it wasn't cut off.
+      if (!found && listed.length < REQUEST_LIST_LIMIT) {
+        throw new ToolFailure(
+          `Request ${args.request_id} doesn't exist (see pending_requests).`,
+        );
+      }
+      const status = found ? str(asRecord(found).status) : "pending";
+      if (status !== "pending") {
+        throw new ToolFailure(
+          `Request ${args.request_id} is ${status ?? "not pending"}; only pending requests can be approved or denied.`,
+        );
+      }
+    }
     const rawTitle = str(asRecord(found).title);
     // The requester wrote this title; keep it from steering the approver's agent.
     const title = rawTitle ? untrustedInline(rawTitle) : null;

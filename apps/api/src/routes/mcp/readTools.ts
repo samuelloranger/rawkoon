@@ -16,7 +16,7 @@ import { qualityProfilesTool } from "./qualityProfilesTool";
 
 const searchArgs = z.object({
   // The TMDB and books routes need 2+ characters; shorter would silently return nothing.
-  query: z.string().trim().min(2, "query must be at least 2 characters"),
+  query: z.string().trim().min(2, "must be at least 2 characters"),
   kind: z.enum(["movie", "show", "book", "all"]).optional(),
 });
 
