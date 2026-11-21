@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { loadConfig } from "@rawkoon/api/config";
 import { notFound, ok } from "@rawkoon/api/errors";
 import { type Env, honoOnError } from "@rawkoon/api/honoEnv";
 
@@ -75,7 +76,7 @@ app.use(
 );
 app.use("*", requestTiming);
 
-if (Bun.env.LOG_LEVEL === "debug") {
+if (loadConfig().LOG_LEVEL === "debug") {
   app.use("*", async (c, next) => {
     console.log(
       `Incoming request: ${c.req.method} ${new URL(c.req.url).pathname}`,
