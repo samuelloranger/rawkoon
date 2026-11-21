@@ -24,7 +24,7 @@ export interface McpTool {
    */
   preflight?: (args: unknown, ctx: McpToolContext) => string | null;
   /** ACTION tools only: the human-facing summary of what will happen. */
-  summarize?: (args: unknown, ctx: McpToolContext) => string;
+  summarize?: (args: unknown, ctx: McpToolContext) => string | Promise<string>;
   run: (args: unknown, ctx: McpToolContext) => Promise<unknown>;
 }
 
@@ -71,4 +71,17 @@ export function str(value: unknown): string | null {
 
 export function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Flattens text another user controls (e.g. a request title) before it goes
+ * into a summary the agent relays: no quotes or line breaks to break out of
+ * the sentence, and a short cap.
+ */
+export function untrustedInline(value: string, max = 80): string {
+  const flat = value
+    .replace(/[\u0000-\u001f\u007f"“”«»`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
