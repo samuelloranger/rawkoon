@@ -135,7 +135,9 @@ export function ReaderPage({ bookId }: { bookId: number }) {
   };
   persistRef.current = persist;
 
-  // Boot once per edition file. Preferences apply through submitPreferences.
+  // Boot once per edition file, keyed on its id: every files refetch mints a new
+  // grant URL for the same file, and that must not reload the open book.
+  // Preferences apply through submitPreferences.
   // biome-ignore lint/correctness/useExhaustiveDependencies: identity fields, not object identity
   useEffect(() => {
     if (bookLoading || files.isLoading || progressQuery.isLoading) return;
@@ -244,7 +246,7 @@ export function ReaderPage({ bookId }: { bookId: number }) {
     book?.id,
     book?.language,
     edition?.id,
-    epub?.content_url,
+    epub?.id,
     bookLoading,
     files.isLoading,
     progressQuery.isLoading,

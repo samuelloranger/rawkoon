@@ -10,6 +10,7 @@ import {
 import { pickBookCandidate } from "@rawkoon/api/services/books/bookAiPick";
 import { notifyAdminsBookSearchSkipped } from "@rawkoon/api/workers/notifyBookEvents";
 import { meetsBookCutoff } from "@rawkoon/api/utils/books/bookReleaseScorer";
+import { getJsonCache, setJsonCache } from "@rawkoon/api/services/cache";
 import type { BookFormat } from "@rawkoon/shared/types";
 
 /**
@@ -89,6 +90,16 @@ export async function searchWantedBookEditions(): Promise<void> {
 }
 
 /**
+ * How long an edition rests after an upgrade search that found nothing better.
+ * Book upgrades aren't time-critical; without a rest, an edition with no better
+ * release out there is searched on every sweep, forever.
+ */
+export const UPGRADE_SEARCH_COOLDOWN_S = 7 * 24 * 60 * 60;
+
+const upgradeCooldownKey = (editionId: number) =>
+  `books:upgrade-searched:${editionId}`;
+
+/**
  * Pass 2: upgrade searches for downloaded editions below their cutoff.
  *
  * An edition at or above its cutoff is left alone, which is the whole point of
@@ -128,8 +139,18 @@ export async function searchBookUpgrades(): Promise<void> {
       cutoffFormat: profile.cutoffFormat as BookFormat,
     };
     if (meetsBookCutoff(best, scoreProfile)) continue;
-
     const heldBitrate = highestBitrate(edition.files, best);
+    // What the last empty search was judged against: a profile edit or a
+    // different held file ends the rest early.
+    const searchedFor = [
+      best,
+      heldBitrate ?? "",
+      profile.cutoffFormat,
+      ...profile.allowedFormats,
+    ].join("|");
+    // Shortcut: the rest lives in Valkey, so a flush only means one early search.
+    const rested = await getJsonCache<string>(upgradeCooldownKey(edition.id));
+    if (rested === searchedFor) continue;
 
     try {
       const { releases, error } = await searchBookReleases(edition.id);
@@ -150,7 +171,14 @@ export async function searchBookUpgrades(): Promise<void> {
           r.audio_bitrate < heldBitrate
         );
       });
-      if (upgrades.length === 0) continue;
+      if (upgrades.length === 0) {
+        await setJsonCache(
+          upgradeCooldownKey(edition.id),
+          searchedFor,
+          UPGRADE_SEARCH_COOLDOWN_S,
+        );
+        continue;
+      }
 
       // Only a real choice needs the judge, and its context costs a query.
       const editionCtx =

@@ -80,7 +80,7 @@ Audiobook**. A profile is scoped to one edition kind, or to both.
 | Control | Effect |
 | --- | --- |
 | Allowed formats | Rejects any release whose format is not in the list. Order is preference: the first entry is best. |
-| Cutoff format | An edition at or above the cutoff is finished, and is never searched for an upgrade again. |
+| Cutoff format | An edition at or above the cutoff is finished, and is never searched for an upgrade again. One below it is searched by the scheduled sweep; when a search finds nothing better, that edition rests for a week, or until its profile or held file changes. |
 | Prefer retail | Ranks a release marked retail above one that is not. It is a preference, never a requirement — most real releases carry no marker at all. |
 | Maximum size | Rejects a release above the configured size. |
 | Minimum seeders | Rejects a release below the threshold when the indexer reports a count. |
