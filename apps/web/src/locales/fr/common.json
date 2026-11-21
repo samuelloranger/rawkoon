@@ -1428,6 +1428,8 @@
         "redirectUriHelp": "Ajoutez cette URL comme URI de redirection autorisée dans votre fournisseur d'identité.",
         "deleteConfirm": "Supprimer {{name}} ?",
         "deleteConfirmHelp": "Cela supprimera le fournisseur et les utilisateurs connectés via celui-ci perdront l'accès SSO.",
+        "deleted": "Fournisseur supprimé.",
+        "deleteError": "Impossible de supprimer le fournisseur.",
         "editProvider": "Modifier le fournisseur",
         "saveProvider": "Enregistrer",
         "cancel": "Annuler",

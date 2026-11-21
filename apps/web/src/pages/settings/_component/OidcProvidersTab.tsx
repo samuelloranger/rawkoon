@@ -74,9 +74,9 @@ export function OidcProvidersTab() {
       .mutateAsync(provider.id)
       .then(() => {
         setDeletingId(null);
-        toast.success(t("settings.integrations.saveSuccess"));
+        toast.success(t("settings.integrations.sso.deleted"));
       })
-      .catch(() => toast.error(t("settings.integrations.saveError")));
+      .catch(() => toast.error(t("settings.integrations.sso.deleteError")));
   };
 
   return (

@@ -1428,6 +1428,8 @@
         "redirectUriHelp": "Add this URL as an allowed redirect URI in your identity provider.",
         "deleteConfirm": "Delete {{name}}?",
         "deleteConfirmHelp": "This will remove the provider and any users who signed in through it will lose SSO access.",
+        "deleted": "Provider deleted.",
+        "deleteError": "Could not delete the provider.",
         "editProvider": "Edit provider",
         "saveProvider": "Save",
         "cancel": "Cancel",
