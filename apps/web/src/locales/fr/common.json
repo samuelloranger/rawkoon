@@ -20,6 +20,10 @@
     "requestFailed": "Impossible de demander « {{title}} »",
     "book": "Livre",
     "viewBook": "Voir le livre",
+    "denyReason": "Raison : {{reason}}",
+    "denyReasonLabel": "Raison du refus (facultatif)",
+    "denyReasonPlaceholder": "Raison (facultatif)",
+    "denyConfirm": "Refuser la demande",
     "qualityPlaceholder": "Profil de qualité",
     "approve": "Approuver",
     "deny": "Refuser",
@@ -388,12 +392,8 @@
   },
   "forgotPassword": {
     "title": "Mot de passe oublié ?",
-    "description": "Entrez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
-    "submit": "Envoyer le lien",
-    "backToLogin": "Retour à la connexion",
-    "checkEmail": "Vérifiez votre e-mail",
-    "emailSent": "Si un compte existe avec cet e-mail, vous recevrez un lien de réinitialisation sous peu.",
-    "error": "Une erreur est survenue. Veuillez réessayer."
+    "description": "Ce serveur ne peut pas envoyer de liens de réinitialisation par courriel. Demandez à un administrateur de réinitialiser votre mot de passe dans Paramètres → Utilisateurs, puis connectez-vous avec le nouveau.",
+    "backToLogin": "Retour à la connexion"
   },
   "resetPassword": {
     "title": "Réinitialiser votre mot de passe",
@@ -429,6 +429,8 @@
     "somethingWentWrong": "Une erreur est survenue",
     "unexpectedError": "Une erreur inattendue est survenue",
     "reloadPage": "Recharger la page",
+    "loadErrorDescription": "Vérifiez votre connexion et réessayez.",
+    "retry": "Réessayer",
     "failedToLoad": "Échec du chargement",
     "loading": "Chargement...",
     "cancel": "Annuler",
@@ -2003,7 +2005,8 @@
         "done": "{{processed}} fichiers remuxés ({{skipped}} ignorés, {{errors}} erreurs)"
       },
       "emptyTitle": "Aucun élément dans la bibliothèque",
-      "emptyDescription": "Recherchez des films ou séries dans le panneau de droite et ajoutez-les à votre bibliothèque.",
+      "emptyDescription": "Utilisez la page Trouver pour chercher des films ou des séries et les ajouter à votre bibliothèque.",
+      "emptyAction": "Aller à Trouver",
       "paginationRange": "{{start}}–{{end}} sur {{total}}",
       "digitalRelease": "Sortie numérique {{date}}",
       "sort": {
@@ -2324,6 +2327,9 @@
       "inLibrary": "Déjà dans la bibliothèque",
       "notConfigured": "Service non configuré",
       "searchFailed": "La recherche a échoué. Réessayez.",
+      "notConfiguredAdmin": "La recherche de titres n'est pas configurée (TMDB n'est pas connecté).",
+      "openSettings": "Ouvrir les paramètres",
+      "notConfiguredMember": "La recherche de titres n'est pas configurée sur ce serveur. Demandez à votre administrateur de connecter TMDB.",
       "addAction": "Ajouter",
       "chooseRelease": "Choisir une version",
       "openInLibrary": "Ouvrir"

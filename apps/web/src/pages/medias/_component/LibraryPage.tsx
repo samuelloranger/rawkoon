@@ -51,15 +51,22 @@ export function LibraryPage() {
   } = state;
 
   // ─── Data fetch (server filters + sort + pagination via query params) ───────
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteLibrary({
-      type: typeFilter !== "all" ? typeFilter : undefined,
-      status: statusFilter !== "all" ? statusFilter : undefined,
-      q: search || undefined,
-      language: languageFilter !== "all" ? languageFilter : undefined,
-      sortBy,
-      sortDir,
-    });
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteLibrary({
+    type: typeFilter !== "all" ? typeFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    q: search || undefined,
+    language: languageFilter !== "all" ? languageFilter : undefined,
+    sortBy,
+    sortDir,
+  });
 
   const { data: languageTagsData } = useLibraryLanguageTags();
   const languageTags = languageTagsData?.tags ?? [];
@@ -142,6 +149,8 @@ export function LibraryPage() {
         <LibraryGrid
           items={sorted}
           isLoading={isLoading}
+          error={isError}
+          onRetry={() => void refetch()}
           viewMode={viewMode}
           filtered={
             typeFilter !== "all" ||

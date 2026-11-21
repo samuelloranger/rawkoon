@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/lib/auth/useAuth";
 import { RequestSeasonsEditor } from "@/features/add/RequestSeasonsEditor";
 import { choiceToBody, type SeasonChoice } from "@/features/add/seasonPlan";
+import { useMediaPostProcessingSettings } from "@/features/medias/hooks/useMediaPostProcessingSettings";
+import { LoadError } from "@/components/LoadError";
 import { useQualityProfilesList } from "@/pages/settings/useQualityProfiles";
 import { useBookQualityProfiles } from "@/pages/books/_hooks/useBooks";
 import {
@@ -151,9 +153,14 @@ function RequestRow({
   const { data: bookProfilesData } = useBookQualityProfiles({
     enabled: canApprove && isBook,
   });
+  const { data: settingsData } = useMediaPostProcessingSettings({
+    enabled: canApprove && !isBook,
+  });
   const approve = useApproveRequest();
   const deny = useDenyRequest();
-  const [profileId, setProfileId] = useState<number | "">("");
+  const [pickedProfile, setPickedProfile] = useState<number | null>(null);
+  const [denying, setDenying] = useState(false);
+  const [denyReason, setDenyReason] = useState("");
   // Set only when the admin changes the requester's seasons; otherwise the server uses theirs.
   const [seasonOverride, setSeasonOverride] = useState<SeasonChoice | null>(
     null,
@@ -162,16 +169,29 @@ function RequestRow({
   const profiles = isBook
     ? (bookProfilesData?.profiles ?? [])
     : (profilesData?.profiles ?? []);
+  // The admin's pick wins; else the request's own profile, then the default for its type.
+  // No first-profile fallback: with no default the admin picks, so Approve can't use an arbitrary one.
+  const settings = settingsData?.settings;
+  const defaultProfile = isBook
+    ? null
+    : (request.quality_profile_id ??
+      (request.type === "show"
+        ? settings?.default_show_quality_profile_id
+        : settings?.default_movie_quality_profile_id) ??
+      null);
+  const profileId: number | null =
+    pickedProfile ??
+    (profiles.some((p) => p.id === defaultProfile) ? defaultProfile : null);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-neutral-900/60 px-3 py-2.5 ring-1 ring-neutral-800">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-neutral-900/60 px-3 py-2.5 ring-1 ring-neutral-800">
       <PosterThumb
         url={request.poster_url}
         alt={request.title}
         isBook={isBook}
       />
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[10rem] flex-1">
         <p className="truncate font-medium text-neutral-100">
           {isBook && request.library_book_id != null ? (
             <Link
@@ -204,6 +224,11 @@ function RequestRow({
             {t("requests.requestedBy", { name: request.requested_by.name })}
           </p>
         ) : null}
+        {request.status === "denied" && request.deny_reason ? (
+          <p className="mt-0.5 text-xs text-rose-300/80">
+            {t("requests.denyReason", { reason: request.deny_reason })}
+          </p>
+        ) : null}
         {request.type === "show" && (
           <RequestSeasonsEditor
             request={request}
@@ -215,12 +240,13 @@ function RequestRow({
       </div>
 
       {canApprove ? (
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <select
-            value={profileId}
+            value={profileId ?? ""}
             onChange={(e) =>
-              setProfileId(e.target.value ? Number(e.target.value) : "")
+              setPickedProfile(e.target.value ? Number(e.target.value) : null)
             }
+            aria-label={t("requests.qualityPlaceholder")}
             className="rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none"
           >
             <option value="" disabled>
@@ -236,14 +262,14 @@ function RequestRow({
           <button
             type="button"
             onClick={() =>
-              profileId !== "" &&
+              profileId !== null &&
               approve.mutate({
                 id: request.id,
                 quality_profile_id: profileId,
                 ...(seasonOverride ? choiceToBody(seasonOverride) : {}),
               })
             }
-            disabled={profileId === "" || approve.isPending}
+            disabled={profileId === null || approve.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-neutral-950 transition-[background-color] hover:bg-primary-500 active:bg-primary-700 disabled:opacity-50"
           >
             <Check size={12} />
@@ -252,13 +278,46 @@ function RequestRow({
 
           <button
             type="button"
-            onClick={() => deny.mutate({ id: request.id })}
+            onClick={() => setDenying((open) => !open)}
+            aria-expanded={denying}
             disabled={deny.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-neutral-800 disabled:opacity-50"
           >
             <X size={12} />
             {t("requests.deny")}
           </button>
+
+          {denying ? (
+            <form
+              className="flex w-full items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const reason = denyReason.trim();
+                deny.mutate({
+                  id: request.id,
+                  ...(reason ? { deny_reason: reason } : {}),
+                });
+              }}
+            >
+              <input
+                type="text"
+                value={denyReason}
+                onChange={(e) => setDenyReason(e.target.value)}
+                maxLength={500}
+                autoFocus
+                aria-label={t("requests.denyReasonLabel")}
+                placeholder={t("requests.denyReasonPlaceholder")}
+                className="min-w-0 flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs text-neutral-200 focus:border-primary-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={deny.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 disabled:opacity-50"
+              >
+                {t("requests.denyConfirm")}
+              </button>
+            </form>
+          ) : null}
         </div>
       ) : (
         <StatusBadge status={request.status} />
@@ -274,7 +333,7 @@ function RequestRow({
 export function RequestsPage() {
   const { t } = useTranslation("common");
   const { user } = useAuth();
-  const { data, isLoading } = useRequests();
+  const { data, isLoading, isError, refetch, isRefetching } = useRequests();
 
   const isAdmin = user?.is_admin ?? false;
   const requests = data?.requests ?? [];
@@ -293,6 +352,8 @@ export function RequestsPage() {
         <div className="py-8 text-center text-neutral-400">
           {t("common.loading")}
         </div>
+      ) : isError && !data ? (
+        <LoadError onRetry={() => void refetch()} retrying={isRefetching} />
       ) : requests.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl bg-neutral-900/40 py-16 text-center ring-1 ring-neutral-800">
           <Send className="h-7 w-7 text-neutral-500" />
