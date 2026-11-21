@@ -240,6 +240,25 @@ describe("decide_request shaping", () => {
     expect(result.structuredContent).toBeUndefined();
   });
 
+  it("still issues a token when the request list is capped and the id isn't in it", async () => {
+    respond = async () =>
+      Response.json({
+        requests: Array.from({ length: 500 }, (_, i) => ({
+          id: 1000 + i,
+          status: "pending",
+        })),
+      });
+    const result = await callTool(
+      toolByName("decide_request")!,
+      { request_id: 5, decision: "deny" },
+      adminCaller,
+    );
+    expect(result.isError).toBe(false);
+    expect((result.structuredContent as { summary: string }).summary).toBe(
+      "Deny request 5.",
+    );
+  });
+
   it("refuses a request that is no longer pending", async () => {
     respond = async () =>
       Response.json({ requests: [{ id: 5, status: "approved" }] });

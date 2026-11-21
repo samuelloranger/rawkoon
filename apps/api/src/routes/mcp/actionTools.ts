@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { REQUEST_LIST_LIMIT } from "@rawkoon/api/services/medias/requestQueries";
 import { innerJson, innerRequest } from "./dispatcher";
 import { capList } from "./shape";
 import {
@@ -333,19 +334,17 @@ const decideRequestTool: McpTool = {
         ? inner(innerRequest("/api/quality-profiles"), ctx.owner)
         : null,
     ]);
-    const found = requests.ok
-      ? asArray(asRecord(requests.body).requests).find(
-          (r) => asRecord(r).id === args.request_id,
-        )
-      : undefined;
+    const listed = requests.ok ? asArray(asRecord(requests.body).requests) : [];
+    const found = listed.find((r) => asRecord(r).id === args.request_id);
     // Approve/deny only accept pending requests; don't issue a token that can only fail.
     if (requests.ok) {
-      if (!found) {
+      // The list is capped, so absence only proves anything when it wasn't cut off.
+      if (!found && listed.length < REQUEST_LIST_LIMIT) {
         throw new ToolFailure(
           `Request ${args.request_id} doesn't exist (see pending_requests).`,
         );
       }
-      const status = str(asRecord(found).status);
+      const status = found ? str(asRecord(found).status) : "pending";
       if (status !== "pending") {
         throw new ToolFailure(
           `Request ${args.request_id} is ${status ?? "not pending"}; only pending requests can be approved or denied.`,
