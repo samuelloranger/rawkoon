@@ -52,6 +52,7 @@ import {
   strictAuthRateLimit,
 } from "./middleware/hono/rateLimit";
 import { requestTiming } from "./middleware/hono/requestTiming";
+import { getCorsOrigins } from "@rawkoon/api/config";
 import { compressJson } from "@rawkoon/api/middleware/hono/compressJson";
 import { conditionalGet } from "@rawkoon/api/middleware/hono/conditionalGet";
 import {
@@ -69,7 +70,7 @@ export const app = new Hono<Env>({ strict: false });
 app.use(
   "*",
   cors({
-    origin: Bun.env.CORS_ORIGIN || "http://localhost:5173",
+    origin: getCorsOrigins(),
     credentials: true,
   }),
 );

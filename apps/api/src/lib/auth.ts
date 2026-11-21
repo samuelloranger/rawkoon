@@ -4,7 +4,7 @@ import { apiKey } from "@better-auth/api-key";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { passkey } from "@better-auth/passkey";
 import { prisma } from "@rawkoon/api/db";
-import { getBaseUrl, loadConfig } from "@rawkoon/api/config";
+import { getBaseUrl, getCorsOrigins, loadConfig } from "@rawkoon/api/config";
 import { decrypt } from "@rawkoon/api/services/crypto";
 import { hashPassword, verifyPassword } from "@rawkoon/api/utils/password";
 import { resolveFirstSignup } from "@rawkoon/api/lib/firstSignup";
@@ -237,7 +237,7 @@ export const auth = betterAuth({
     "/api-key/get",
     "/api-key/list",
   ],
-  trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173", baseURL],
+  trustedOrigins: [...getCorsOrigins(), baseURL],
   databaseHooks: {
     user: {
       create: {
