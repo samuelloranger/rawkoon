@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 import { seedStateForRow } from "@rawkoon/api/services/seeding/seedingView";
 import { z } from "zod";
 
@@ -36,7 +37,8 @@ const deleteFileQuery = z.object({ delete_file: z.string().optional() });
 export const libraryFilesRoutes = new Hono<Env>()
   .get("/:id/episodes", requireUser, async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const episodes = await listEpisodesForMedia(id);
       if (!episodes) return notFound("Library item not found");
 
@@ -70,7 +72,8 @@ export const libraryFilesRoutes = new Hono<Env>()
 
   .get("/:id/downloads", requireUser, async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const history = await getDownloadHistoryWithLive(id);
       if (!history) return notFound("Library item not found");
       const { items, torrentByHash, liveByHash } = history;
@@ -115,7 +118,7 @@ export const libraryFilesRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const mediaId = parseInt(c.req.param("id"), 10);
+      const mediaId = strictInt(c.req.param("id"));
       if (!Number.isFinite(mediaId)) return badRequest("Invalid id");
 
       const deleted = await clearFailedDownloads(mediaId);
@@ -131,8 +134,8 @@ export const libraryFilesRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const mediaId = parseInt(c.req.param("id"), 10);
-      const dhId = parseInt(c.req.param("dhId"), 10);
+      const mediaId = strictInt(c.req.param("id"));
+      const dhId = strictInt(c.req.param("dhId"));
       if (!Number.isFinite(mediaId) || !Number.isFinite(dhId)) {
         return badRequest("Invalid id");
       }
@@ -168,8 +171,8 @@ export const libraryFilesRoutes = new Hono<Env>()
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const dhId = parseInt(c.req.param("dhId"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const dhId = strictInt(c.req.param("dhId"));
         if (!Number.isFinite(mediaId) || !Number.isFinite(dhId)) {
           return badRequest("Invalid id");
         }
@@ -202,7 +205,7 @@ export const libraryFilesRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const dhId = parseInt(c.req.param("dhId"), 10);
+      const dhId = strictInt(c.req.param("dhId"));
       if (isNaN(dhId)) return badRequest("Invalid download history id");
 
       const check = await checkPostProcessRetryable(dhId);
@@ -226,7 +229,8 @@ export const libraryFilesRoutes = new Hono<Env>()
 
   .get("/:id/files", requireUser, async (c) => {
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const result = await listMediaFiles(id);
       if (!result) return notFound("Library item not found");
 
@@ -271,7 +275,8 @@ export const libraryFilesRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const id = parseInt(c.req.param("id"), 10);
+      const id = strictInt(c.req.param("id"));
+      if (!Number.isFinite(id)) return badRequest("Invalid id");
       const result = await rescanLibraryItem(id);
       if (!result) return notFound("Library item not found");
       return ok({
@@ -299,7 +304,7 @@ export const libraryFilesRoutes = new Hono<Env>()
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const fileId = parseInt(c.req.param("fileId"), 10);
+        const fileId = strictInt(c.req.param("fileId"));
         if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
         const body = c.req.valid("json");
 
@@ -322,7 +327,7 @@ export const libraryFilesRoutes = new Hono<Env>()
     const denied = ensureAdmin(c.get("user"));
     if (denied) return denied;
     try {
-      const fileId = parseInt(c.req.param("fileId"), 10);
+      const fileId = strictInt(c.req.param("fileId"));
       if (!Number.isFinite(fileId)) return badRequest("Invalid file id");
 
       const found = await deleteMediaFile(
@@ -347,8 +352,8 @@ export const libraryFilesRoutes = new Hono<Env>()
       const denied = ensureAdmin(c.get("user"));
       if (denied) return denied;
       try {
-        const mediaId = parseInt(c.req.param("id"), 10);
-        const episodeId = parseInt(c.req.param("episodeId"), 10);
+        const mediaId = strictInt(c.req.param("id"));
+        const episodeId = strictInt(c.req.param("episodeId"));
         if (!Number.isFinite(mediaId) || !Number.isFinite(episodeId)) {
           return badRequest("Invalid id");
         }

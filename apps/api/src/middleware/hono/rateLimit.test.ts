@@ -50,3 +50,17 @@ describe("jellyfinUsernameRateLimit", () => {
     expect(get.status).toBe(200);
   });
 });
+
+describe("429 body", () => {
+  it("is JSON { error } with a Retry-After in seconds", async () => {
+    let res: Response | undefined;
+    for (let i = 0; i < 11; i++)
+      res = await post("/api/profile/jellyfin", "erin");
+    expect(res?.status).toBe(429);
+    expect(res?.headers.get("content-type")).toContain("application/json");
+    expect(await res?.json()).toEqual({
+      error: expect.any(String),
+    });
+    expect(Number(res?.headers.get("retry-after"))).toBeGreaterThan(0);
+  });
+});

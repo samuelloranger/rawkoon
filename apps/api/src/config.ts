@@ -109,6 +109,21 @@ export function getBaseUrl(): string {
   return loadConfig().BASE_URL;
 }
 
+const DEFAULT_CORS_ORIGIN = "http://localhost:5173";
+
+/** CORS_ORIGIN holds one origin or a comma-separated list; blank falls back to the default. */
+export function parseCorsOrigins(raw: string | undefined): string[] {
+  const origins = (raw ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  return origins.length ? origins : [DEFAULT_CORS_ORIGIN];
+}
+
+export function getCorsOrigins(): string[] {
+  return parseCorsOrigins(loadConfig().CORS_ORIGIN);
+}
+
 export function getValkeyUrl(): string {
   const env = loadConfig();
   const url = env.VALKEY_URL ?? env.REDIS_URL;

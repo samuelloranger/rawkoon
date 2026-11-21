@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { getConnInfo } from "hono/bun";
 import { rateLimiter } from "hono-rate-limiter";
+import { tooManyRequests } from "@rawkoon/api/errors";
 import {
   clientIp,
   GLOBAL_RATE_LIMIT_MAX,
@@ -19,10 +20,19 @@ import {
 } from "@rawkoon/api/middleware/rateLimitCore";
 
 /**
- * The two rate limiters, enforced from the shared rateLimitCore policy, with the
+ * The rate limiters, enforced from the shared rateLimitCore policy, with the
  * connecting IP pulled via Hono's Bun adapter (getConnInfo). A string `message`
- * makes hono-rate-limiter answer 429 as text/plain.
+ * would make hono-rate-limiter answer text/plain, so each limiter answers the
+ * API's JSON `{ error }` through `tooMany` instead.
  */
+
+// The library sets Retry-After on the context before calling the handler.
+const tooMany = (message: string) => (c: Context) => {
+  const res = tooManyRequests(message);
+  const retryAfter = c.res.headers.get("Retry-After");
+  if (retryAfter) res.headers.set("Retry-After", retryAfter);
+  return res;
+};
 
 function connAddr(c: Context): string | undefined {
   try {
@@ -38,6 +48,7 @@ export const globalRateLimit = rateLimiter({
   skip: (c) => globalRateLimitSkip(c.req.raw),
   keyGenerator: (c) => `ip:${clientIp(c.req.raw, connAddr(c))}`,
   message: GLOBAL_RATE_LIMIT_MESSAGE,
+  handler: tooMany(GLOBAL_RATE_LIMIT_MESSAGE),
   standardHeaders: true,
 });
 
@@ -48,6 +59,7 @@ export const strictAuthRateLimit = rateLimiter({
   keyGenerator: (c) =>
     `${strictAuthRateLimitBucket(c.req.raw)}:${clientIp(c.req.raw, connAddr(c))}`,
   message: STRICT_AUTH_RATE_LIMIT_MESSAGE,
+  handler: tooMany(STRICT_AUTH_RATE_LIMIT_MESSAGE),
   standardHeaders: true,
 });
 
@@ -58,5 +70,6 @@ export const jellyfinUsernameRateLimit = rateLimiter({
   keyGenerator: (c) =>
     jellyfinUsernameRateLimitKey(c.req.raw, clientIp(c.req.raw, connAddr(c))),
   message: JELLYFIN_USERNAME_RATE_LIMIT_MESSAGE,
+  handler: tooMany(JELLYFIN_USERNAME_RATE_LIMIT_MESSAGE),
   standardHeaders: true,
 });

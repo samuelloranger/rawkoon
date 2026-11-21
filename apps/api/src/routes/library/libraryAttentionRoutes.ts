@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { strictInt } from "@rawkoon/api/utils/strictInt";
 
 import {
   badRequest,
@@ -39,7 +40,7 @@ export const libraryAttentionRoutes = new Hono<Env>()
     if (!u) return unauthorized();
     if (!u.is_admin) return forbidden();
     try {
-      const alertId = parseInt(c.req.param("alertId"), 10);
+      const alertId = strictInt(c.req.param("alertId"));
       if (!Number.isFinite(alertId)) return badRequest("Invalid alert id");
       const dismissed = await dismissLibraryAttentionAlert(alertId);
       if (!dismissed) return badRequest("Alert not found or not open");
