@@ -169,12 +169,22 @@ describe("listening_progress", () => {
 });
 
 describe("cancel_request", () => {
-  const requestsList = {
-    requests: [{ id: 7, title: 'Dune "Part Two"', status: "pending" }],
-  };
+  const list = (requestedBy: string, status = "pending") => ({
+    requests: [
+      {
+        id: 7,
+        title: 'Dune "Part Two"',
+        status,
+        requested_by: { id: requestedBy, name: "X" },
+      },
+    ],
+  });
+  // GETs read the list; the DELETE is the action itself.
+  const route = (body: unknown) => async (req: Request) =>
+    req.method === "DELETE" ? Response.json({ ok: true }) : Response.json(body);
 
   it("previews with the request title and does not delete", async () => {
-    respond = async () => Response.json(requestsList);
+    respond = route(list("user-1"));
     const result = await call(
       "cancel_request",
       { request_id: 7 },
@@ -190,7 +200,7 @@ describe("cancel_request", () => {
   });
 
   it("deletes through the requests route on confirm", async () => {
-    respond = async () => Response.json(requestsList);
+    respond = route(list("user-1"));
     const preview = await call(
       "cancel_request",
       { request_id: 7 },
@@ -199,35 +209,33 @@ describe("cancel_request", () => {
     const token = (preview.structuredContent as { confirm_token: string })
       .confirm_token;
     dispatched.length = 0;
-    respond = async () => Response.json({ ok: true });
     const done = await call(
       "cancel_request",
       { request_id: 7, confirm_token: token },
       memberCaller,
     );
     expect(done.structuredContent).toEqual({ cancelled: true, request_id: 7 });
-    expect(dispatched).toHaveLength(1);
-    expect(dispatched[0].method).toBe("DELETE");
-    expect(new URL(dispatched[0].url).pathname).toBe("/api/requests/7");
+    const del = dispatched.at(-1)!;
+    expect(del.method).toBe("DELETE");
+    expect(new URL(del.url).pathname).toBe("/api/requests/7");
   });
 
-  it("surfaces the route's error for someone else's request", async () => {
-    respond = async () => Response.json(requestsList);
-    const preview = await call(
+  it("refuses someone else's request before issuing a token, even for an admin", async () => {
+    respond = route(list("user-2"));
+    const result = await call("cancel_request", { request_id: 7 });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("isn't one of your requests");
+    expect(dispatched.some((d) => d.method === "DELETE")).toBe(false);
+  });
+
+  it("refuses an approved request up front", async () => {
+    respond = route(list("user-1", "approved"));
+    const result = await call(
       "cancel_request",
       { request_id: 7 },
       memberCaller,
     );
-    const token = (preview.structuredContent as { confirm_token: string })
-      .confirm_token;
-    respond = async () =>
-      Response.json({ error: "Request not found" }, { status: 404 });
-    const done = await call(
-      "cancel_request",
-      { request_id: 7, confirm_token: token },
-      memberCaller,
-    );
-    expect(done.isError).toBe(true);
-    expect(done.content[0].text).toContain("not found");
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("only pending or denied");
   });
 });

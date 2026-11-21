@@ -82,12 +82,19 @@ const searchTool: McpTool = {
         innerRequest("/api/system/features"),
         ctx.owner,
       );
-      const booksEnabled =
-        features.ok && asRecord(features.body).books_enabled === true;
-      if (!booksEnabled) {
+      const booksFlag = features.ok
+        ? asRecord(features.body).books_enabled
+        : undefined;
+      if (booksFlag === false) {
         result.books = {
           enabled: false,
           note: "Books are turned off on this server.",
+        };
+      } else if (booksFlag !== true) {
+        // Don't claim books are off when we simply couldn't check.
+        result.books = {
+          enabled: null,
+          note: "Couldn't check whether books are enabled; book results were skipped.",
         };
       } else {
         const books = await inner(
@@ -322,10 +329,10 @@ const calendarTool: McpTool = {
     const { TZ } = loadConfig();
     const now = new Date();
     const today = localDate(now, TZ);
-    const until = localDate(
-      new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
-      TZ,
-    );
+    // Add whole days to the date itself so a DST change can't shorten the window.
+    const until = new Date(Date.parse(`${today}T00:00:00Z`) + days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     const items = asArray(body.items)
       .map((item) => {
         const r = asRecord(item);

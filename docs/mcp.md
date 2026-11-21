@@ -115,7 +115,7 @@ bearer_token_env_var = "RAWKOON_API_KEY"
 | `my_requests` | read | The key owner's requests and their state. |
 | `listening_progress` | read | Where the owner is in their audiobooks and ebooks (audiobook positions in whole seconds). |
 | `request_title` | request | Add a title (admin owner) or create a request (anyone else), with quality profile and season choice. |
-| `cancel_request` | request | Withdraw a pending or denied request (by id from `my_requests`): the owner's own, or anyone's for an admin owner. Same rules as `DELETE /api/requests/:id`. |
+| `cancel_request` | request | Withdraw one of the key owner's own pending or denied requests (by id from `my_requests`). Refused up front for anyone else's request, even for an admin owner: turning those down is `decide_request`. |
 | `pending_requests` | approve | Requests waiting for approval, with `tmdb_id` / `google_volume_id`, `season_mode` and any `quality_profile_id`. |
 | `decide_request` | approve | Approve (with a quality profile) or deny one request (admin owner; checked before a token is issued). |
 | `health` | admin | The doctor self-check report. |

@@ -118,8 +118,19 @@ export async function callTool(
           true,
         );
       }
-      const summary =
-        (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
+      let summary: string;
+      try {
+        summary =
+          (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
+      } catch (error) {
+        // A summary may refuse up front (e.g. a request that isn't yours), before any token exists.
+        return finish(
+          error instanceof ToolFailure
+            ? error.message
+            : "The tool failed unexpectedly while talking to Rawkoon.",
+          true,
+        );
+      }
       const token = newConfirmToken();
       const stored = await storeConfirmBinding(token, {
         keyId: ctx.keyId,

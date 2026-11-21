@@ -400,14 +400,42 @@ const cancelRequestArgs = z.object({
 
 type CancelRequestArgs = z.infer<typeof cancelRequestArgs>;
 
+/**
+ * The owner's own pending or denied request, or a ToolFailure. Kept to the
+ * owner's requests even for admins: removing someone else's is decide_request's
+ * job, which sits behind the approve scope.
+ */
+async function ownWithdrawableRequest(
+  requestId: number,
+  ctx: Parameters<NonNullable<McpTool["summarize"]>>[1],
+): Promise<Record<string, unknown>> {
+  const res = await inner(innerRequest("/api/requests"), ctx.owner);
+  if (!res.ok) throw new ToolFailure(res.text);
+  const found = asArray(asRecord(res.body).requests)
+    .map(asRecord)
+    .find(
+      (r) => r.id === requestId && asRecord(r.requested_by).id === ctx.owner.id,
+    );
+  if (!found) {
+    throw new ToolFailure(
+      `Request ${requestId} isn't one of your requests (see my_requests).`,
+    );
+  }
+  if (found.status !== "pending" && found.status !== "denied") {
+    throw new ToolFailure(
+      `Request ${requestId} is ${String(found.status)}; only pending or denied requests can be withdrawn.`,
+    );
+  }
+  return found;
+}
+
 const cancelRequestTool: McpTool = {
   name: "cancel_request",
   scope: "request",
   action: true,
   description:
-    "Withdraws (deletes) one title request by its id from my_requests. The API key owner " +
-    "can withdraw their own pending or denied requests; an admin owner can withdraw anyone's. " +
-    "Approved requests can't be withdrawn. " +
+    "Withdraws (deletes) one of the API key owner's own title requests, by its id from my_requests. " +
+    "Only pending or denied requests can be withdrawn; to turn down someone else's request use decide_request. " +
     "This is a two-step ACTION tool: the first call returns a confirm_token to show the person; " +
     "call again with it to perform.",
   inputSchema: {
@@ -424,14 +452,8 @@ const cancelRequestTool: McpTool = {
   args: cancelRequestArgs,
   async summarize(raw, ctx) {
     const args = raw as CancelRequestArgs;
-    // The title is a nicety: a failed or non-matching lookup falls back to the id.
-    const requests = await inner(innerRequest("/api/requests"), ctx.owner);
-    const found = requests.ok
-      ? asArray(asRecord(requests.body).requests).find(
-          (r) => asRecord(r).id === args.request_id,
-        )
-      : undefined;
-    const rawTitle = str(asRecord(found).title);
+    const found = await ownWithdrawableRequest(args.request_id, ctx);
+    const rawTitle = str(found.title);
     const title = rawTitle ? untrustedInline(rawTitle) : null;
     return title
       ? `Withdraw request ${args.request_id} ("${title}").`
@@ -439,6 +461,7 @@ const cancelRequestTool: McpTool = {
   },
   async run(raw, ctx) {
     const args = cancelRequestArgs.parse(raw) as CancelRequestArgs;
+    await ownWithdrawableRequest(args.request_id, ctx);
     const res = await inner(
       innerRequest(`/api/requests/${args.request_id}`, { method: "DELETE" }),
       ctx.owner,
