@@ -149,6 +149,11 @@ describe("searchAndGrab AI judge", () => {
     expect(grabRelease.mock.calls[0]![0].releaseTitle).toContain(".1.");
   });
 
+  it("records the release's indexer on the grab", async () => {
+    await searchAndGrab({ ...base, aiConfig: aiConfig as never });
+    expect(grabRelease.mock.calls[0]![0].indexer).toBe("idx");
+  });
+
   it("does not call the AI with a single viable candidate", async () => {
     findManyBlocklist.mockImplementationOnce(async () => [
       { releaseTitle: release(1, 10).title },
