@@ -69,7 +69,7 @@ const requestTitleTool: McpTool = {
       quality_profile_id: {
         type: "integer",
         description:
-          "Quality profile for the admin add path (ignored for non-admin requests, where the approver picks it).",
+          "Quality profile id for the admin add path, from the quality_profiles tool (ignored for non-admin requests, where the approver picks it).",
       },
       formats: {
         type: "array",
@@ -251,8 +251,13 @@ const pendingRequestsTool: McpTool = {
           title: str(r.title),
           kind: str(r.type),
           year: num(r.year),
+          tmdb_id: num(r.tmdb_id),
+          google_volume_id: str(r.google_volume_id),
+          author: str(r.author),
           requested_by: asRecord(r.requested_by).name,
           seasons: r.seasons,
+          season_mode: str(r.season_mode),
+          quality_profile_id: num(r.quality_profile_id),
           created_at: str(r.created_at),
         };
       });
@@ -280,7 +285,7 @@ const decideRequestTool: McpTool = {
   action: true,
   description:
     "Approves or denies one pending title request (by its id from pending_requests). " +
-    "Approving needs a quality profile id; denying accepts a reason. Requires an admin owner. " +
+    "Approving needs a quality profile id (list them with quality_profiles); denying accepts a reason. Requires an admin owner. " +
     "This is a two-step ACTION tool: the first call returns a confirm_token to show the person; " +
     "call again with it to perform.",
   inputSchema: {
@@ -290,7 +295,8 @@ const decideRequestTool: McpTool = {
       decision: { type: "string", enum: ["approve", "deny"] },
       quality_profile_id: {
         type: "integer",
-        description: "Quality profile to add the title with (approvals).",
+        description:
+          "Quality profile id to add the title with (approvals), from the quality_profiles tool.",
       },
       reason: { type: "string", description: "Why it was denied (optional)." },
       confirm_token: CONFIRM_TOKEN_PROPERTY,
@@ -298,14 +304,42 @@ const decideRequestTool: McpTool = {
     required: ["request_id", "decision"],
   },
   args: decideRequestArgs,
-  summarize(raw) {
+  preflight(_raw, ctx) {
+    return ctx.owner.is_admin
+      ? null
+      : "Approving or denying requests needs an admin owner; this API key's owner is not an admin.";
+  },
+  async summarize(raw, ctx) {
     const args = raw as DecideRequestArgs;
+    // Names are a best-effort nicety: a failed lookup falls back to ids.
+    const [requests, profiles] = await Promise.all([
+      inner(innerRequest("/api/requests"), ctx.owner),
+      args.decision === "approve"
+        ? inner(innerRequest("/api/quality-profiles"), ctx.owner)
+        : null,
+    ]);
+    const found = requests.ok
+      ? asArray(asRecord(requests.body).requests).find(
+          (r) => asRecord(r).id === args.request_id,
+        )
+      : undefined;
+    const title = str(asRecord(found).title);
+    const subject = title
+      ? `request ${args.request_id} ("${title}")`
+      : `request ${args.request_id}`;
     if (args.decision === "approve") {
-      return `Approve request ${args.request_id} and add the title to the library with quality profile ${args.quality_profile_id}.`;
+      const profile =
+        profiles?.ok === true
+          ? asArray(asRecord(profiles.body).profiles).find(
+              (p) => asRecord(p).id === args.quality_profile_id,
+            )
+          : undefined;
+      const profileName = str(asRecord(profile).name);
+      return `Approve ${subject} and add the title to the library with quality profile ${args.quality_profile_id}${profileName ? ` ("${profileName}")` : ""}.`;
     }
     return args.reason
-      ? `Deny request ${args.request_id} with the reason "${args.reason}".`
-      : `Deny request ${args.request_id}.`;
+      ? `Deny ${subject} with the reason "${args.reason}".`
+      : `Deny ${subject}.`;
   },
   async run(raw, ctx) {
     const args = decideRequestArgs.parse(raw) as DecideRequestArgs;

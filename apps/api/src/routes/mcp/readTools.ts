@@ -150,6 +150,7 @@ const libraryLookupTool: McpTool = {
       const downloaded = num(r.downloaded_episode_count);
       return {
         id: num(r.id),
+        tmdb_id: num(r.tmdb_id),
         title: str(r.title),
         kind: str(r.type),
         year: num(r.year),
@@ -164,7 +165,7 @@ const libraryLookupTool: McpTool = {
             : null,
         season_count: num(r.season_count),
         quality_profile: r.quality_profile,
-        resolution: str(r.resolution),
+        resolution: num(r.resolution),
         hdr_format: str(r.hdr_format),
         audio_format: str(r.audio_format),
         audio_languages: r.language_tags,
@@ -179,7 +180,8 @@ const downloadsTool: McpTool = {
   scope: "read",
   action: false,
   description:
-    "Lists the current download queue with progress, state and ETA per title. " +
+    "Lists the current download queue per title: progress_percent (0-100), state, " +
+    "download_speed_bytes_per_s (bytes per second) and eta_seconds. " +
     "The owner of this API key must be an admin (titles and release names are admin-only in Rawkoon).",
   inputSchema: { type: "object", properties: {} },
   args: z.object({}),
@@ -207,10 +209,38 @@ const downloadsTool: McpTool = {
           season: num(r.season),
           episode: num(r.episode),
           release: str(r.release_title),
-          progress: num(r.progress),
+          progress_percent:
+            num(r.progress) != null ? Math.round(num(r.progress)! * 100) : null,
           state: str(r.state),
-          download_speed_bps: num(r.download_speed),
+          download_speed_bytes_per_s: num(r.download_speed),
           eta_seconds: num(r.eta_seconds),
+        };
+      }),
+    );
+  },
+};
+
+const qualityProfilesTool: McpTool = {
+  name: "quality_profiles",
+  scope: "read",
+  action: false,
+  description:
+    "Lists the quality profiles (id, name, minimum resolution, preferred languages). " +
+    "Use it to find the quality_profile_id that decide_request (approve) and request_title need.",
+  inputSchema: { type: "object", properties: {} },
+  args: z.object({}),
+  async run(_raw, ctx) {
+    const res = await inner(innerRequest("/api/quality-profiles"), ctx.owner);
+    if (!res.ok) throw new ToolFailure(res.text);
+    return capList(
+      asArray(asRecord(res.body).profiles).map((item) => {
+        const r = asRecord(item);
+        return {
+          id: num(r.id),
+          name: str(r.name),
+          min_resolution: num(r.min_resolution),
+          cutoff_resolution: num(r.cutoff_resolution),
+          preferred_languages: r.preferred_languages,
         };
       }),
     );
@@ -422,6 +452,7 @@ export const readTools: McpTool[] = [
   searchTool,
   libraryLookupTool,
   downloadsTool,
+  qualityProfilesTool,
   calendarTool,
   myRequestsTool,
   listeningProgressTool,

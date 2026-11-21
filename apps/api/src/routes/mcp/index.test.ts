@@ -365,6 +365,7 @@ describe("MCP authentication", () => {
       "search",
       "library_lookup",
       "downloads",
+      "quality_profiles",
       "calendar",
       "my_requests",
       "listening_progress",

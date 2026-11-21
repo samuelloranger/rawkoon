@@ -89,13 +89,14 @@ beforeEach(() => {
 });
 
 describe("the tool registry", () => {
-  it("has the ten task-shaped tools with the expected scopes", () => {
+  it("has the eleven task-shaped tools with the expected scopes", () => {
     expect(
       MCP_TOOLS.map((t) => `${t.name}:${t.scope}${t.action ? ":action" : ""}`),
     ).toEqual([
       "search:read",
       "library_lookup:read",
       "downloads:read",
+      "quality_profiles:read",
       "calendar:read",
       "my_requests:read",
       "listening_progress:read",
@@ -394,6 +395,132 @@ describe("decide_request shaping", () => {
       decided: "approved",
       request_id: 5,
     });
-    expect(dispatched[0].url).toContain("/api/requests/5/approve");
+    expect(dispatched.at(-1)!.url).toContain("/api/requests/5/approve");
+  });
+
+  it("names the request and profile in the confirmation summary", async () => {
+    respond = async (req) => {
+      const path = new URL(req.url).pathname;
+      if (path === "/api/requests")
+        return Response.json({ requests: [{ id: 5, title: "Dune" }] });
+      return Response.json({ profiles: [{ id: 1, name: "HD" }] });
+    };
+    const first = await callTool(
+      toolByName("decide_request")!,
+      { request_id: 5, decision: "approve", quality_profile_id: 1 },
+      adminCaller,
+    );
+    const summary = (first.structuredContent as { summary: string }).summary;
+    expect(summary).toContain('"Dune"');
+    expect(summary).toContain('"HD"');
+    expect(dispatched.every((d) => d.method === "GET")).toBe(true);
+  });
+
+  it("refuses a non-admin owner before issuing a confirm token", async () => {
+    const result = await callTool(
+      toolByName("decide_request")!,
+      { request_id: 5, decision: "deny" },
+      memberCaller,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("admin owner");
+    expect(dispatched).toHaveLength(0);
+  });
+
+  it("says the token is used up when the confirmed action fails", async () => {
+    const args = { request_id: 5, decision: "deny" } as const;
+    const first = await callTool(
+      toolByName("decide_request")!,
+      args,
+      adminCaller,
+    );
+    const token = (first.structuredContent as { confirm_token: string })
+      .confirm_token;
+    respond = async () => Response.json({ error: "nope" }, { status: 404 });
+    const second = await callTool(
+      toolByName("decide_request")!,
+      { ...args, confirm_token: token },
+      adminCaller,
+    );
+    expect(second.isError).toBe(true);
+    expect(second.content[0].text).toContain("now used up");
+    expect(second.structuredContent).toBeUndefined();
+  });
+
+  it("ends the confirm hint with a single period", async () => {
+    const first = await callTool(
+      toolByName("decide_request")!,
+      { request_id: 5, decision: "deny" },
+      adminCaller,
+    );
+    const next = (first.structuredContent as { next: string }).next;
+    expect(next.endsWith("..")).toBe(false);
+  });
+});
+
+describe("read tool shaping", () => {
+  it("keeps numeric resolution and tmdb_id in library_lookup", async () => {
+    respond = async () =>
+      Response.json({
+        items: [{ id: 1, tmdb_id: 42, title: "X", resolution: 1080 }],
+        has_more: false,
+      });
+    const result = await callTool(
+      toolByName("library_lookup")!,
+      { query: "x" },
+      adminCaller,
+    );
+    const item = (
+      result.structuredContent as {
+        items: { resolution: number; tmdb_id: number }[];
+      }
+    ).items[0];
+    expect(item.resolution).toBe(1080);
+    expect(item.tmdb_id).toBe(42);
+  });
+
+  it("reports download progress as a percent and speed in bytes per second", async () => {
+    respond = async () =>
+      Response.json({
+        enabled: true,
+        connected: true,
+        items: [{ progress: 0.456, download_speed: 2048 }],
+      });
+    const result = await callTool(toolByName("downloads")!, {}, adminCaller);
+    const item = (
+      result.structuredContent as {
+        items: {
+          progress_percent: number;
+          download_speed_bytes_per_s: number;
+        }[];
+      }
+    ).items[0];
+    expect(item.progress_percent).toBe(46);
+    expect(item.download_speed_bytes_per_s).toBe(2048);
+  });
+
+  it("lists quality profiles with their ids", async () => {
+    respond = async () =>
+      Response.json({
+        profiles: [{ id: 3, name: "HD", min_resolution: 1080 }],
+      });
+    const result = await callTool(
+      toolByName("quality_profiles")!,
+      {},
+      adminCaller,
+    );
+    expect(
+      (result.structuredContent as { items: { id: number }[] }).items[0].id,
+    ).toBe(3);
+  });
+
+  it("never sets structuredContent to a non-object", async () => {
+    const denied = await callTool(
+      toolByName("request_title")!,
+      { kind: "movie", tmdb_id: 1 },
+      { ...adminCaller, scopes: ["read"] as McpScope[] },
+    );
+    expect(denied.isError).toBe(true);
+    expect(denied.structuredContent).toBeUndefined();
   });
 });
