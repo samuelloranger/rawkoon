@@ -226,6 +226,14 @@ describe("POST /api/mcp (JSON-RPC transport)", () => {
     expect(res.status).toBe(405);
   });
 
+  it("refuses DELETE with 405 and an Allow header", async () => {
+    const res = await mcpRoutes.fetch(
+      new Request("http://localhost/", { method: "DELETE" }),
+    );
+    expect(res.status).toBe(405);
+    expect(res.headers.get("allow")).toBe("POST");
+  });
+
   it("refuses a body over 64 KiB before authenticating", async () => {
     // No key on purpose: the size refusal must not depend on credentials.
     const res = await post(
@@ -292,6 +300,7 @@ describe("MCP authentication", () => {
     verifyResult = { valid: false, key: null };
     const res = await rpc("ping", {}, { "x-api-key": "nope" });
     expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toBe('Bearer realm="rawkoon"');
   });
 
   it("accepts the same key via x-api-key and via Authorization Bearer", async () => {
@@ -321,7 +330,9 @@ describe("MCP authentication", () => {
       },
     };
     const res = await rpc("ping", {}, { "x-api-key": "rwk_svc" });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toContain("no MCP scopes");
   });
 
   it("drops the admin scope when the owner is not an admin at call time", async () => {
@@ -393,7 +404,11 @@ describe("MCP authentication", () => {
 
   it("reports an unknown tool with -32602", async () => {
     const res = await rpc("tools/call", { name: "ghost", arguments: {} });
-    const body = (await res.json()) as { error: { code: number } };
+    const body = (await res.json()) as {
+      error: { code: number; message: string };
+    };
     expect(body.error.code).toBe(-32602);
+    expect(body.error.message).toContain("tools/list");
+    expect(body.error.message).toContain("decide_request");
   });
 });

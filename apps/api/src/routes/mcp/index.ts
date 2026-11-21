@@ -16,6 +16,7 @@ import {
 import {
   callTool,
   initializeResult,
+  MCP_TOOLS,
   toolByName,
   toolsForScopes,
 } from "./tools";
@@ -87,8 +88,11 @@ async function handleOneMessage(
         return {
           jsonrpc: "2.0",
           id,
-          error: errorResponse(id, INVALID_PARAMS, `Unknown tool: ${name}`)
-            .error,
+          error: errorResponse(
+            id,
+            INVALID_PARAMS,
+            `Unknown tool: ${name}. Available tools: ${MCP_TOOLS.map((t) => t.name).join(", ")}. Call tools/list for the ones this key can use.`,
+          ).error,
         };
       }
       const result = await callTool(tool, params.arguments, caller);
@@ -120,6 +124,14 @@ export const mcpRoutes = new Hono<Env>()
         headers: { allow: "POST", "cache-control": "no-store" },
       }),
   )
+  .delete(
+    "/",
+    () =>
+      new Response(null, {
+        status: 405,
+        headers: { allow: "POST", "cache-control": "no-store" },
+      }),
+  )
   .post(
     "/",
     // Streams the body and aborts past the cap, so an oversized body without
@@ -133,17 +145,35 @@ export const mcpRoutes = new Hono<Env>()
       // Content-Length, streaming otherwise — so nothing oversized reaches auth
       // or the body read. Authenticate next: the key lives in the headers, and
       // an unauthenticated request should never cost a body read.
-      const caller = await authenticateMcpCaller(c.req.raw);
-      if (!caller) {
-        return json(
+      const auth = await authenticateMcpCaller(c.req.raw);
+      if (!auth.ok) {
+        // A valid key that lacks MCP scopes is authenticated but not allowed.
+        if (auth.reason === "no_scopes") {
+          return json(
+            errorResponse(
+              null,
+              MCP_AUTH_ERROR,
+              "This API key has no MCP scopes; edit the key in Settings → API keys.",
+            ),
+            403,
+          );
+        }
+        return Response.json(
           errorResponse(
             null,
             MCP_AUTH_ERROR,
             "Unauthorized: a valid API key with MCP permissions is required (x-api-key header, or Authorization: Bearer).",
           ),
-          401,
+          {
+            status: 401,
+            headers: {
+              "cache-control": "no-store",
+              "www-authenticate": 'Bearer realm="rawkoon"',
+            },
+          },
         );
       }
+      const caller = auth.caller;
 
       const raw = await c.req.raw.arrayBuffer();
       let parsed: unknown;
