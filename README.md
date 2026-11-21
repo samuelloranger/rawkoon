@@ -70,7 +70,7 @@ qBittorrent, Transmission or Deluge, Jellyfin, and OIDC sign-in. See
 
     cp docker-compose.prod-example.yml docker-compose.prod.yml
     cp .env.example .env
-    # Set SECRET_KEY, BETTER_AUTH_SECRET (openssl rand -base64 32), and DATABASE_URL.
+    # Set SECRET_KEY, BETTER_AUTH_SECRET (openssl rand -base64 32), and the database and Valkey passwords.
     docker compose -f docker-compose.prod.yml up -d
 
 The container applies pending Prisma migrations on boot. The application
