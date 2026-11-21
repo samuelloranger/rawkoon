@@ -25,7 +25,7 @@ mkdir -p data vapid_keys && sudo chown -R 1000:1000 data vapid_keys
 ---
 
 ## 2. Docker Compose Configuration
-Create a `docker-compose.yml` file in that folder using the official Docker image (`ghcr.io/samuelloranger/rawkoon:latest`). `:latest` follows releases. See [Updating and release channels](#updating-and-release-channels) for `:edge` and pinned versions.
+Save the following as `docker-compose.prod.yml` in that folder (it is the same as `docker-compose.prod-example.yml` in the repository). It uses the official Docker image (`ghcr.io/samuelloranger/rawkoon:latest`). `:latest` follows releases. See [Updating and release channels](#updating-and-release-channels) for `:edge` and pinned versions.
 
 ```yaml
 services:
@@ -37,12 +37,20 @@ services:
     volumes:
       - ./data:/app/data
       - ./vapid_keys:/app/vapid_keys
-      # Mount your media paths here (must be identical to download client mount paths for hardlinking).
-      # The same mount covers the book and audiobook libraries if they live under it.
-      # - /media:/media
+      # Mount your media under ONE parent so downloads and the library share a
+      # filesystem (needed for hardlinks), e.g. /data/downloads and /data/media.
+      # The container user is uid 1000 and needs write access to the library.
+      # - /path/to/data:/data
     restart: unless-stopped
+    # Optional: GPU re-encoding (VA-API). See docs/self-hosting.md.
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "${RENDER_GID}"
     depends_on:
       db:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
     networks:
       - rawkoon-network
@@ -73,14 +81,23 @@ services:
     image: valkey/valkey:8-alpine
     container_name: rawkoon-valkey
     restart: unless-stopped
-    command: valkey-server --requirepass ${VALKEY_PASSWORD} --bind 0.0.0.0 --protected-mode yes
+    command: valkey-server --requirepass ${VALKEY_PASSWORD:-${REDIS_PASSWORD}} --bind 0.0.0.0 --protected-mode yes
+    environment:
+      # valkey-cli reads this, so the healthcheck needs no password on its command line.
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:-${REDIS_PASSWORD}}
     volumes:
       - valkey_data:/data
     networks:
       rawkoon-network:
-        # Alias so a VALKEY_HOST/REDIS_HOST of "redis" still resolves.
+        # Alias so an existing .env with VALKEY_HOST/REDIS_HOST=redis still resolves.
         aliases:
           - redis
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 networks:
   rawkoon-network:
@@ -90,6 +107,8 @@ volumes:
   db_data:
   valkey_data:
 ```
+
+Downloads and the library must be on the same mount inside the container for hardlinks to work, so mount a single parent such as `/data:/data` and point both the download client and Rawkoon at paths under it. The container runs as uid 1000, which needs write access to the library folders.
 
 ---
 
@@ -136,14 +155,14 @@ TZ=UTC
 ## 4. Run the Stack
 Start the containers in detached mode:
 ```bash
-docker compose up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 Rawkoon will automatically wait for the database, run migrations, and listen on port `3000`.
 
 Verify the install with the built-in doctor, which probes the database, Valkey, library paths and integrations:
 ```bash
-docker compose exec rawkoon bun run doctor
+docker compose -f docker-compose.prod.yml exec rawkoon bun run doctor
 ```
 
 ---
@@ -153,7 +172,7 @@ Once the containers are up:
 
 1. **Create the Administrator Account:** Open `http://localhost:3000` (or your domain) in your browser. The **first** account registered becomes the instance administrator. Once created, public registration closes automatically.
 2. **Set up Media Paths:** Navigate to **Settings → Library** to configure your movie/show storage paths, file naming template, and select whether you want to **Move** or **Hardlink** (recommended for seeding torrents) files.
-3. **Connect Integrations:** Go to **Settings → Integrations** to enter:
+3. **Connect Integrations:** Go to **Settings → Connections** to enter:
    - Your **TMDB API key** (required for search and discovery).
    - Your indexer manager (**Prowlarr** or **Jackett**).
    - Your download client (**qBittorrent**, **Transmission**, **Deluge**, or **rdt-client**; see [Integrations](/integrations#rdt-client-debrid) for rdt-client).
@@ -172,11 +191,11 @@ Pick the image tag that matches how closely you want to follow development:
 
 `:edge` gets fixes as soon as they merge, and has had less testing than a release. When several changes merge close together, only the newest may get an image. Release notes are only written for releases, and edge builds never send the "App updated" notification; a release can.
 
-To switch channels, change the tag in `docker-compose.yml`, then pull and restart:
+To switch channels, change the tag in `docker-compose.prod.yml`, then pull and restart:
 
 ```bash
-docker compose pull rawkoon
-docker compose up -d rawkoon
+docker compose -f docker-compose.prod.yml pull rawkoon
+docker compose -f docker-compose.prod.yml up -d rawkoon
 ```
 
 Rawkoon doesn't update itself. Run the same two commands to update, or use a container updater (Watchtower, Arcane and the like) if you want it automatic.
