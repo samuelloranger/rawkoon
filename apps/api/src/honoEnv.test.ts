@@ -40,7 +40,7 @@ describe("honoOnError", () => {
     const res = await post(JSON.stringify({ tmdb_id: "x" }));
     expect(res.status).toBe(400);
     const body = (await res.json()) as Body;
-    expect(body.error).toStartWith("tmdb_id: ");
+    expect(body.error).not.toContain("tmdb_id");
     expect(body.issues.map((i) => i.path)).toEqual(["tmdb_id", "n"]);
   });
 

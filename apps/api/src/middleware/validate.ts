@@ -24,18 +24,14 @@ const issuePath = (issue: Issue): string =>
     .map((seg) => String(typeof seg === "object" ? seg.key : seg))
     .join(".");
 
-// `error` stays a string (clients read it); `issues` lists every failure.
+// `error` stays the bare first message because the web shows it in toasts;
+// `issues` carries every failure with its field path for API callers.
 export const validationFailure = (issues: ReadonlyArray<Issue>) => {
   const list = issues.map((i) => ({
     path: issuePath(i),
     message: i.message ?? "Invalid request",
   }));
-  const first = list[0];
-  if (!first) return badRequest("Invalid request", { issues: list });
-  const message = first.path
-    ? `${first.path}: ${first.message}`
-    : first.message;
-  return badRequest(message, { issues: list });
+  return badRequest(list[0]?.message ?? "Invalid request", { issues: list });
 };
 
 export const jsonV = <T extends z.ZodType>(schema: T) =>
