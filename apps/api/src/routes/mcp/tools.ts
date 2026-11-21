@@ -108,10 +108,9 @@ export async function callTool(
     const preflightError = tool.preflight?.(argsForTool, ctx) ?? null;
     if (preflightError) return finish(preflightError, true);
 
-    const summary =
-      (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
-
     if (!confirmToken) {
+      const summary =
+        (await tool.summarize?.(argsForTool, ctx)) ?? `Run ${tool.name}.`;
       const token = newConfirmToken();
       const stored = await storeConfirmBinding(token, {
         keyId: ctx.keyId,
