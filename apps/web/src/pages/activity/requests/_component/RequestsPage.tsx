@@ -169,7 +169,8 @@ function RequestRow({
   const profiles = isBook
     ? (bookProfilesData?.profiles ?? [])
     : (profilesData?.profiles ?? []);
-  // The admin's pick wins; else the request's own profile, the default for its type, then the first.
+  // The admin's pick wins; else the request's own profile, then the default for its type.
+  // No first-profile fallback: with no default the admin picks, so Approve can't use an arbitrary one.
   const settings = settingsData?.settings;
   const defaultProfile = isBook
     ? null
@@ -180,9 +181,7 @@ function RequestRow({
       null);
   const profileId: number | null =
     pickedProfile ??
-    (profiles.some((p) => p.id === defaultProfile) ? defaultProfile : null) ??
-    profiles[0]?.id ??
-    null;
+    (profiles.some((p) => p.id === defaultProfile) ? defaultProfile : null);
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl bg-neutral-900/60 px-3 py-2.5 ring-1 ring-neutral-800">

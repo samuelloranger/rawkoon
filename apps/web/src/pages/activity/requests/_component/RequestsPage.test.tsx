@@ -229,6 +229,14 @@ describe("RequestsPage moderation", () => {
     expect(approve).toHaveBeenCalledWith({ id: 1, quality_profile_id: 6 });
   });
 
+  it("leaves Approve disabled when no default exists, instead of guessing", () => {
+    settings.show = null;
+    rows.list = [{ ...base, type: "show", tmdb_id: 7 }];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.approve"));
+    expect(approve).not.toHaveBeenCalled();
+  });
+
   it("prefers the profile on the request itself", () => {
     rows.list = [{ ...base, type: "show", tmdb_id: 7, quality_profile_id: 5 }];
     renderWithProviders(<RequestsPage />);
