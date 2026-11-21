@@ -20,6 +20,8 @@ const app = new Hono()
   })
   .onError(honoOnError);
 
+type Body = { error: string; issues: { path: string }[] };
+
 const post = (body: string) =>
   app.request("/v", {
     method: "POST",
@@ -31,18 +33,15 @@ describe("honoOnError", () => {
   test("malformed JSON is a 400 with a JSON body", async () => {
     const res = await post("{not json");
     expect(res.status).toBe(400);
-    expect(typeof (await res.json()).error).toBe("string");
+    expect(typeof ((await res.json()) as Body).error).toBe("string");
   });
 
   test("validation names the field and lists every issue", async () => {
     const res = await post(JSON.stringify({ tmdb_id: "x" }));
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as Body;
     expect(body.error).toStartWith("tmdb_id: ");
-    expect(body.issues.map((i: { path: string }) => i.path)).toEqual([
-      "tmdb_id",
-      "n",
-    ]);
+    expect(body.issues.map((i) => i.path)).toEqual(["tmdb_id", "n"]);
   });
 
   test("HTTPException keeps its status and message", async () => {
