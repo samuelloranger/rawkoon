@@ -2102,6 +2102,7 @@
       "noMatchDescription": "Essayez de retirer un filtre ou d’effacer la recherche."
     },
     "watchlist": {
+      "remove": "Retirer {{title}} de la liste de visionnage",
       "pageTitle": "Liste de visionnage",
       "pageSubtitle": "Films et séries que vous souhaitez regarder",
       "empty": "Votre liste est vide",

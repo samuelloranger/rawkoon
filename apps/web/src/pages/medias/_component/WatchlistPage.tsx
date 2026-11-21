@@ -35,6 +35,7 @@ function WatchlistCard({
   item: WatchlistItem;
   onOpen: (item: WatchlistItem) => void;
 }) {
+  const { t } = useTranslation("common");
   const [imgError, setImgError] = useState(false);
   const removeMutation = useRemoveFromWatchlist();
 
@@ -90,13 +91,13 @@ function WatchlistCard({
           });
         }}
         disabled={removeMutation.isPending}
-        aria-label={`Remove ${item.title} from watchlist`}
-        className="absolute top-2 right-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-neutral-950/70 text-neutral-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 hover:bg-neutral-950 hover:text-neutral-50 disabled:opacity-40"
+        aria-label={t("medias.watchlist.remove", { title: item.title })}
+        className="focus-ring absolute top-1.5 right-1.5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-950/70 text-neutral-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-neutral-950 hover:text-neutral-50 disabled:opacity-40"
       >
         {removeMutation.isPending ? (
           <div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-neutral-300 border-t-transparent" />
         ) : (
-          <BookmarkX size={11} />
+          <BookmarkX size={14} />
         )}
       </button>
 

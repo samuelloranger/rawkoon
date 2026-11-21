@@ -2102,6 +2102,7 @@
       "noMatchDescription": "Try removing a filter or clearing the search."
     },
     "watchlist": {
+      "remove": "Remove {{title}} from watchlist",
       "pageTitle": "Watchlist",
       "pageSubtitle": "Movies and shows you want to watch",
       "empty": "Your watchlist is empty",
