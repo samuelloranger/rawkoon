@@ -99,7 +99,9 @@ mock.module("@rawkoon/api/workers/notifyBookEvents", () => ({
 }));
 
 const cache = new Map<string, { value: unknown; ttl: number }>();
+const preloadCache = await import("@rawkoon/api/services/cache");
 mock.module("@rawkoon/api/services/cache", () => ({
+  ...preloadCache,
   getJsonCache: (key: string) => Promise.resolve(cache.get(key)?.value ?? null),
   setJsonCache: (key: string, value: unknown, ttl: number) => {
     cache.set(key, { value, ttl });
@@ -303,6 +305,28 @@ describe("searchBookUpgrades", () => {
     expect(cache.get("books:upgrade-searched:7")?.ttl).toBe(
       UPGRADE_SEARCH_COOLDOWN_S,
     );
+  });
+
+  it("ends the rest early when the profile changes", async () => {
+    const edition = {
+      id: 9,
+      files: [{ format: "pdf" }],
+      bookQualityProfile: {
+        allowedFormats: ["epub", "azw3", "pdf"],
+        cutoffFormat: "epub",
+      },
+    };
+    state.upgradable = [edition];
+    state.searchResult = { releases: [] };
+    await searchBookUpgrades();
+
+    edition.bookQualityProfile = {
+      allowedFormats: ["epub", "mobi", "azw3", "pdf"],
+      cutoffFormat: "epub",
+    };
+    await searchBookUpgrades();
+
+    expect(state.searchCalls).toEqual([9, 9]);
   });
 
   it("searches again next sweep when the indexer search errored", async () => {

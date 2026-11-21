@@ -139,10 +139,18 @@ export async function searchBookUpgrades(): Promise<void> {
       cutoffFormat: profile.cutoffFormat as BookFormat,
     };
     if (meetsBookCutoff(best, scoreProfile)) continue;
-    // Shortcut: the rest lives in Valkey, so a flush only means one early search.
-    if (await getJsonCache<boolean>(upgradeCooldownKey(edition.id))) continue;
-
     const heldBitrate = highestBitrate(edition.files, best);
+    // What the last empty search was judged against: a profile edit or a
+    // different held file ends the rest early.
+    const searchedFor = [
+      best,
+      heldBitrate ?? "",
+      profile.cutoffFormat,
+      ...profile.allowedFormats,
+    ].join("|");
+    // Shortcut: the rest lives in Valkey, so a flush only means one early search.
+    const rested = await getJsonCache<string>(upgradeCooldownKey(edition.id));
+    if (rested === searchedFor) continue;
 
     try {
       const { releases, error } = await searchBookReleases(edition.id);
@@ -166,7 +174,7 @@ export async function searchBookUpgrades(): Promise<void> {
       if (upgrades.length === 0) {
         await setJsonCache(
           upgradeCooldownKey(edition.id),
-          true,
+          searchedFor,
           UPGRADE_SEARCH_COOLDOWN_S,
         );
         continue;
