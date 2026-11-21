@@ -117,7 +117,7 @@ const requestTitleTool: McpTool = {
   },
   summarize(raw, ctx) {
     const args = raw as RequestTitleArgs;
-    const quoted = args.title ? `"${args.title}"` : "";
+    const quoted = args.title ? ` "${untrustedInline(args.title)}"` : "";
     const label =
       args.kind === "book" ? "book" : args.kind === "movie" ? "movie" : "show";
     const id =
@@ -137,8 +137,8 @@ const requestTitleTool: McpTool = {
     const adminSearch =
       args.kind === "book" ? "" : " and start a release search";
     return ctx.owner.is_admin
-      ? `Add the ${label} ${quoted} (${id}) to the Rawkoon library${seasons}${profile}${adminSearch}.`
-      : `Create a request for the ${label} ${quoted} (${id})${seasons}, pending an admin's approval.`;
+      ? `Add the ${label}${quoted} (${id}) to the Rawkoon library${seasons}${profile}${adminSearch}.`
+      : `Create a request for the ${label}${quoted} (${id})${seasons}, pending an admin's approval.`;
   },
   async run(raw, ctx) {
     const args = requestTitleArgs.parse(raw) as RequestTitleArgs;
@@ -338,6 +338,20 @@ const decideRequestTool: McpTool = {
           (r) => asRecord(r).id === args.request_id,
         )
       : undefined;
+    // Approve/deny only accept pending requests; don't issue a token that can only fail.
+    if (requests.ok) {
+      if (!found) {
+        throw new ToolFailure(
+          `Request ${args.request_id} doesn't exist (see pending_requests).`,
+        );
+      }
+      const status = str(asRecord(found).status);
+      if (status !== "pending") {
+        throw new ToolFailure(
+          `Request ${args.request_id} is ${status ?? "not pending"}; only pending requests can be approved or denied.`,
+        );
+      }
+    }
     const rawTitle = str(asRecord(found).title);
     // The requester wrote this title; keep it from steering the approver's agent.
     const title = rawTitle ? untrustedInline(rawTitle) : null;

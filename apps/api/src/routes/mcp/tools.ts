@@ -89,7 +89,9 @@ export async function callTool(
   if (!parsed.success) {
     return finish(
       `Invalid arguments for "${tool.name}": ${parsed.error.issues
-        .map((i) => `${i.path.join(".") || "arguments"} ${i.message}`)
+        .map((i) =>
+          i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message,
+        )
         .join("; ")}`,
       true,
     );

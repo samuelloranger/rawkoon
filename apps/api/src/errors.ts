@@ -32,6 +32,27 @@ export const conflict = (message: string) => errorResponse(409, message);
 
 export const tooManyRequests = (message: string) => errorResponse(429, message);
 
+/**
+ * better-auth's own limiter replies `{ message }` with a non-standard
+ * `X-Retry-After`; give it the app's `{ error }` shape and `Retry-After`.
+ * `message` stays because the better-auth client reads it.
+ */
+export async function normalizeAuthRateLimit(res: Response): Promise<Response> {
+  if (res.status !== 429) return res;
+  const body = (await res
+    .clone()
+    .json()
+    .catch(() => null)) as { message?: unknown } | null;
+  const message =
+    typeof body?.message === "string"
+      ? body.message
+      : "Too many requests. Please try again later.";
+  const out = errorResponse(429, message, { message });
+  const retryAfter = res.headers.get("x-retry-after");
+  if (retryAfter) out.headers.set("Retry-After", retryAfter);
+  return out;
+}
+
 export const unprocessable = (message: string) => errorResponse(422, message);
 
 export const errorForStatus = (status: number, message: string) =>

@@ -119,7 +119,9 @@ describe("search argument checks", () => {
   it("refuses a one-character query with a clear message", async () => {
     const result = await call("search", { query: "a" });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("at least 2 characters");
+    expect(result.content[0].text).toBe(
+      'Invalid arguments for "search": query: must be at least 2 characters',
+    );
     expect(dispatched).toHaveLength(0);
   });
 });
@@ -127,7 +129,9 @@ describe("search argument checks", () => {
 describe("request_title argument checks", () => {
   it("names google_volume_id when a book lacks it", async () => {
     const result = await call("request_title", { kind: "book" });
-    expect(result.content[0].text).toContain("google_volume_id is required");
+    expect(result.content[0].text).toBe(
+      'Invalid arguments for "request_title": google_volume_id is required for books',
+    );
   });
 
   it("rejects seasons on a book", async () => {

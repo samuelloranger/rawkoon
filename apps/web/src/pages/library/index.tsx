@@ -68,7 +68,8 @@ export const Route = createFileRoute("/library/")({
     }
   },
   loader: async ({ context }) => {
-    await prefetchRouteData(context.queryClient, "/library");
+    // A failed prefetch falls through to the grid's own LoadError + Retry.
+    await prefetchRouteData(context.queryClient, "/library").catch(() => {});
   },
   component: LibraryPage,
 });
