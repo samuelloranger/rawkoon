@@ -7,7 +7,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("ResetPasswordDialog", () => {
-  it("masks the input and only submits a long-enough password", () => {
+  it("masks the input and only submits a password the server will accept", () => {
     const onSubmit = vi.fn();
     render(
       <ResetPasswordDialog
@@ -25,8 +25,15 @@ describe("ResetPasswordDialog", () => {
     fireEvent.change(input, { target: { value: "short" } });
     expect(submit.disabled).toBe(true);
     expect(screen.getByRole("alert")).toBeTruthy();
-    fireEvent.change(input, { target: { value: "longenough1" } });
+    // Long enough but missing the server's complexity rules: still blocked.
+    fireEvent.change(input, { target: { value: "abcdefgh" } });
+    expect(submit.disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "login.passwordNeedsUppercase",
+    );
+    fireEvent.change(input, { target: { value: "Longenough1!" } });
+    expect(screen.queryByRole("alert")).toBeNull();
     fireEvent.click(submit);
-    expect(onSubmit).toHaveBeenCalledWith("longenough1");
+    expect(onSubmit).toHaveBeenCalledWith("Longenough1!");
   });
 });

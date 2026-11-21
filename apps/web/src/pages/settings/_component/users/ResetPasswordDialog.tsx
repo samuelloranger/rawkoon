@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { validatePasswordComplexity } from "@/lib/utils/passwordRules";
 
 const MIN_LENGTH = 8;
 
@@ -22,7 +23,17 @@ export function ResetPasswordDialog({
 }: Props) {
   const { t } = useTranslation("common");
   const [password, setPassword] = useState("");
-  const tooShort = password.length > 0 && password.length < MIN_LENGTH;
+  // Same rules the server enforces, so a weak password is caught before submit.
+  const complexity = validatePasswordComplexity(password, t);
+  const problem =
+    password.length === 0
+      ? null
+      : password.length < MIN_LENGTH
+        ? t("settings.users.passwordMinLength")
+        : complexity === true
+          ? null
+          : complexity;
+  const valid = password.length >= MIN_LENGTH && complexity === true;
 
   const close = () => {
     setPassword("");
@@ -38,7 +49,7 @@ export function ResetPasswordDialog({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (password.length >= MIN_LENGTH) onSubmit(password);
+          if (valid) onSubmit(password);
         }}
       >
         <label
@@ -55,19 +66,16 @@ export function ResetPasswordDialog({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {tooShort && (
+        {problem && (
           <p role="alert" className="mt-2 text-xs text-red-400">
-            {t("settings.users.passwordMinLength")}
+            {problem}
           </p>
         )}
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={close}>
             {t("common.cancel")}
           </Button>
-          <Button
-            type="submit"
-            disabled={password.length < MIN_LENGTH || isPending}
-          >
+          <Button type="submit" disabled={!valid || isPending}>
             {t("settings.users.passwordResetTitle")}
           </Button>
         </div>
