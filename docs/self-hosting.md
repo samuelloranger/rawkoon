@@ -17,6 +17,11 @@ Create a dedicated folder for Rawkoon on your server:
 mkdir rawkoon && cd rawkoon
 ```
 
+The container runs as the `bun` user (uid 1000), so the `data` and `vapid_keys` folders it bind-mounts must be owned by that uid:
+```bash
+mkdir -p data vapid_keys && sudo chown -R 1000:1000 data vapid_keys
+```
+
 ---
 
 ## 2. Docker Compose Configuration
@@ -135,6 +140,11 @@ docker compose up -d
 ```
 
 Rawkoon will automatically wait for the database, run migrations, and listen on port `3000`.
+
+Verify the install with the built-in doctor, which probes the database, Valkey, library paths and integrations:
+```bash
+docker compose exec rawkoon bun run doctor
+```
 
 ---
 

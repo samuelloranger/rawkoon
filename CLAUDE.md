@@ -15,6 +15,10 @@ Bun workspace, `workspaces: ["apps/*"]`. Root `package.json` is the orchestrator
 | `@rawkoon/api` | `apps/api` | Hono (Bun) HTTP server. `src/routes/*` (one dir per domain), `src/services/*` (business logic — the bulk of the code), `src/workers/*` (BullMQ job handlers), `src/middleware/*` (auth, rate limit), `src/db` (Prisma client + ioredis), `prisma/` (schema + migrations), `src/scripts/*` (one-off maintenance CLIs). Also serves the built SPA from `./public` in production. |
 | `@rawkoon/web` | `apps/web` | React 19 + Vite 8 + Tailwind 4 SPA. TanStack Router (file-based, `src/pages/**`) + TanStack Query, Radix primitives, i18next (`src/locales/{en,fr}`), service worker in `src/sw`. |
 | `@rawkoon/shared` | `apps/shared` | Types and pure utils imported by both sides (`@rawkoon/shared/types`, `/utils`, `/constants`). Source-only — no build step, consumed as TS. |
+| `@rawkoon/relay` | `apps/relay` | Cloudflare Worker that holds the APNs key and forwards iOS push notifications for self-hosted servers. Stateless. |
+| iOS app | `apps/ios` | Native SwiftUI iPhone client (XcodeGen `project.yml`, SwiftPM `Package.swift`); see `.claude/CLAUDE.md`. |
+
+Domain terms live in `GLOSSARY.md`; product intent in `PRODUCT.md`.
 
 ## Commands
 
@@ -36,7 +40,7 @@ bun run build                # production web build (vite build + tsc project ch
 
 ## Database
 
-Postgres 17 via Prisma 7 (`@prisma/adapter-pg`), Redis 7 for cache + BullMQ. Both come from `docker-compose.yml`, which contains **only** `db` and `redis` — the API and web run on the host in dev.
+Postgres 17 via Prisma 7 (`@prisma/adapter-pg`), Valkey (Redis-compatible) for cache + BullMQ. Both come from `docker-compose.yml`, which contains **only** `db` and `valkey` — the API and web run on the host in dev.
 
 ```bash
 bun run db:migrate:dev       # dev: create + apply a migration, then generate

@@ -12,8 +12,8 @@ Requirements: Bun 1.4 or newer and Docker with Docker Compose.
     make dev-api
     make dev-web
 
-Run the last three commands in separate terminals. Configure the secrets and
-email allowlists in <code>.env</code> before signing in.
+Run the last three commands in separate terminals. Configure the secrets in
+<code>.env</code> before signing in.
 
 ## Before opening a pull request
 
