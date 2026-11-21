@@ -1,3 +1,4 @@
+import { releaseYearFits } from "@rawkoon/shared/utils/releaseYear";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 import { isFrenchFallbackTag } from "@rawkoon/shared/utils/languageFamily";
 
@@ -227,14 +228,9 @@ function isClientRejected(
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ");
 
-  // Year check: reject only when the release names years and none is the media's
-  // (titles like "Blade Runner 2049" carry a year-like number before the real one).
-  if (mediaYear) {
-    const years = [...normalizedRelease.matchAll(/\b((?:19|20)\d{2})\b/g)].map(
-      (m) => Number(m[1]),
-    );
-    if (years.length > 0 && !years.includes(mediaYear)) return true;
-  }
+  // Same year rule the server applies to automatic grabs (title years ignored, ±1).
+  if (mediaYear && !releaseYearFits(releaseTitle, mediaYear, [mediaTitle]))
+    return true;
 
   // Distinctive words (3+ chars, non-stop) of the expected title must match at 70%.
   const titleWords = mediaTitle

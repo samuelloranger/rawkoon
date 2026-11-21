@@ -105,6 +105,14 @@ describe("filterAndSortReleases — isClientRejected with accented French title"
     ]);
   });
 
+  it("keeps a release named only by a title that is itself a year", () => {
+    const result = filterAndSortReleases(
+      [makeRelease("2012.1080p.BluRay.x264")],
+      { ...BASE_FILTER, mediaTitle: "2012", mediaYear: 2009 },
+    );
+    expect(result).toHaveLength(1);
+  });
+
   // -------------------------------------------------------------------------
   // Regression: before the NFD fix, titleWords for "Jérémie: rendez-vous à
   // la plage" were ["mie","rendez","vous","plage"] instead of the correct
