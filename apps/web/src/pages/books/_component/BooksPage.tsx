@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/filter-panel";
 import { ViewToggle } from "@/components/ui/view-toggle";
 import { useBooks } from "../_hooks/useBooks";
+import { LoadError } from "@/components/LoadError";
 import { AddBookDialog } from "./AddBookDialog";
 import { BookCover } from "./BookCover";
 import { BookGrid } from "./BookGrid";
@@ -265,7 +266,7 @@ export function BooksPage() {
     }
   };
 
-  const { data, isLoading, refetch, isRefetching } = useBooks({
+  const { data, isLoading, isError, refetch, isRefetching } = useBooks({
     q: submitted || undefined,
     kind: kind === "all" ? undefined : kind,
     limit: 100,
@@ -387,6 +388,8 @@ export function BooksPage() {
         <p className="py-12 text-center text-sm text-neutral-500">
           {t("books.loading")}
         </p>
+      ) : isError && !data ? (
+        <LoadError onRetry={() => void refetch()} retrying={isRefetching} />
       ) : books.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-800 py-16 text-center">
           <BookOpen className="mx-auto h-8 w-8 text-neutral-700" />

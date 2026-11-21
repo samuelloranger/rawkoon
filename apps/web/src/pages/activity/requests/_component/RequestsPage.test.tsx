@@ -38,19 +38,43 @@ const base: MediaRequest = {
   created_at: "2026-01-01T00:00:00Z",
   decided_at: null,
 };
-const rows = vi.hoisted(() => ({ list: [] as unknown[] }));
+const rows = vi.hoisted(() => ({ list: [] as unknown[], failed: false }));
+const settings = vi.hoisted(() => ({ show: null as number | null }));
+const refetch = vi.fn();
+const deny = vi.fn();
 const approve = vi.fn();
 const remove = vi.fn();
 
 vi.mock("@/pages/activity/requests/_hooks/useRequests", () => ({
-  useRequests: () => ({ data: { requests: rows.list }, isLoading: false }),
+  useRequests: () => ({
+    data: rows.failed ? undefined : { requests: rows.list },
+    isLoading: false,
+    isError: rows.failed,
+    refetch,
+    isRefetching: false,
+  }),
   useApproveRequest: () => ({ mutate: approve, isPending: false }),
-  useDenyRequest: () => ({ mutate: vi.fn(), isPending: false }),
+  useDenyRequest: () => ({ mutate: deny, isPending: false }),
   useDeleteRequest: () => ({ mutate: remove, isPending: false }),
 }));
 vi.mock("@/pages/settings/useQualityProfiles", () => ({
   useQualityProfilesList: () => ({
-    data: { profiles: [{ id: 5, name: "Movie HD" }] },
+    data: {
+      profiles: [
+        { id: 5, name: "Movie HD" },
+        { id: 6, name: "Show 4K" },
+      ],
+    },
+  }),
+}));
+vi.mock("@/features/medias/hooks/useMediaPostProcessingSettings", () => ({
+  useMediaPostProcessingSettings: () => ({
+    data: {
+      settings: {
+        default_movie_quality_profile_id: 5,
+        default_show_quality_profile_id: settings.show,
+      },
+    },
   }),
 }));
 vi.mock("@/pages/books/_hooks/useBooks", () => ({
@@ -185,5 +209,66 @@ describe("RequestsPage delete button", () => {
     expect(remove).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("requests.confirmDelete"));
     expect(remove).toHaveBeenCalledWith(denied);
+  });
+});
+
+describe("RequestsPage moderation", () => {
+  beforeEach(() => {
+    auth.isAdmin = true;
+    approve.mockClear();
+    deny.mockClear();
+    refetch.mockClear();
+    rows.failed = false;
+    settings.show = 6;
+  });
+
+  it("preselects the default profile so Approve works untouched", () => {
+    rows.list = [{ ...base, type: "show", tmdb_id: 7 }];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.approve"));
+    expect(approve).toHaveBeenCalledWith({ id: 1, quality_profile_id: 6 });
+  });
+
+  it("prefers the profile on the request itself", () => {
+    rows.list = [{ ...base, type: "show", tmdb_id: 7, quality_profile_id: 5 }];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.approve"));
+    expect(approve).toHaveBeenCalledWith({ id: 1, quality_profile_id: 5 });
+  });
+
+  it("sends the typed reason when denying", () => {
+    rows.list = [base];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.deny"));
+    fireEvent.change(screen.getByLabelText("requests.denyReasonLabel"), {
+      target: { value: " Already owned " },
+    });
+    fireEvent.click(screen.getByText("requests.denyConfirm"));
+    expect(deny).toHaveBeenCalledWith({ id: 1, deny_reason: "Already owned" });
+  });
+
+  it("denies without a reason when left blank", () => {
+    rows.list = [base];
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByText("requests.deny"));
+    fireEvent.click(screen.getByText("requests.denyConfirm"));
+    expect(deny).toHaveBeenCalledWith({ id: 1 });
+  });
+
+  it("shows the requester why a request was denied", () => {
+    auth.isAdmin = false;
+    rows.list = [{ ...base, status: "denied", deny_reason: "Out of scope" }];
+    renderWithProviders(<RequestsPage />);
+    expect(
+      screen.getByText("requests.denyReason reason:Out of scope"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a retry state, not the empty message, when loading fails", () => {
+    rows.failed = true;
+    renderWithProviders(<RequestsPage />);
+    expect(screen.queryByText("requests.empty")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("common.retry"));
+    expect(refetch).toHaveBeenCalled();
   });
 });

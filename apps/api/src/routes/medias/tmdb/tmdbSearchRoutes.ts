@@ -46,7 +46,11 @@ export const tmdbSearchRoutes = new Hono<Env>().get(
     try {
       const tmdbConfig = await loadEnabledTmdbConfig();
       if (!tmdbConfig) {
-        return badRequest("TMDB is not configured");
+        // Stable code so the web can tell "not set up" from a failed search.
+        return Response.json(
+          { error: "TMDB is not configured", code: "tmdb_not_configured" },
+          { status: 400 },
+        );
       }
 
       const searchUrl = new URL("https://api.themoviedb.org/3/search/multi");

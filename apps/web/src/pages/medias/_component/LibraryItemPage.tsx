@@ -11,6 +11,7 @@ import { useAddToWatchlist } from "@/features/medias/hooks/useAddToWatchlist";
 import { useMediaModalData } from "@/features/medias/hooks/useMediaModalData";
 import { useRemoveFromWatchlist } from "@/features/medias/hooks/useRemoveFromWatchlist";
 import { useCurrentUser } from "@/lib/auth/useAuth";
+import { LoadError, isNotFoundError } from "@/components/LoadError";
 import {
   defaultItemTab,
   type ItemPageTab,
@@ -48,7 +49,13 @@ export function LibraryItemPage() {
   const isAdmin = currentUser?.is_admin ?? false;
 
   const id = parseInt(libraryId, 10);
-  const { data: itemData, isLoading: itemLoading } = useLibraryItem(id);
+  const {
+    data: itemData,
+    isLoading: itemLoading,
+    error: itemError,
+    refetch: refetchItem,
+    isRefetching: itemRefetching,
+  } = useLibraryItem(id);
   const item = itemData?.item ?? null;
 
   const mediaType = item ? (item.type === "show" ? "tv" : "movie") : "movie";
@@ -179,9 +186,16 @@ export function LibraryItemPage() {
         >
           {t("medias.library.pageTitle", "Library")}
         </button>
-        <p className="text-neutral-400">
-          {t("library.notFound", "Item not found in library.")}
-        </p>
+        {itemError && !isNotFoundError(itemError) ? (
+          <LoadError
+            onRetry={() => void refetchItem()}
+            retrying={itemRefetching}
+          />
+        ) : (
+          <p className="text-neutral-400">
+            {t("library.notFound", "Item not found in library.")}
+          </p>
+        )}
       </div>
     );
   }
