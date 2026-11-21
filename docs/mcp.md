@@ -108,7 +108,7 @@ bearer_token_env_var = "RAWKOON_API_KEY"
 | `search` | read | Title search (movies/shows via TMDB, books via Google Books when enabled) with library status. |
 | `library_lookup` | read | Is a title in the library: status, missing episodes, file quality (`resolution` as a number), audio languages, and `tmdb_id` to match search results. |
 | `downloads` | read | The current download queue (admin owner only): `progress_percent` (0-100), `state`, `download_speed_bytes_per_s` and `eta_seconds`. |
-| `quality_profiles` | read | Quality profiles with their ids: the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
+| `quality_profiles` | read | Quality profiles with their ids and `default_for` (movie/show): the `quality_profile_id` that `decide_request` (approve) and `request_title` take. |
 | `calendar` | read | Upcoming releases and episodes for the next N days (default 7, max 30). |
 | `my_requests` | read | The key owner's requests and their state. |
 | `listening_progress` | read | Where the owner is in their audiobooks and ebooks. |

@@ -448,6 +448,21 @@ describe("read tool shaping", () => {
     ).toBe(3);
   });
 
+  it("flags the default movie and show profiles", async () => {
+    respond = async (req) =>
+      new URL(req.url).pathname === "/api/library/post-processing/settings"
+        ? Response.json({
+            default_movie_quality_profile_id: 3,
+            default_show_quality_profile_id: 3,
+          })
+        : Response.json({ profiles: [{ id: 3 }, { id: 4 }] });
+    const result = await callRpc("quality_profiles", {});
+    const items = (
+      result.structuredContent as { items: { default_for: string[] }[] }
+    ).items;
+    expect(items.map((p) => p.default_for)).toEqual([["movie", "show"], []]);
+  });
+
   it("sends no structuredContent on a tool error", async () => {
     verifyResult.key!.permissions = { mcp: ["read"] };
     const result = await callRpc("request_title", {
