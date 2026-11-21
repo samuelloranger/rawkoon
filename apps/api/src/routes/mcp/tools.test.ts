@@ -89,7 +89,7 @@ beforeEach(() => {
 });
 
 describe("the tool registry", () => {
-  it("has the eleven task-shaped tools with the expected scopes", () => {
+  it("has the twelve task-shaped tools with the expected scopes", () => {
     expect(
       MCP_TOOLS.map((t) => `${t.name}:${t.scope}${t.action ? ":action" : ""}`),
     ).toEqual([
@@ -101,6 +101,7 @@ describe("the tool registry", () => {
       "my_requests:read",
       "listening_progress:read",
       "request_title:request:action",
+      "cancel_request:request:action",
       "pending_requests:approve",
       "decide_request:approve:action",
       "health:admin",
@@ -201,7 +202,7 @@ describe("search shaping", () => {
       adminCaller,
     );
     const shaped = result.structuredContent as { books?: unknown };
-    expect(shaped.books).toBeUndefined();
+    expect(shaped.books).toMatchObject({ enabled: false });
     expect(dispatched.map((d) => new URL(d.url).pathname)).toEqual([
       "/api/medias/tmdb-search",
       "/api/system/features",

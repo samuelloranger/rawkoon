@@ -25,11 +25,25 @@ const requestTitleArgs = z
     season_mode: z.enum(["all", "future", "latest", "pick"]).optional(),
     confirm_token: z.string().optional(),
   })
-  .refine((a) => (a.kind === "book" ? a.google_volume_id : a.tmdb_id), {
-    message: "tmdb_id is required for movies and shows",
-  })
-  .refine((a) => (a.kind === "movie" ? a.seasons === undefined : true), {
-    message: "seasons are only valid for shows",
+  .superRefine((a, ctx) => {
+    if (a.kind === "book" && !a.google_volume_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: "google_volume_id is required for books",
+      });
+    }
+    if (a.kind !== "book" && !a.tmdb_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: "tmdb_id is required for movies and shows",
+      });
+    }
+    if (a.kind !== "show" && a.seasons !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "seasons are only valid for shows",
+      });
+    }
   });
 
 type RequestTitleArgs = z.infer<typeof requestTitleArgs>;
@@ -379,8 +393,64 @@ const decideRequestTool: McpTool = {
   },
 };
 
+const cancelRequestArgs = z.object({
+  request_id: z.number().int().positive(),
+  confirm_token: z.string().optional(),
+});
+
+type CancelRequestArgs = z.infer<typeof cancelRequestArgs>;
+
+const cancelRequestTool: McpTool = {
+  name: "cancel_request",
+  scope: "request",
+  action: true,
+  description:
+    "Withdraws (deletes) one title request by its id from my_requests. The API key owner " +
+    "can withdraw their own pending or denied requests; an admin owner can withdraw anyone's. " +
+    "Approved requests can't be withdrawn. " +
+    "This is a two-step ACTION tool: the first call returns a confirm_token to show the person; " +
+    "call again with it to perform.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      request_id: {
+        type: "integer",
+        description: "The request's id, from my_requests.",
+      },
+      confirm_token: CONFIRM_TOKEN_PROPERTY,
+    },
+    required: ["request_id"],
+  },
+  args: cancelRequestArgs,
+  async summarize(raw, ctx) {
+    const args = raw as CancelRequestArgs;
+    // The title is a nicety: a failed or non-matching lookup falls back to the id.
+    const requests = await inner(innerRequest("/api/requests"), ctx.owner);
+    const found = requests.ok
+      ? asArray(asRecord(requests.body).requests).find(
+          (r) => asRecord(r).id === args.request_id,
+        )
+      : undefined;
+    const rawTitle = str(asRecord(found).title);
+    const title = rawTitle ? untrustedInline(rawTitle) : null;
+    return title
+      ? `Withdraw request ${args.request_id} ("${title}").`
+      : `Withdraw request ${args.request_id}.`;
+  },
+  async run(raw, ctx) {
+    const args = cancelRequestArgs.parse(raw) as CancelRequestArgs;
+    const res = await inner(
+      innerRequest(`/api/requests/${args.request_id}`, { method: "DELETE" }),
+      ctx.owner,
+    );
+    if (!res.ok) throw new ToolFailure(res.text);
+    return { cancelled: true, request_id: args.request_id };
+  },
+};
+
 export const actionTools: McpTool[] = [
   requestTitleTool,
+  cancelRequestTool,
   pendingRequestsTool,
   decideRequestTool,
 ];

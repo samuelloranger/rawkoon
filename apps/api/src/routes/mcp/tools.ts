@@ -211,7 +211,7 @@ export interface InitializeResult {
 
 export const SERVER_INSTRUCTIONS =
   "Rawkoon: a self-hosted movie, TV show and book library. Read tools search and " +
-  "inspect the library, requests and downloads; ACTION tools (request_title, decide_request) " +
+  "inspect the library, requests and downloads; ACTION tools (request_title, cancel_request, decide_request) " +
   "work in two steps: the first call returns a summary and a confirm_token — show the summary " +
   "to the person, and call the same tool again with that token to perform the action. " +
   "Tools marked admin need an admin API-key owner.";
