@@ -196,18 +196,16 @@ describe("regression: no custom formats, minSeeders 0 → identical total", () =
 });
 
 describe("score breakdown components", () => {
-  test("size_penalty component for large file with no maxSizeGb", () => {
-    // HDTV is absent from baseProfile.preferredSources — a preferred source
-    // waives the penalty entirely (see "size penalty is waived" below).
+  test("size_penalty component for a file past the sweet spot", () => {
     const b = scoreReleaseDetailed(
-      ctxOf(parsed({ source: "HDTV" }), { sizeBytes: 15_000_000_000 }),
+      ctxOf(parsed({ source: "HDTV" }), { sizeBytes: 16_000_000_000 }),
       baseProfile,
     );
     expect(b.rejected).toBe(false);
     if (!b.rejected) {
       expect(b.components.find((c) => c.code === "size_penalty")?.value).toBe(
-        -250,
-      ); // floor(15-10)*50
+        -400,
+      ); // 2x the 8 GB sweet spot for a 1080p movie
     }
   });
 
@@ -361,31 +359,58 @@ describe("source ranking spread", () => {
   });
 });
 
-describe("size penalty is waived for preferred sources", () => {
-  const bigFile = { sizeBytes: 40_000_000_000 };
+describe("size is weighed for every source", () => {
+  const sizePenalty = (b: ReturnType<typeof scoreReleaseDetailed>) =>
+    b.rejected
+      ? undefined
+      : b.components.find((c) => c.code === "size_penalty")?.value;
 
-  test("no size_penalty when the source is in preferredSources", () => {
-    const b = scoreReleaseDetailed(ctxOf(parsed(), bigFile), baseProfile);
-    expect(b.rejected).toBe(false);
-    if (!b.rejected)
-      expect(
-        b.components.find((c) => c.code === "size_penalty"),
-      ).toBeUndefined();
-  });
-
-  test("size_penalty still applies to a source not in preferredSources", () => {
+  test("a 1080p movie inside the sweet spot costs nothing", () => {
     const b = scoreReleaseDetailed(
-      ctxOf(parsed({ source: "HDTV" }), bigFile),
+      ctxOf(parsed(), { sizeBytes: 6e9 }),
       baseProfile,
     );
-    expect(b.rejected).toBe(false);
-    if (!b.rejected)
-      expect(b.components.find((c) => c.code === "size_penalty")?.value).toBe(
-        -1500,
-      ); // floor(40-10)*50
+    expect(sizePenalty(b)).toBeUndefined();
   });
 
-  test("a 4K remux beats a small 4K WEB-DL when REMUX is preferred", () => {
+  test("a preferred source still pays for its size, up to a cap", () => {
+    expect(
+      sizePenalty(
+        scoreReleaseDetailed(ctxOf(parsed(), { sizeBytes: 12e9 }), baseProfile),
+      ),
+    ).toBe(-200); // 1.5x the 8 GB sweet spot
+    expect(
+      sizePenalty(
+        scoreReleaseDetailed(ctxOf(parsed(), { sizeBytes: 40e9 }), baseProfile),
+      ),
+    ).toBe(-800);
+  });
+
+  test("a starved encode is penalised", () => {
+    const b = scoreReleaseDetailed(
+      ctxOf(parsed(), { sizeBytes: 0.8e9 }),
+      baseProfile,
+    );
+    expect(sizePenalty(b)).toBe(-300);
+  });
+
+  test("episodes are judged per episode and season packs not at all", () => {
+    const twoEpisodes = scoreReleaseDetailed(
+      ctxOf(parsed(), {
+        rawTitle: "Show.S01E01E02.1080p.WEB.x265",
+        sizeBytes: 4e9,
+      }),
+      baseProfile,
+    );
+    expect(sizePenalty(twoEpisodes)).toBeUndefined();
+    const pack = scoreReleaseDetailed(
+      ctxOf(parsed(), { rawTitle: "Show.S01.1080p.WEB.x265", sizeBytes: 60e9 }),
+      baseProfile,
+    );
+    expect(sizePenalty(pack)).toBeUndefined();
+  });
+
+  test("a large 4K remux no longer outranks a right-sized 4K WEB-DL", () => {
     const profile: QualityProfileScoreInput = {
       ...baseProfile,
       preferredSources: ["REMUX", "WEB-DL"],
@@ -393,18 +418,47 @@ describe("size penalty is waived for preferred sources", () => {
     };
     const remux = scoreReleaseDetailed(
       ctxOf(parsed({ resolution: 2160, source: "REMUX", codec: null }), {
-        sizeBytes: 40_000_000_000,
+        rawTitle: "Movie.2024.2160p.BluRay.REMUX.HEVC",
+        sizeBytes: 60_000_000_000,
       }),
       profile,
     );
     const webdl = scoreReleaseDetailed(
       ctxOf(parsed({ resolution: 2160, source: "WEB-DL", codec: null }), {
+        rawTitle: "Movie.2024.2160p.WEB-DL.HEVC",
         sizeBytes: 15_000_000_000,
       }),
       profile,
     );
     if (remux.rejected || webdl.rejected) throw new Error("rejected");
-    expect(remux.total).toBeGreaterThan(webdl.total);
+    expect(webdl.total).toBeGreaterThan(remux.total);
+  });
+
+  test("one language step weighs the same as one source step", () => {
+    const profile: QualityProfileScoreInput = {
+      ...baseProfile,
+      preferredSources: ["BluRay", "WEB-DL"],
+      preferredCodecs: [],
+      preferredLanguages: ["VFQ", "VF2"],
+    };
+    const score = (rawTitle: string, source: string, sizeBytes: number) => {
+      const b = scoreReleaseDetailed(
+        ctxOf(parsed({ source, codec: null }), { rawTitle, sizeBytes }),
+        profile,
+      );
+      if (b.rejected) throw new Error("rejected");
+      return b.total;
+    };
+    const vf2BluRay = score("Movie.2024.MULTi.VF2.1080p.BluRay", "BluRay", 6e9);
+    const vfqWeb = score("Movie.2024.MULTi.VFQ.1080p.WEB-DL", "WEB-DL", 4e9);
+    expect(vf2BluRay).toBe(vfqWeb);
+    // Once the BluRay is oversized, the better language wins.
+    const vf2BigBluRay = score(
+      "Movie.2024.MULTi.VF2.1080p.BluRay",
+      "BluRay",
+      14e9,
+    );
+    expect(vfqWeb).toBeGreaterThan(vf2BigBluRay);
   });
 
   test("maxSizeGb still rejects an oversized preferred source", () => {

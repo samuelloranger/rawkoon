@@ -227,12 +227,13 @@ describe("scoreRelease — codec preferences", () => {
 });
 
 describe("scoreRelease — large file penalty", () => {
-  test("file >10GB is penalised when no maxSizeGb set", () => {
-    // HDTV is not in baseProfile.preferredSources — a preferred source waives
-    // the penalty (see "size penalty is waived for preferred sources").
-    const unpreferred = parsed({ source: "HDTV" });
-    const small = numScore(scoreRelease(unpreferred, baseProfile, 5e9));
-    const large = numScore(scoreRelease(unpreferred, baseProfile, 50e9));
+  test("a file past the sweet spot is penalised when no maxSizeGb set", () => {
+    const small = numScore(
+      scoreRelease(parsed(), baseProfile, 5e9, "Movie.2024.1080p.BluRay"),
+    );
+    const large = numScore(
+      scoreRelease(parsed(), baseProfile, 50e9, "Movie.2024.1080p.BluRay"),
+    );
     expect(small).toBeGreaterThan(large);
   });
 });
