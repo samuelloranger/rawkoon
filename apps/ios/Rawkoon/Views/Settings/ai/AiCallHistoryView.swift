@@ -139,7 +139,7 @@ struct AiStatusCapsule: View {
         case .invalidPick: Theme.apricot
         case .rateLimited: Theme.importing
         case .error: Theme.danger
-        case .budgetSkipped, nil: Theme.muted
+        case .declined, .budgetSkipped, nil: Theme.muted
         }
     }
 
