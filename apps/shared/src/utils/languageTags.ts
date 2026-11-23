@@ -68,6 +68,9 @@ function classifyFrenchTrack(
   }
   const releaseHaystack = normalize(releaseName);
   if (releaseHaystack) {
+    // Whole-word only: "voq" is inside French words like "provoque".
+    if (/\bvoq\b/.test(releaseHaystack)) return "VFQ";
+    if (/\bvof\b/.test(releaseHaystack)) return "VFF";
     if (containsAny(releaseHaystack, VFQ_KEYWORDS)) return "VFQ";
     if (containsAny(releaseHaystack, VFF_KEYWORDS)) return "VFF";
     if (containsAny(releaseHaystack, VFI_KEYWORDS)) return "VFI";

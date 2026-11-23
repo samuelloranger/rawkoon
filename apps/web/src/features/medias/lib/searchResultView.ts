@@ -23,7 +23,7 @@ export interface SearchResultViewContext {
 }
 
 const QUALITY_TOKEN =
-  /\b(2160p|1080[pi]|720p|576p|480p|4K|UHD|WEB[-.]?DL|WEB[-.]?Rip|WEB|BluRay|BDRip|BDRemux|REMUX|HDTV|HDRip|DVDRip|MULTI|TRUEFRENCH|FRENCH|VFF|VFQ|VFI)\b/i;
+  /\b(2160p|1080[pi]|720p|576p|480p|4K|UHD|WEB[-.]?DL|WEB[-.]?Rip|WEB|BluRay|BDRip|BDRemux|REMUX|HDTV|HDRip|DVDRip|MULTI|TRUEFRENCH|FRENCH|VFF|VFQ|VFI|VOF|VOQ)\b/i;
 
 /** "Some.Movie.2024.1080p.WEB-DL-GRP" becomes "Some Movie 2024". */
 export function shortReleaseTitle(title: string, max = 44): string {

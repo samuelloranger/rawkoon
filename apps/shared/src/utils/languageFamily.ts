@@ -4,6 +4,8 @@ const FRENCH_FLAGS = new Set([
   "vfq",
   "vfi",
   "vf2",
+  "vof",
+  "voq",
   "truefrench",
   "vf",
   "french",

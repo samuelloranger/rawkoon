@@ -65,6 +65,11 @@ final class ReleaseSheetLogicTests: XCTestCase {
         XCTAssertEqual(tag("Film.2024.VQC.1080p")?.label, "VFQ")
     }
 
+    func testOriginalFrenchReadsAsItsVariant() {
+        XCTAssertEqual(tag("Film.2024.VOQ.1080p")?.label, "VFQ")
+        XCTAssertEqual(tag("Show.S01.VOF.1080p")?.label, "VFF")
+    }
+
     func testPayloadLanguagesCountToo() {
         XCTAssertEqual(tag("Film.2024.1080p", languages: ["vfq"]), .init(label: "VFQ", kind: .audio))
     }

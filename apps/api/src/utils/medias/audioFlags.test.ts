@@ -49,3 +49,22 @@ describe("parseAudioFlags French variants", () => {
     expect(parseAudioFlags("Some.Film.2020.1080p.WEB-GRP")).toEqual([]);
   });
 });
+
+describe("parseAudioFlags original French", () => {
+  it("VOF is original France-French audio", () => {
+    expect(parseAudioFlags("Some.Show.S07.VOF.1080p.WEB.H265-GRP")).toEqual([
+      "VOF",
+      "VFF",
+    ]);
+  });
+
+  it("VOQ is original Québec-French audio and hides a trailing FRENCH", () => {
+    expect(
+      parseAudioFlags("Some.Film.2024.VOQ.1080p.BluRay.x265.FRENCH-GRP"),
+    ).toEqual(["VOQ", "VFQ"]);
+  });
+
+  it("does not read VOQ inside a word", () => {
+    expect(parseAudioFlags("La.Provoquee.2020.1080p.WEB-GRP")).toEqual([]);
+  });
+});
