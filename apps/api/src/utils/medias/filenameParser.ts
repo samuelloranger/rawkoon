@@ -16,7 +16,7 @@ export interface FilenameMetadata {
 
 const VIDEO_EXT = /\.(mkv|avi|mp4|m4v|wmv|ts|m2ts|mov|flv)$/i;
 const TECHNICAL_TOKENS =
-  /^(2160p|1080p|1080i|720p|480p|576p|4K|UHD|WEB|WEB[-.]?DL|WEBRip|BluRay|BDRip|BDRemux|HDRip|DVDRip|HDTV|REMUX|HDLight|x264|x265|H264|H265|HEVC|AVC|AV1|VP9|AAC|AC3|EAC3|DTS|FLAC|TrueHD|MULTI|MULTi|VFF|VFQ|VFI|VF2|VF|FRENCH|TRUEFRENCH|VOSTFR|ATMOS|HDR|HDR10|DV)$/i;
+  /^(2160p|1080p|1080i|720p|480p|576p|4K|UHD|WEB|WEB[-.]?DL|WEBRip|BluRay|BDRip|BDRemux|HDRip|DVDRip|HDTV|REMUX|HDLight|x264|x265|H264|H265|HEVC|AVC|AV1|VP9|AAC|AC3|EAC3|DTS|FLAC|TrueHD|MULTI|MULTi|VFF|VFQ|VFI|VF2|VOF|VOQ|VF|FRENCH|TRUEFRENCH|VOSTFR|ATMOS|HDR|HDR10|DV)$/i;
 
 export function parseResolution(filename: string): number | null {
   if (/\b(4K|UHD|2160[pi])\b/i.test(filename)) return 2160;
@@ -138,9 +138,14 @@ export function parseAudioFlags(filename: string): string[] {
   // Specific French variants — only match themselves, not the generic "fr"
   const hasTrueFrench = /\bTRUEFRENCH\b/.test(n);
   if (hasTrueFrench) flags.push("TRUEFRENCH");
+  // VOF/VOQ: the original audio is French (France/Québec), so no dub exists.
+  const hasVof = /\bVOF\b/.test(n);
+  const hasVoq = /\bVOQ\b/.test(n);
+  if (hasVof) flags.push("VOF");
+  if (hasVoq) flags.push("VOQ");
   // TRUEFRENCH is the Parisian dub, so a VFF preference must accept it.
-  if (hasTrueFrench || /\bVFF\b/.test(n)) flags.push("VFF");
-  if (/\bVFQ\b|\bVQC\b/.test(n)) flags.push("VFQ");
+  if (hasTrueFrench || hasVof || /\bVFF\b/.test(n)) flags.push("VFF");
+  if (hasVoq || /\bVFQ\b|\bVQC\b/.test(n)) flags.push("VFQ");
   if (/\bVFI\b/.test(n)) flags.push("VFI");
   // Generic VF / FRENCH — these emit "fr" so the generic "Français" preference catches them
   if (
@@ -157,7 +162,9 @@ export function parseAudioFlags(filename: string): string[] {
   // A bare MULTi names no French variant, but its audio set includes French; VOSTFR means French subtitles only.
   if (
     hasMulti &&
-    !/\b(?:VF2|VFQ|VQC|VFF|VFI|TRUEFRENCH|VF|FRENCH|VOSTFR|VFSTFR)\b/.test(n)
+    !/\b(?:VF2|VFQ|VQC|VFF|VFI|VOF|VOQ|TRUEFRENCH|VF|FRENCH|VOSTFR|VFSTFR)\b/.test(
+      n,
+    )
   )
     flags.push("fr");
   if (/\bVOSTFR\b/.test(n)) flags.push("VOSTFR");

@@ -43,10 +43,11 @@ public enum ReleaseSheetLogic {
             flags.insert("VF2")
             return flags
         }
-        if tokens.contains("TRUEFRENCH") || tokens.contains("VFF") {
+        // VOF/VOQ: original French audio from France/Québec.
+        if tokens.contains("TRUEFRENCH") || tokens.contains("VFF") || tokens.contains("VOF") {
             flags.insert("VFF")
         }
-        if tokens.contains("VFQ") || tokens.contains("VQC") {
+        if tokens.contains("VFQ") || tokens.contains("VQC") || tokens.contains("VOQ") {
             flags.insert("VFQ")
         }
         if tokens.contains("VFI") {

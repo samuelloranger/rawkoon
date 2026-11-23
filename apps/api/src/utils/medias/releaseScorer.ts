@@ -10,6 +10,7 @@ import type {
   ScoreComponent,
 } from "@rawkoon/api/utils/medias/customFormatTypes";
 import { formatMatches } from "@rawkoon/api/utils/medias/customFormatEvaluator";
+import { languageFamilyOf } from "@rawkoon/shared/utils/languageFamily";
 import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 
 export interface QualityProfileScoreInput {
@@ -120,10 +121,28 @@ function indexScore(index: number, base: number, step = 100): number {
 /** One audio-rank step is worth one source-rank step, so neither language nor image quality wins outright. */
 const RANK_STEP = 200;
 
+/**
+ * Index of the first preferred language the release's audio meets, or -1.
+ * Original French audio (VOF/VOQ) has no dub to choose from, so it meets the
+ * profile's first French preference.
+ */
+export function preferredLanguageIndex(
+  rawTitle: string,
+  preferred: readonly string[],
+): number {
+  const flags = new Set(parseAudioFlags(rawTitle).map((f) => f.toLowerCase()));
+  const originalFrench = flags.has("vof") || flags.has("voq");
+  return preferred.findIndex((p) => {
+    const pref = p.trim().toLowerCase();
+    return (
+      flags.has(pref) || (originalFrench && languageFamilyOf(pref) === "fr")
+    );
+  });
+}
+
 function languagePreferenceScore(title: string, preferred: string[]): number {
   if (!preferred.length) return 0;
-  const flags = new Set(parseAudioFlags(title).map((f) => f.toLowerCase()));
-  const idx = preferred.findIndex((p) => flags.has(p.trim().toLowerCase()));
+  const idx = preferredLanguageIndex(title, preferred);
   return idx < 0 ? 0 : (preferred.length - 1 - idx) * RANK_STEP;
 }
 
@@ -187,12 +206,9 @@ export function profileRanks(
   parsed: ParsedRelease,
   profile: QualityProfileScoreInput,
 ): { language: number | null; source: number | null; codec: number | null } {
-  const flags = new Set(parseAudioFlags(rawTitle).map((f) => f.toLowerCase()));
   return {
     language: rankOf(
-      profile.preferredLanguages.findIndex((p) =>
-        flags.has(p.trim().toLowerCase()),
-      ),
+      preferredLanguageIndex(rawTitle, profile.preferredLanguages),
     ),
     source: rankOf(
       profile.preferredSources.findIndex((p) =>
@@ -237,13 +253,8 @@ export function scoreReleaseDetailed(
     reasons.push({ code: "hdr_required_absent" });
 
   if (profile.preferredLanguages.length > 0) {
-    const flags = new Set(
-      parseAudioFlags(ctx.rawTitle).map((f) => f.toLowerCase()),
-    );
-    const hasMatch = profile.preferredLanguages.some((p) =>
-      flags.has(p.trim().toLowerCase()),
-    );
-    if (!hasMatch) reasons.push({ code: "language_no_match" });
+    if (preferredLanguageIndex(ctx.rawTitle, profile.preferredLanguages) < 0)
+      reasons.push({ code: "language_no_match" });
   }
 
   if (

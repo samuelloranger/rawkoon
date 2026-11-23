@@ -127,4 +127,16 @@ describe("classifyLanguageTags", () => {
     expect(classifyLanguageTags([track("fra", "quebecois")])).toEqual(["VFQ"]);
     expect(classifyLanguageTags([track("fra", "QUÉBEC")])).toEqual(["VFQ"]);
   });
+
+  it("reads VOQ/VOF in the release name as whole words only", () => {
+    expect(
+      classifyLanguageTags([track("fre")], "Some.Film.2005.VOQ.1080p-GRP"),
+    ).toEqual(["VFQ"]);
+    expect(
+      classifyLanguageTags([track("fre")], "Some.Show.S01.VOF.1080p-GRP"),
+    ).toEqual(["VFF"]);
+    expect(
+      classifyLanguageTags([track("fre")], "La.Provoquee.2020.1080p-GRP"),
+    ).toEqual(["FR"]);
+  });
 });
