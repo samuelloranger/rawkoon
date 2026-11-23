@@ -84,6 +84,7 @@ nonisolated struct AiFeatureToggles: Codable, Equatable, Sendable {
 nonisolated enum AiCallStatus: String, CaseIterable, Identifiable, Sendable {
     case ok
     case invalidPick = "invalid_pick"
+    case declined
     case rateLimited = "rate_limited"
     case error
     case budgetSkipped = "budget_skipped"
@@ -96,6 +97,7 @@ nonisolated enum AiCallStatus: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .ok: "OK"
         case .invalidPick: "Invalid pick"
+        case .declined: "None fit"
         case .rateLimited: "Rate limited"
         case .error: "Error"
         case .budgetSkipped: "Budget skipped"

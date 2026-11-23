@@ -1,4 +1,6 @@
 import { normalizeTitleForMatch } from "@rawkoon/api/utils/medias/filenameParser";
+import { releaseYearFits } from "@rawkoon/shared/utils/releaseYear";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 
 /**
  * Resolves ordered indexer query titles and the match set for release filtering.
@@ -81,6 +83,30 @@ export function releaseMatchesExpectedTitles(
 }
 
 export { releaseYearFits } from "@rawkoon/shared/utils/releaseYear";
+
+/** A multi-film pack named after a franchise; never the one movie that was asked for. */
+const MOVIE_PACK = /\b(?:collection|int[eé]grale)\b/i;
+
+/**
+ * Whether a release is for this media: its title starts with an expected
+ * title and, for a movie, it is no TV release, multi-film pack, sequel or
+ * remake from another year.
+ */
+export function releaseMatchesMedia(
+  releaseTitle: string,
+  media: { type: string; year: number | null; matchTitles: string[] },
+): boolean {
+  if (!releaseMatchesExpectedTitles(releaseTitle, media.matchTitles))
+    return false;
+  if (media.type !== "movie") return true;
+  if (parseReleaseStructure(releaseTitle).season != null) return false;
+  if (
+    MOVIE_PACK.test(releaseTitle) &&
+    !media.matchTitles.some((t) => MOVIE_PACK.test(t))
+  )
+    return false;
+  return releaseYearFits(releaseTitle, media.year, media.matchTitles);
+}
 
 const COMMON_TITLE_LANGUAGES = [
   "es",

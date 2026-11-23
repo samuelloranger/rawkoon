@@ -6,7 +6,8 @@ import { MEDIAS_ENDPOINTS } from "@/lib/endpoints";
 import type { InteractiveReleaseItem } from "@rawkoon/shared/types";
 
 interface AiPickResult {
-  release_key: string;
+  /** Null when no release fits. */
+  release_key: string | null;
   reasoning: string;
 }
 

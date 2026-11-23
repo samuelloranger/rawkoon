@@ -7,6 +7,7 @@ import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
 import {
   AI_SYSTEM_PROMPT,
   buildAiPickPrompt,
+  releaseFitsTarget,
   type AiPickMediaContext,
   type AiPickRelease,
 } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
@@ -27,8 +28,9 @@ import {
   type AiCallContext,
 } from "@rawkoon/api/services/aiProvider/usageLedger";
 
+/** A null release_key is a deliberate "none of these", not a failure. */
 export type AiPickResult = {
-  release_key: string;
+  release_key: string | null;
   reasoning: string;
 };
 
@@ -39,7 +41,7 @@ type PickPrompt<R extends AiPickRelease> = {
 };
 
 const pickSchema = z.object({
-  release_key: z.string(),
+  release_key: z.string().nullable(),
   reasoning: z.string(),
 });
 
@@ -63,7 +65,11 @@ export function validateAiPick(
   pick: RawPick,
   candidates: Pick<AiPickRelease, "key">[],
 ): AiPickResult | null {
-  if (!candidates.some((r) => r.key === pick.release_key)) return null;
+  if (
+    pick.release_key !== null &&
+    !candidates.some((r) => r.key === pick.release_key)
+  )
+    return null;
 
   return {
     release_key: pick.release_key,
@@ -206,14 +212,18 @@ async function attemptPick<R extends AiPickRelease>(
     validateAiPick(generated.object, shortlist.releases),
     shortlist,
   );
-  const pickedTitle = resolved
+  const pickedTitle = resolved?.release_key
     ? shortlist.releases.find((r) => r.key === generated.object.release_key)
         ?.title
     : undefined;
   noteAiSpend(generated.usage);
   recordAiCall({
     ...base,
-    status: resolved ? "ok" : "invalid_pick",
+    status: !resolved
+      ? "invalid_pick"
+      : resolved.release_key === null
+        ? "declined"
+        : "ok",
     agreedWithClassic:
       pickedTitle !== undefined && ctx.classicTitle !== undefined
         ? pickedTitle === ctx.classicTitle
@@ -244,6 +254,12 @@ function resolveKey<R extends AiPickRelease>(
   shortlist: Shortlist<R>,
 ): AiPickResult | null {
   if (!pick) return null;
+  if (pick.release_key === null) {
+    return {
+      release_key: null,
+      reasoning: truncateAtWord(pick.reasoning, 150),
+    };
+  }
   const key = shortlist.keyById.get(pick.release_key);
   if (!key) return null;
 
@@ -309,7 +325,8 @@ export function pickReleaseWithAi(
       system: AI_SYSTEM_PROMPT,
       build: (shortlisted) => buildAiPickPrompt(media, shortlisted),
     },
-    releases,
+    // Filtered in code: the judge picked a wrong season even when told to discard it.
+    releases.filter((r) => releaseFitsTarget(r.title, media)),
     ctx,
   );
 }

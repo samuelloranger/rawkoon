@@ -1,5 +1,8 @@
 import { describe, it, expect } from "bun:test";
-import { buildAiPickPrompt } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import {
+  buildAiPickPrompt,
+  releaseFitsTarget,
+} from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
 
 const releases = [
@@ -262,29 +265,43 @@ describe("buildAiPickPrompt release traits", () => {
     expect(lineB).toContain("audio:MULTI+VFQ(#1)");
   });
 
-  it("flags releases for another episode or season", () => {
+  it("keeps only releases that fill the target", () => {
+    const episode = { season: 1, episode: 5 };
+    expect(releaseFitsTarget("Show.S01E05.1080p.WEB", episode)).toBe(true);
+    expect(releaseFitsTarget("Show.S01E01.1080p.WEB", episode)).toBe(false);
+    expect(releaseFitsTarget("Show.S02E05.1080p.WEB", episode)).toBe(false);
+    expect(releaseFitsTarget("Show.S01.1080p.WEB", episode)).toBe(true);
+
+    const pack = { season: 3, episode: null };
+    expect(releaseFitsTarget("Show.S03.1080p.WEB", pack)).toBe(true);
+    // A single episode is not the season pack that was asked for.
+    expect(releaseFitsTarget("Show.S03E06.1080p.WEB", pack)).toBe(false);
+    expect(releaseFitsTarget("Show.S06.1080p.WEB", { season: 7 })).toBe(false);
+
+    expect(releaseFitsTarget("Movie.2020.1080p.WEB", {})).toBe(true);
+  });
+
+  it("marks how each release's size sits for its resolution", () => {
     const prompt = buildAiPickPrompt(
-      { title: "Show", year: null, type: "tv", season: 1, episode: 5 },
+      { title: "Movie", year: 2024, type: "movie" },
       [
-        "Show.S01E05.1080p.WEB",
-        "Show.S01E01.1080p.WEB",
-        "Show.S02E05.1080p.WEB",
-        "Show.S01.1080p.WEB",
-      ].map((title, i) => ({
+        ["Movie.2024.1080p.BluRay.x265", 4e9],
+        ["Movie.2024.1080p.BluRay.x264", 12e9],
+        ["Movie.2024.1080p.BluRay.REMUX.AVC", 30e9],
+        ["Movie.2024.1080p.WEB.x265", 0.6e9],
+      ].map(([title, size], i) => ({
         key: `k${i}`,
-        title,
-        size_bytes: null,
+        title: title as string,
+        size_bytes: size as number,
         seeders: 1,
         score: null,
       })),
     );
-    const lines = prompt.split("\n").filter((l) => l.includes("key="));
-    expect(lines.map((l) => l.includes("WRONG-EPISODE"))).toEqual([
-      false,
-      true,
-      true,
-      false,
-    ]);
+    const sizes = prompt
+      .split("\n")
+      .filter((l) => l.includes("key="))
+      .map((l) => l.match(/size:(\w+)/)?.[1]);
+    expect(sizes).toEqual(["ok", "large", "bloated", "small"]);
   });
 
   it("lists no formats without a profile", () => {

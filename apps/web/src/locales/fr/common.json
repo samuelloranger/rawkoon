@@ -1519,6 +1519,7 @@
       "statuses": {
         "ok": "OK",
         "invalid_pick": "Choix invalide",
+        "declined": "Aucune ne convient",
         "error": "Erreur",
         "rate_limited": "Limite atteinte",
         "budget_skipped": "Ignoré (budget)"

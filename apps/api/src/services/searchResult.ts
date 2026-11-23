@@ -2,7 +2,10 @@ import { prisma } from "@rawkoon/api/db";
 import type { SearchResultPayload } from "@rawkoon/shared/types";
 import { emitSearchResult } from "@rawkoon/api/services/libraryEvents";
 import { SPACE_REFUSAL_PREFIX } from "@rawkoon/api/services/grab/grabSpaceCheck";
-import { NO_MATCH_REASON } from "@rawkoon/api/constants/libraryGrab";
+import {
+  AI_DECLINED_REASON,
+  NO_MATCH_REASON,
+} from "@rawkoon/api/constants/libraryGrab";
 import type {
   SearchGrab,
   SearchMiss,
@@ -38,7 +41,11 @@ export function searchResultFrom(
     };
   }
   // Only an empty search is a normal miss; any other reason is a real failure.
-  if (result.languageFallback != null || result.reason === NO_MATCH_REASON) {
+  if (
+    result.languageFallback != null ||
+    result.reason === NO_MATCH_REASON ||
+    result.reason === AI_DECLINED_REASON
+  ) {
     return {
       ...base,
       outcome: "no_match",

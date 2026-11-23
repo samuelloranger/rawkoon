@@ -96,6 +96,21 @@ afterAll(() => {
   mock.module("@rawkoon/api/workers/notifyLibraryEvents", () => realNotify);
 });
 
+let aiConfig: { base_url: string; model: string } | null = null;
+let aiAnswer: { release_key: string | null; reasoning: string } | null = null;
+const pickReleaseWithAi = mock(async () => aiAnswer);
+const realAiClient = {
+  ...(await import("@rawkoon/api/services/aiProvider/client")),
+};
+mock.module("@rawkoon/api/services/aiProvider/client", () => ({
+  ...realAiClient,
+  loadEnabledAiProviderConfig: async () => aiConfig,
+  pickReleaseWithAi,
+}));
+afterAll(() => {
+  mock.module("@rawkoon/api/services/aiProvider/client", () => realAiClient);
+});
+
 const { processPendingReleases } = await import("./processPendingReleases");
 
 const NOW = new Date("2026-01-01T12:00:00Z");
@@ -142,6 +157,9 @@ beforeEach(() => {
   episodeUpdate.mockClear();
   notifySkipped.mockClear();
   blocklisted = [];
+  aiConfig = null;
+  aiAnswer = null;
+  pickReleaseWithAi.mockClear();
   grabRelease.mockImplementation(async () => ({
     grabbed: true,
     releaseTitle: "x",
@@ -315,6 +333,36 @@ describe("processPendingReleases", () => {
     stale.createdAt = new Date(NOW.getTime() - 8 * 86_400_000);
     rows = [stale];
     await processPendingReleases(NOW);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("lets the AI judge choose among held releases", async () => {
+    rows = [row(1, "low", 1, -5), row(2, "high", 9, -5)];
+    media = { qualityProfileId: null, title: "Show", year: null, type: "tv" };
+    aiConfig = { base_url: "http://ai", model: "m" };
+    aiAnswer = { release_key: "low", reasoning: "VFQ audio" };
+    const r = await processPendingReleases(NOW);
+    expect(pickReleaseWithAi).toHaveBeenCalledTimes(1);
+    expect(r.grabbed).toBe(1);
+    const call = grabRelease.mock.calls[0]![0] as {
+      downloadUrl: string;
+      aiPicked?: boolean;
+      aiReasoning?: string;
+    };
+    expect(call.downloadUrl).toBe("magnet:?xt=low");
+    expect(call.aiPicked).toBe(true);
+    expect(call.aiReasoning).toBe("VFQ audio");
+  });
+
+  it("grabs nothing and records a miss when the judge says none fits", async () => {
+    rows = [row(1, "low", 1, -5), row(2, "high", 9, -5)];
+    media = { qualityProfileId: null, title: "Show", year: null, type: "tv" };
+    aiConfig = { base_url: "http://ai", model: "m" };
+    aiAnswer = { release_key: null, reasoning: "another show" };
+    episode = { ...wantedEpisode, id: 7, mediaId: 1, searchAttempts: 0 };
+    const r = await processPendingReleases(NOW);
+    expect(grabRelease).not.toHaveBeenCalled();
+    expect(r.reason).toBe("all_failed");
     expect(rows).toHaveLength(0);
   });
 });

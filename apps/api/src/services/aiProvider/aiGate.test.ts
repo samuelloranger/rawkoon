@@ -316,6 +316,9 @@ describe("handleAiPick", () => {
 
   it("passes season, episode and the media profile's languages to the prompt", async () => {
     findMedia.mockImplementation(async () => ({
+      title: "Movie",
+      searchTitle: null,
+      originalTitle: null,
       qualityProfile: {
         minResolution: "720p",
         preferredSources: [],
@@ -333,6 +336,7 @@ describe("handleAiPick", () => {
         season: 2,
         episode: 5,
       },
+      releases: [{ ...body.releases[0], title: "Movie.S02E05.1080p.WEB" }],
     });
     expect(prompt).toContain("S02E05");
     expect(prompt).toContain("Preferred audio languages: VFQ, fr");
@@ -348,8 +352,30 @@ describe("handleAiPick", () => {
         season: 2,
         episode: null,
       },
+      releases: [{ ...body.releases[0], title: "Movie.S02.1080p.WEB" }],
     });
     expect(prompt).toContain("S02 (season pack)");
     expect(prompt).not.toContain("Preferred audio languages");
+  });
+
+  it("answers no pick without a call when every release is another film, year or episode", async () => {
+    stored({});
+    fetchSpy.mockClear();
+    const res = await handleAiPick({
+      media_context: { title: "Verity", year: 2026, type: "movie" },
+      releases: [
+        "Avengers.Age.of.Ultron.2015.MULTi.VF2.1080p.BluRay.x264",
+        "Verity.Collection.2020-2026.MULTi.1080p.BluRay.x264",
+        "Verity.2011.MULTi.VF2.1080p.BluRay.x264",
+      ].map((title, i) => ({
+        key: `k${i}`,
+        title,
+        size_bytes: null,
+        seeders: 5,
+        score: 1,
+      })),
+    });
+    expect(await res.json()).toMatchObject({ release_key: null });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

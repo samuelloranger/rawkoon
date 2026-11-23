@@ -12,6 +12,7 @@ import {
 import { notifyAdminsBookGrabbed } from "@rawkoon/api/workers/notifyBookEvents";
 import { qbCategoryForEditionKind } from "./bookCategories";
 import { pickBookCandidate, type BookPickCandidate } from "./bookAiPick";
+import { AI_DECLINED_REASON } from "@rawkoon/api/constants/libraryGrab";
 import type { AiTrigger } from "@rawkoon/shared/types";
 import { tryAdoptDuplicateForBook } from "./bookAdopt";
 
@@ -360,6 +361,7 @@ export async function searchAndGrabBook(
   const { pick: best, aiPicked } = edition
     ? await pickBookCandidate(edition, viable, trigger, describeBookRelease)
     : { pick: viable[0], aiPicked: false };
+  if (!best) return { grabbed: false, reason: AI_DECLINED_REASON };
 
   const url = best.download_url ?? best.magnet_url;
   if (!url) return { grabbed: false, reason: "Release has no download URL" };

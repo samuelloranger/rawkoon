@@ -10,6 +10,7 @@ import type {
   ScoreComponent,
 } from "@rawkoon/api/utils/medias/customFormatTypes";
 import { formatMatches } from "@rawkoon/api/utils/medias/customFormatEvaluator";
+import { parseReleaseStructure } from "@rawkoon/shared/utils/releaseStructure";
 
 export interface QualityProfileScoreInput {
   minResolution: number;
@@ -116,11 +117,66 @@ function indexScore(index: number, base: number, step = 100): number {
   return Math.max(0, base - index * step);
 }
 
+/** One audio-rank step is worth one source-rank step, so neither language nor image quality wins outright. */
+const RANK_STEP = 200;
+
 function languagePreferenceScore(title: string, preferred: string[]): number {
   if (!preferred.length) return 0;
   const flags = new Set(parseAudioFlags(title).map((f) => f.toLowerCase()));
   const idx = preferred.findIndex((p) => flags.has(p.trim().toLowerCase()));
-  return indexScore(idx, 300);
+  return idx < 0 ? 0 : (preferred.length - 1 - idx) * RANK_STEP;
+}
+
+/**
+ * Size (GB) at which a movie or a single episode stops gaining visible quality
+ * for its resolution; past it each extra GB costs points.
+ */
+const SIZE_SWEET_SPOT_GB: Record<
+  "movie" | "episode",
+  Record<number, number>
+> = {
+  movie: { 480: 2, 720: 4, 1080: 8, 2160: 25 },
+  episode: { 480: 0.6, 720: 1.2, 1080: 2.5, 2160: 8 },
+};
+
+/** Below this share of the sweet spot an encode is starved. */
+const STARVED_RATIO = 0.15;
+const STARVED_PENALTY = -300;
+/** Points lost per 100% over the sweet spot, capped. */
+const OVERSIZE_PENALTY_PER_RATIO = 400;
+const MAX_OVERSIZE_PENALTY = -800;
+
+export type SizeFit = "small" | "ok" | "large" | "bloated";
+
+/**
+ * How a release's size sits against the sweet spot for its resolution, per
+ * movie or per episode. Null when it can't be judged: unknown size or
+ * resolution, or a pack whose episode count the title doesn't give.
+ */
+export function releaseSizeFit(
+  rawTitle: string,
+  resolution: number | null,
+  sizeBytes: number | null,
+): { fit: SizeFit; penalty: number } | null {
+  if (sizeBytes == null || sizeBytes <= 0 || resolution == null) return null;
+  const structure = parseReleaseStructure(rawTitle);
+  if (structure.completeSeries) return null;
+  const isTv = structure.season != null || structure.airDate != null;
+  // shortcut: a season pack names no episode count, so it's not judged; upgrade when packs carry one.
+  if (isTv && structure.episodes.length === 0 && !structure.airDate)
+    return null;
+  const perItem = isTv ? Math.max(1, structure.episodes.length) : 1;
+  const sweet = SIZE_SWEET_SPOT_GB[isTv ? "episode" : "movie"][resolution];
+  if (sweet == null) return null;
+
+  const ratio = sizeBytes / perItem / 1e9 / sweet;
+  if (ratio < STARVED_RATIO) return { fit: "small", penalty: STARVED_PENALTY };
+  if (ratio <= 1) return { fit: "ok", penalty: 0 };
+  const penalty = Math.max(
+    MAX_OVERSIZE_PENALTY,
+    -Math.round((ratio - 1) * OVERSIZE_PENALTY_PER_RATIO),
+  );
+  return { fit: ratio <= 2 ? "large" : "bloated", penalty };
 }
 
 const rankOf = (index: number): number | null => (index < 0 ? null : index + 1);
@@ -260,7 +316,7 @@ export function scoreReleaseDetailed(
   );
   // 800/200 keeps all five source options distinct while staying under one
   // resolution tier (1000), so source rank never outranks resolution.
-  add("preferred_source", indexScore(srcIdx, 800, 200));
+  add("preferred_source", indexScore(srcIdx, 800, RANK_STEP));
 
   const codecIdx = profile.preferredCodecs.findIndex((pref) =>
     parsed.codec ? codecMatches(pref, parsed.codec) : false,
@@ -276,12 +332,11 @@ export function scoreReleaseDetailed(
   if (parsed.isProper) add("proper_repack", 150);
   if (freeleech) add("freeleech", 200);
 
-  // Ranking a source is opting into its size, so the unbounded-profile size
-  // guard only applies to sources the profile never asked for.
-  if (profile.maxSizeGb == null && sizeBytes != null && srcIdx < 0) {
-    const gb = sizeBytes / 1e9;
-    if (gb > 10) add("size_penalty", -Math.floor(gb - 10) * 50);
-  }
+  // A preferred source covers a 4 GB encode and a 40 GB remux alike, so size is judged for every release.
+  add(
+    "size_penalty",
+    releaseSizeFit(ctx.rawTitle, parsed.resolution, sizeBytes)?.penalty ?? 0,
+  );
 
   if (indexerName && profile.prioritizedTrackers.length > 0) {
     const trackerIdx = profile.prioritizedTrackers.findIndex(

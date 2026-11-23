@@ -195,7 +195,8 @@ nonisolated struct AiPickRequest: Encodable, Sendable {
 }
 
 nonisolated struct AiPick: Decodable, Sendable {
-    let releaseKey: String
+    /// Nil when the judge found no release that fits.
+    let releaseKey: String?
     let reasoning: String
 }
 

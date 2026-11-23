@@ -19,6 +19,7 @@ import {
 const STATUS_STYLES: Record<string, string> = {
   ok: "bg-green-500/10 text-green-400",
   invalid_pick: "bg-yellow-500/10 text-yellow-400",
+  declined: "bg-sky-500/10 text-sky-400",
   rate_limited: "bg-orange-500/10 text-orange-400",
   error: "bg-red-500/10 text-red-400",
   budget_skipped: "bg-neutral-500/10 text-neutral-400",

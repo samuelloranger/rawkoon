@@ -46,3 +46,6 @@ export const QBIT_CATEGORY_RAWKOON_AUDIOBOOKS = "rawkoon-audiobooks";
 
 /** Search reason when nothing in the indexer results fit; the one miss that is not an error. */
 export const NO_MATCH_REASON = "No matching releases found";
+
+/** Miss reason when the AI judge saw the candidates and answered that none fits. */
+export const AI_DECLINED_REASON = "The AI judge found no release that fits";

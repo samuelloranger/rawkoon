@@ -7,7 +7,10 @@ import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
 import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
 import type { AiTrigger } from "@rawkoon/shared/types";
 
-/** The release the AI provider prefers among the viable ones, or null when it is off, unsure or errors. */
+/**
+ * The release the AI provider prefers among the viable ones; "declined" when it
+ * answered that none fits; null when it is off, unsure or errors.
+ */
 export async function pickAiRow(opts: {
   viable: CandidateRow[];
   /** Pre-loaded by the fallback wrapper; undefined means load it here. */
@@ -19,7 +22,7 @@ export async function pickAiRow(opts: {
   mediaId: number;
   season: number | null;
   episode: number | null;
-}): Promise<CandidateRow | null> {
+}): Promise<CandidateRow | "declined" | null> {
   const { viable, media, profileInput } = opts;
   if (viable.length < 2) return null;
   const aiConfig =
@@ -54,5 +57,8 @@ export async function pickAiRow(opts: {
       mediaId: opts.mediaId,
     },
   ).catch(() => null);
-  return pick ? (viable[Number(pick.release_key)] ?? null) : null;
+  if (!pick) return null;
+  // Number(null) is 0, so a decline must be told apart before indexing.
+  if (pick.release_key === null) return "declined";
+  return viable[Number(pick.release_key)] ?? null;
 }

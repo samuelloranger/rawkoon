@@ -19,6 +19,9 @@ export type GrabPickResult = ScoredRelease & {
   ai_reasoning?: string;
 };
 
+/** The judge saw every candidate and answered that none fits; grab nothing. */
+export type GrabPickDeclined = { declined: true; reasoning: string };
+
 function toAiPickReleases(scored: ScoredRelease[]) {
   return scored.map(({ release, score }) => ({
     key: release.guid,
@@ -73,7 +76,7 @@ export async function pickReleaseForGrab(opts: {
   feature?: AiFeature;
   trigger?: AiTrigger;
   mediaId?: number;
-}): Promise<GrabPickResult | null> {
+}): Promise<GrabPickResult | GrabPickDeclined | null> {
   const accepted = scoreReleasesForProfile(opts.candidates, opts.profile);
   // grabRelease refuses a blocklisted title without trying another, so neither
   // the classic choice nor the judge may land on one.
@@ -105,6 +108,10 @@ export async function pickReleaseForGrab(opts: {
   );
   if (!aiPick) {
     return { ...classicBest, picked_by: "classic" };
+  }
+  // The classic pick is one of the releases the judge just turned down.
+  if (aiPick.release_key === null) {
+    return { declined: true, reasoning: aiPick.reasoning };
   }
 
   return (
