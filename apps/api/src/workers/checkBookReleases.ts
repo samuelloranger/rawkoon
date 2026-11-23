@@ -191,7 +191,15 @@ export async function searchBookUpgrades(): Promise<void> {
             describeBookRelease,
           )
         : { pick: upgrades[0], aiPicked: false };
-      if (!candidate) continue;
+      if (!candidate) {
+        // The judge turned every upgrade down; rest like an empty search so it isn't asked again each sweep.
+        await setJsonCache(
+          upgradeCooldownKey(edition.id),
+          searchedFor,
+          UPGRADE_SEARCH_COOLDOWN_S,
+        );
+        continue;
+      }
 
       const url = candidate.download_url ?? candidate.magnet_url;
       if (!url) continue;
