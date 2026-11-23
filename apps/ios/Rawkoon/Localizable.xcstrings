@@ -2461,6 +2461,16 @@
         }
       }
     },
+    "None fit": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune ne convient"
+          }
+        }
+      }
+    },
     "Rate limited": {
       "localizations": {
         "fr": {

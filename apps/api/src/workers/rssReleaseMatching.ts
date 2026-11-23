@@ -1,4 +1,4 @@
-import type { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
+import type { GrabPickResult } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
 import {
   normalizeTitleForMatch,
@@ -38,10 +38,7 @@ export function movieMediaContext(
   return { title, year, type: "movie" };
 }
 
-export function logRssMatch(
-  best: Awaited<ReturnType<typeof pickReleaseForGrab>> & object,
-  label: string,
-) {
+export function logRssMatch(best: GrabPickResult, label: string) {
   const via = best.picked_by === "ai" ? "AI pick" : `score: ${best.score}`;
   console.log(
     `[pollIndexerRss] Match: "${best.release.title}" → ${label} (${via})`,

@@ -22,13 +22,14 @@ export type BookPickCandidate = {
  * Lets the AI judge choose among candidates already approved by the classic
  * filters. `candidates` must be sorted best-first; with no AI, fewer than two
  * grabbable candidates, or any failure, the best non-blocklisted one is returned.
+ * A null pick means the judge answered that none of them fits: grab nothing.
  */
 export async function pickBookCandidate<T>(
   edition: EditionContext,
   candidates: T[],
   trigger: AiTrigger,
   describe: (item: T) => BookPickCandidate,
-): Promise<{ pick: T; aiPicked: boolean }> {
+): Promise<{ pick: T | null; aiPicked: boolean }> {
   if (candidates.length < 2) {
     return { pick: candidates[0] as T, aiPicked: false };
   }
@@ -81,6 +82,12 @@ export async function pickBookCandidate<T>(
       },
     );
     if (!result) return classic;
+    if (result.release_key === null) {
+      console.log(
+        `[bookAiPick] judge found no fitting release for edition ${edition.editionId}: ${result.reasoning}`,
+      );
+      return { pick: null, aiPicked: true };
+    }
 
     const index = Number(result.release_key);
     if (!allowed.includes(index)) return classic;

@@ -124,6 +124,7 @@ export async function pollIndexerRssBooks(
         indexer: c.release.indexer,
       }),
     );
+    if (!best) continue;
     const url = best.url;
 
     try {

@@ -200,8 +200,19 @@ describe("pickBookCandidate", () => {
       "scheduled",
       describe_,
     );
-    expect(out.pick.id).toBe("b");
+    expect(out.pick?.id).toBe("b");
     expect(out.aiPicked).toBe(true);
+  });
+
+  it("returns no pick when the judge says none fits", async () => {
+    reply('{"release_key":null,"reasoning":"both are the wrong tome"}');
+    const out = await pickBookCandidate(
+      edition,
+      releases,
+      "scheduled",
+      describe_,
+    );
+    expect(out.pick).toBeNull();
   });
 
   it("includes series context in the request", async () => {

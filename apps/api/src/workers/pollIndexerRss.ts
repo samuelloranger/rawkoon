@@ -381,6 +381,12 @@ export async function pollIndexerRss(): Promise<RssRunStats | null> {
       );
       return { grabbed: false, ai: false };
     }
+    if ("declined" in best) {
+      console.log(
+        `[pollIndexerRss] AI judge found no fitting release for ${label}: ${best.reasoning}`,
+      );
+      return { grabbed: false, ai: false };
+    }
 
     logRssMatch(best, label);
 

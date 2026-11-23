@@ -13,6 +13,11 @@ import type {
 } from "@rawkoon/shared/types";
 import { profileToScoreInput } from "@rawkoon/api/services/mediaGrabber/mediaGrabberHelpers";
 import type { QualityProfileScoreInput } from "@rawkoon/api/utils/medias/releaseScorer";
+import { releaseFitsTarget } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import {
+  releaseMatchesMedia,
+  resolveSearchTitles,
+} from "@rawkoon/api/utils/medias/resolveSearchTitles";
 import {
   applyQualityProfileToReleases,
   findEpisodeMediaId,
@@ -201,11 +206,18 @@ export async function handleAiPick(
 
   // Preferences come from the media's own profile, as in the automatic grab.
   let profile: QualityProfileScoreInput | null = null;
+  const matchTitles = [body.media_context.title];
   if (body.media_id != null) {
     try {
       const media = await findMediaWithQualityProfile(body.media_id);
       if (media?.qualityProfile) {
         profile = profileToScoreInput(media.qualityProfile);
+      }
+      if (media?.title) {
+        matchTitles.push(
+          media.title,
+          ...resolveSearchTitles(media).matchTitles,
+        );
       }
     } catch (error) {
       // A suggestion without profile hints beats failing the whole pick.
@@ -213,10 +225,27 @@ export async function handleAiPick(
     }
   }
 
+  // Raw indexer results carry other films, sequels and other seasons; the judge
+  // picked those, so they are dropped in code before it sees the list.
+  const fitting = body.releases.filter(
+    (r) =>
+      releaseMatchesMedia(r.title, {
+        type: body.media_context.type,
+        year: body.media_context.year,
+        matchTitles,
+      }) && releaseFitsTarget(r.title, body.media_context),
+  );
+  if (fitting.length === 0) {
+    return ok({
+      release_key: null,
+      reasoning: "No release matches this title and target.",
+    });
+  }
+
   const result = await pickReleaseWithAi(
     config,
     { ...body.media_context, profile },
-    body.releases,
+    fitting,
     ctx,
   );
   if (!result) {

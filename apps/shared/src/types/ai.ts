@@ -21,6 +21,8 @@ export type AiTrigger =
 export const AI_CALL_STATUSES = [
   "ok",
   "invalid_pick",
+  /** The judge answered that no release fits; nothing was picked. */
+  "declined",
   "rate_limited",
   "error",
   /** The daily budget was spent, so the call was never made. */

@@ -1519,6 +1519,7 @@
       "statuses": {
         "ok": "OK",
         "invalid_pick": "Invalid pick",
+        "declined": "None fit",
         "error": "Error",
         "rate_limited": "Rate limited",
         "budget_skipped": "Budget skipped"

@@ -191,6 +191,7 @@ export async function searchBookUpgrades(): Promise<void> {
             describeBookRelease,
           )
         : { pick: upgrades[0], aiPicked: false };
+      if (!candidate) continue;
 
       const url = candidate.download_url ?? candidate.magnet_url;
       if (!url) continue;

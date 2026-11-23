@@ -7,6 +7,7 @@ import {
 } from "@rawkoon/api/utils/medias/filenameParser";
 import {
   profileRanks,
+  releaseSizeFit,
   type QualityProfileScoreInput,
 } from "@rawkoon/api/utils/medias/releaseScorer";
 
@@ -48,19 +49,23 @@ function targetLabel(season?: number | null, episode?: number | null) {
  */
 export const AI_SYSTEM_PROMPT =
   "You are a media release selection assistant for a homelab. " +
-  "Given a list of releases, pick the single best one. " +
+  "Given a list of releases, pick the single best one, or none. " +
   "Each release lists traits parsed from its name; trust them over your own reading of the title. " +
-  "A (#N) after a trait is its position in the user's ranked list for that trait: #1 is the first choice, a lower number always beats a higher one, and (-) means not in the list. " +
+  "A (#N) after a trait is its position in the user's ranked list for that trait: #1 is the first choice, a lower number beats a higher one, and (-) means not in the list. " +
+  "size: says how the file size sits for its resolution: ok is the sweet spot, large and bloated cost disk for little visible gain, small is a starved encode. " +
   "Choose in this order: " +
-  "(1) discard releases marked WRONG-EPISODE and low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER); " +
-  "(2) the audio rank outranks every quality trait: the lowest audio (#N) wins even if its source or codec is worse, and any (#N) beats (-); " +
-  "(3) only between releases with the same audio rank: higher resolution up to the cutoff, then the lowest src (#N), then the lowest codec (#N), then HDR if preferred, then releases matching liked formats over disliked ones; " +
+  "(1) discard low-quality captures (CAM, TS, TELESYNC, HDCAM, WORKPRINT, SCREENER) and releases of another title; " +
+  "(2) prefer higher resolution up to the cutoff; " +
+  "(3) at the same resolution, balance audio, image quality and size as equals: one step of audio rank is worth one step of src rank; " +
+  "prefer size:ok over large or bloated unless the bigger release wins at least two steps of audio or src rank; avoid size:small; " +
+  "then the lowest codec (#N), HDR if preferred, and liked formats over disliked ones; " +
   "if the profile says trackers outrank quality, prefer the earliest listed tracker first; " +
-  "(4) without a profile, prefer higher resolution and a WEB or BluRay source; " +
+  "(4) without a profile, prefer higher resolution, a WEB or BluRay source and size:ok; " +
   "(5) between releases of the same quality, prefer a PROPER/REPACK, then more seeders; " +
   "avoid a release with very few seeders when a comparable one is well seeded. " +
-  "release_key MUST be exactly one of the provided keys — never invent one. " +
-  'Respond ONLY with valid JSON matching: { "release_key": string, "reasoning": string }. ' +
+  "Set release_key to null only when no release is for the requested title and target; size or quality alone never justifies null. " +
+  "Otherwise release_key MUST be exactly one of the provided keys — never invent one. " +
+  'Respond ONLY with valid JSON matching: { "release_key": string | null, "reasoning": string }. ' +
   "In reasoning, cite the deciding traits (e.g. language, resolution, source, size), under 150 characters.";
 
 const ordered = (values: string[]) => values.join(" > ");
@@ -118,17 +123,20 @@ const ranked = (
 ): string =>
   list?.length ? `${trait}(${rank != null ? `#${rank}` : "-"})` : trait;
 
-/** Small models skip the target rule when a wrong episode is otherwise the best release, so mismatches are named in code. */
-function episodeTrait(title: string, media: AiPickMediaContext): string | null {
-  if (media.season == null) return null;
+/**
+ * Whether a release can fill the target: same season, the same episode for an
+ * episode target, and a whole season for a season target. Unparseable titles pass.
+ */
+export function releaseFitsTarget(
+  title: string,
+  media: Pick<AiPickMediaContext, "season" | "episode">,
+): boolean {
+  if (media.season == null) return true;
   const parsed = parseReleaseSeasonEpisode(title);
-  if (!parsed) return null;
-  const wrong =
-    parsed.season !== media.season ||
-    (media.episode != null &&
-      parsed.episode != null &&
-      parsed.episode !== media.episode);
-  return wrong ? "WRONG-EPISODE" : null;
+  if (!parsed) return true;
+  if (parsed.season !== media.season) return false;
+  if (media.episode == null) return parsed.episode == null;
+  return parsed.episode == null || parsed.episode === media.episode;
 }
 
 function releaseTraits(r: AiPickRelease, media: AiPickMediaContext): string {
@@ -151,8 +159,8 @@ function releaseTraits(r: AiPickRelease, media: AiPickMediaContext): string {
         .map((f) => f.name)
         .slice(0, MAX_FORMAT_NAMES)
     : [];
+  const size = releaseSizeFit(r.title, parsed.resolution, r.size_bytes);
   return [
-    episodeTrait(r.title, media),
     `res:${parsed.resolution != null ? `${parsed.resolution}p` : "?"}`,
     ranked(
       `src:${parsed.source ?? "?"}`,
@@ -165,6 +173,7 @@ function releaseTraits(r: AiPickRelease, media: AiPickMediaContext): string {
       profile?.preferredCodecs,
     ),
     parsed.hdr ? `hdr:${parsed.hdr}` : null,
+    size ? `size:${size.fit}` : null,
     ranked(
       `audio:${audio.length ? audio.join("+") : "untagged"}`,
       ranks?.language ?? null,

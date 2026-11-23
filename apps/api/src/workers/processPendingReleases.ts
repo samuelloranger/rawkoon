@@ -4,7 +4,14 @@ import {
   recordMovieMiss,
   recordSeasonPackMiss,
 } from "@rawkoon/api/services/grab/grabAttempts";
-import { blocklistedTitles } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
+import {
+  blocklistedTitles,
+  pickReleaseForGrab,
+} from "@rawkoon/api/utils/medias/pickReleaseForGrab";
+import { loadEnabledAiProviderConfig } from "@rawkoon/api/services/aiProvider/client";
+import type { AiProviderConfig } from "@rawkoon/api/utils/integrations/types";
+import type { AiPickMediaContext } from "@rawkoon/api/utils/medias/buildAiPickPrompt";
+import { AI_DECLINED_REASON } from "@rawkoon/api/constants/libraryGrab";
 import { grabRelease } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import {
   profileToScoreInput,
@@ -107,6 +114,62 @@ async function recordMiss(row: PendingRow, reason: string): Promise<void> {
 }
 
 /**
+ * The AI judge's pick among a target's held releases: its guid, "declined" when
+ * it answered that none fits, or null to keep the classic order (AI off, one
+ * candidate, or a failed call).
+ */
+async function judgeHeld(opts: {
+  first: PendingRow;
+  media: { title: string; year: number | null; type: string };
+  candidates: NormalizedRelease[];
+  profile: ReturnType<typeof profileToScoreInput> | null;
+  aiConfig: AiProviderConfig | null;
+  source: string | null;
+}): Promise<{ guid: string; reasoning?: string } | "declined" | null> {
+  const { first, media, aiConfig } = opts;
+  if (!aiConfig || opts.candidates.length < 2) return null;
+
+  let season = first.season;
+  let episode: number | null = null;
+  if (first.episodeId != null) {
+    const ep = await prisma.libraryEpisode.findUnique({
+      where: { id: first.episodeId },
+      select: { season: true, episode: true },
+    });
+    season = ep?.season ?? null;
+    episode = ep?.episode ?? null;
+  }
+  const mediaContext: AiPickMediaContext = {
+    title: media.title,
+    year: media.type === "movie" ? media.year : null,
+    type: media.type,
+    season,
+    episode,
+  };
+
+  const rss = opts.source === "rss";
+  const best = await pickReleaseForGrab({
+    candidates: opts.candidates,
+    profile: opts.profile,
+    mediaContext: { ...mediaContext, profile: opts.profile },
+    aiConfig,
+    feature: rss ? "release_pick_rss" : "release_pick_search",
+    trigger: rss ? "rss" : "scheduled",
+    mediaId: first.mediaId,
+  });
+  if (!best) return null;
+  if ("declined" in best) {
+    console.log(
+      `[processPendingReleases] AI judge found no fitting release for ${media.title}: ${best.reasoning}`,
+    );
+    return "declined";
+  }
+  return best.picked_by === "ai"
+    ? { guid: best.release.guid, reasoning: best.ai_reasoning }
+    : null;
+}
+
+/**
  * Grab the best held release for every target whose delay window has ended.
  * Targets that were satisfied or unmonitored meanwhile are dropped without a grab.
  * `onlyTargetKey` limits the pass to one target, for a manual "grab now".
@@ -136,6 +199,8 @@ export async function processPendingReleases(
   let grabbed = 0;
   let dropped = 0;
   let reason: GrabPendingReason | null = null;
+  // Loaded once per pass, and only when something is due.
+  let aiConfig: Promise<AiProviderConfig | null> | null = null;
   for (const { targetKey } of due) {
     try {
       const rows = await prisma.pendingRelease.findMany({
@@ -163,7 +228,7 @@ export async function processPendingReleases(
 
       const media = await prisma.libraryMedia.findUnique({
         where: { id: first.mediaId },
-        select: { qualityProfileId: true },
+        select: { qualityProfileId: true, title: true, year: true, type: true },
       });
       const profile = media?.qualityProfileId
         ? await prisma.qualityProfile.findUnique({
@@ -195,11 +260,40 @@ export async function processPendingReleases(
         rows.map((r) => [asRelease(r.release).guid, r.source]),
       );
 
+      const aiBest = media
+        ? await judgeHeld({
+            first,
+            media,
+            candidates: rows.map((r) => asRelease(r.release)),
+            profile: profile ? profileToScoreInput(profile) : null,
+            aiConfig: await (aiConfig ??= loadEnabledAiProviderConfig().catch(
+              () => null,
+            )),
+            source: sourceByGuid.get(asRelease(first.release).guid) ?? null,
+          })
+        : null;
+      if (aiBest === "declined") {
+        reason = "all_failed";
+        await recordMiss(first, AI_DECLINED_REASON);
+        await prisma.pendingRelease.deleteMany({
+          where: { id: { in: rows.map((r) => r.id) } },
+        });
+        continue;
+      }
+      // The judge's choice goes first; the classic order stays as fallbacks.
+      const attempts = aiBest
+        ? [
+            ...ordered.filter((s) => s.release.guid === aiBest.guid),
+            ...ordered.filter((s) => s.release.guid !== aiBest.guid),
+          ]
+        : ordered;
+
       let success = false;
       let alreadyActive = false;
       let spaceRefused = false;
       let lastReason = "No release could be grabbed";
-      for (const candidate of ordered) {
+      for (const candidate of attempts) {
+        const aiPicked = candidate.release.guid === aiBest?.guid;
         if (blocked.has(candidate.release.title.toLowerCase())) {
           lastReason = "Blocklisted";
           continue;
@@ -217,6 +311,8 @@ export async function processPendingReleases(
             sourceByGuid.get(candidate.release.guid) === "rss"
               ? "rss"
               : undefined,
+          aiPicked,
+          ...(aiPicked ? { aiReasoning: aiBest?.reasoning } : {}),
         });
         if (result.grabbed) {
           success = true;

@@ -1,11 +1,14 @@
 import { describe, it, expect, mock } from "bun:test";
 import type { NormalizedRelease } from "@rawkoon/api/services/indexerManager/types";
-import { pickReleaseForGrab } from "@rawkoon/api/utils/medias/pickReleaseForGrab";
+import {
+  pickReleaseForGrab,
+  type GrabPickResult,
+} from "@rawkoon/api/utils/medias/pickReleaseForGrab";
 
 const pickReleaseWithAiMock = mock<
   (
     ...args: unknown[]
-  ) => Promise<{ release_key: string; reasoning: string } | null>
+  ) => Promise<{ release_key: string | null; reasoning: string } | null>
 >(async () => null);
 
 mock.module("@rawkoon/api/services/aiProvider/client", () => ({
@@ -45,6 +48,10 @@ function release(guid: string, title: string): NormalizedRelease {
   };
 }
 
+/** These cases never decline, so the result is a pick or null. */
+const pickOf = async (opts: Parameters<typeof pickReleaseForGrab>[0]) =>
+  (await pickReleaseForGrab(opts)) as GrabPickResult | null;
+
 describe("pickReleaseForGrab", () => {
   it("uses classic pick when AI is disabled", async () => {
     pickReleaseWithAiMock.mockClear();
@@ -53,7 +60,7 @@ describe("pickReleaseForGrab", () => {
       release("b", "Movie.2020.1080p.BluRay.x265-G2"),
     ];
 
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates,
       profile: null,
       mediaContext: { title: "Movie", year: 2020, type: "movie" },
@@ -71,7 +78,7 @@ describe("pickReleaseForGrab", () => {
       release("b", "Movie.2020.1080p.BluRay.x265-G2"),
     ];
 
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates,
       profile: null,
       mediaContext: { title: "Movie", year: 2020, type: "movie" },
@@ -92,7 +99,7 @@ describe("pickReleaseForGrab", () => {
       release("b", "Movie.2020.1080p.BluRay.x265-G2"),
     ];
 
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates,
       profile: null,
       mediaContext: { title: "Movie", year: 2020, type: "movie" },
@@ -108,7 +115,7 @@ describe("pickReleaseForGrab", () => {
     pickReleaseWithAiMock.mockClear();
     const candidates = [release("a", "Movie.2020.1080p.BluRay.x265-G2")];
 
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates,
       profile: null,
       mediaContext: { title: "Movie", year: 2020, type: "movie" },
@@ -131,7 +138,7 @@ describe("pickReleaseForGrab", () => {
       release("c", "Movie.2020.1080p.WEB-DL.x264-G3"),
     ];
 
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates,
       profile: null,
       mediaContext: ctx,
@@ -152,7 +159,7 @@ describe("pickReleaseForGrab", () => {
       ...release("b", "Movie.2020.720p.WEB-DL.x264-G1"),
       seeders: 0,
     };
-    const result = await pickReleaseForGrab({
+    const result = await pickOf({
       candidates: [release("a", "Movie.2020.1080p.BluRay.x265-G2"), dead],
       profile: null,
       mediaContext: ctx,
@@ -161,5 +168,26 @@ describe("pickReleaseForGrab", () => {
 
     expect(result?.picked_by).toBe("classic");
     expect(pickReleaseWithAiMock).not.toHaveBeenCalled();
+  });
+
+  it("grabs nothing when the judge says no release fits", async () => {
+    pickReleaseWithAiMock.mockImplementationOnce(async () => ({
+      release_key: null,
+      reasoning: "All releases are another film",
+    }));
+    const result = await pickReleaseForGrab({
+      candidates: [
+        release("a", "Movie.2020.720p.WEB-DL.x264-G1"),
+        release("b", "Movie.2020.1080p.BluRay.x265-G2"),
+      ],
+      profile: null,
+      mediaContext: ctx,
+      aiConfig: ai,
+    });
+
+    expect(result).toEqual({
+      declined: true,
+      reasoning: "All releases are another film",
+    });
   });
 });

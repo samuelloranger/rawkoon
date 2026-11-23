@@ -6,10 +6,7 @@ import { dropBlocklistedTitles } from "@rawkoon/api/services/mediaGrabber/mediaG
 import { pickAiRow } from "@rawkoon/api/services/mediaGrabber/mediaGrabberAiPick";
 import { getActiveIndexerManager } from "@rawkoon/api/services/indexerManager";
 import { tieredSearch } from "@rawkoon/api/services/indexerManager/searchStrategy";
-import {
-  parseReleaseSeasonSpan,
-  parseReleaseStructure,
-} from "@rawkoon/shared/utils/releaseStructure";
+import { parseReleaseSeasonSpan } from "@rawkoon/shared/utils/releaseStructure";
 import {
   fitsSeasonPack,
   isMultiSeasonRelease,
@@ -48,12 +45,14 @@ import {
   type GrabRefusal,
 } from "@rawkoon/api/services/mediaGrabber/mediaGrabberGrab";
 import {
-  releaseMatchesExpectedTitles,
-  releaseYearFits,
+  releaseMatchesMedia,
   resolveSearchTitles,
 } from "@rawkoon/api/utils/medias/resolveSearchTitles";
 
-import { NO_MATCH_REASON } from "@rawkoon/api/constants/libraryGrab";
+import {
+  AI_DECLINED_REASON,
+  NO_MATCH_REASON,
+} from "@rawkoon/api/constants/libraryGrab";
 
 export type SearchGrab = {
   grabbed: true;
@@ -207,15 +206,15 @@ export async function searchAndGrab(opts: {
 
       if (parsed.isSample) continue;
 
-      // Reject releases whose title doesn't begin with an expected show/movie
-      // title (freetext indexer results are noisy for short titles like "FROM").
-      if (!releaseMatchesExpectedTitles(title, matchTitles)) continue;
-
-      // A movie search must not take a TV release, or a sequel or remake from another year.
-      if (media?.type === "movie") {
-        if (parseReleaseStructure(title).season != null) continue;
-        if (!releaseYearFits(title, media.year, matchTitles)) continue;
-      }
+      // Freetext indexer results are noisy for short titles like "FROM".
+      if (
+        !releaseMatchesMedia(title, {
+          type: media?.type ?? "",
+          year: media?.year ?? null,
+          matchTitles,
+        })
+      )
+        continue;
 
       // A complete-series pack must name every wanted season, or the rest stays unfetched.
       if (completeSeasons && !releaseCoversSeasons(title, completeSeasons)) {
@@ -354,7 +353,7 @@ export async function searchAndGrab(opts: {
       }
     }
 
-    const aiRow = await pickAiRow({
+    const aiChoice = await pickAiRow({
       viable,
       aiConfig: opts.aiConfig,
       media,
@@ -365,6 +364,10 @@ export async function searchAndGrab(opts: {
       season: expectedSeason ?? season ?? null,
       episode: expectedEpisode,
     });
+    if (aiChoice === "declined") {
+      return { grabbed: false, reason: AI_DECLINED_REASON };
+    }
+    const aiRow = aiChoice;
 
     // The AI pick goes first; the rest keep the classic order as fallbacks.
     const ordered = aiRow
@@ -488,7 +491,11 @@ export async function searchAndGrabWithTitleFallback(opts: {
           fallbackTotal(fallback.languageFallback)
       )
         fallback = result;
-    } else if (result.reason !== NO_MATCH_REASON) return result;
+    } else if (
+      result.reason !== NO_MATCH_REASON &&
+      result.reason !== AI_DECLINED_REASON
+    )
+      return result;
   }
   return fallback ?? miss;
 }
