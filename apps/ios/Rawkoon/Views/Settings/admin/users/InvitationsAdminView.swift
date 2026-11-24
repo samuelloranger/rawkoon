@@ -106,7 +106,7 @@ struct InvitationsAdminView: View {
     }
 
     private func confirmRevoke(_ invitation: InvitationDTO) {
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: String(localized: "Revoke the invitation for \(invitation.email)?"),
             message: String(localized: "The link stops working right away."),
             confirmTitle: String(localized: "Revoke"),

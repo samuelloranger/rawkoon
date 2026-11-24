@@ -258,7 +258,7 @@ struct MediaDetailView: View {
                 model.liveSearch.detailAppeared(new)
             }
         }
-        .onChange(of: model.releaseSheetRequest) { openRequestedReleaseSheet() }
+        .onChange(of: model.router.releaseSheetRequest) { openRequestedReleaseSheet() }
         .task {
             // Saved copies painted on appear, so the first open always refetches;
             // a revisit only retries what is still missing.

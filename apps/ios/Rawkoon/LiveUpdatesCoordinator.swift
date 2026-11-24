@@ -358,13 +358,13 @@ final class LiveUpdatesCoordinator {
         // Activity lanes, Find shelves and tab roots are tab content, not pushed screens.
         if let tab = destination.hostTab {
             if case let .findShelf(shelf) = destination {
-                appModel?.requestedFindShelf = shelf
+                appModel?.router.requestedFindShelf = shelf
             }
-            appModel?.requestedActivityLane = destination.activityLane
-            appModel?.requestedRootTab = tab
+            appModel?.router.requestedActivityLane = destination.activityLane
+            appModel?.router.requestedRootTab = tab
             return
         }
-        appModel?.deepLinkTarget = destination
+        appModel?.router.deepLinkTarget = destination
     }
 
     /// Best-effort unread-count refresh — called after sign-in and whenever

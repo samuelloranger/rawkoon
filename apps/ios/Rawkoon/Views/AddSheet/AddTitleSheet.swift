@@ -370,11 +370,11 @@ private struct AddSheetHost: ViewModifier {
 
     func body(content: Content) -> some View {
         content.sheet(item: Binding(
-            get: { enabled ? model.addRequest : nil },
+            get: { enabled ? model.router.addRequest : nil },
             set: { next in
                 // A swipe-down dismissal arrives here with nil; the first answer already sent wins.
                 if next == nil {
-                    model.addRequest?.finish(nil)
+                    model.router.addRequest?.finish(nil)
                 }
             }
         )) { request in

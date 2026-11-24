@@ -82,7 +82,7 @@ struct ApiKeysAdminView: View {
     }
 
     private func confirmRevoke(_ key: ApiKeyDTO) {
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: String(localized: "Revoke this API key?"),
             message: String(localized: "Any integration using it will stop working immediately."),
             confirmTitle: String(localized: "Revoke"),

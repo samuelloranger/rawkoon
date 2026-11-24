@@ -97,9 +97,9 @@ struct HomeView: View {
         .defaultScrollAnchor(debugScrollAnchor)
         .reportsTabBarScroll()
         .background(Theme.base)
-        .onChange(of: model.pendingMediaLink, initial: true) { _, link in
+        .onChange(of: model.router.pendingMediaLink, initial: true) { _, link in
             guard let link else { return }
-            model.pendingMediaLink = nil
+            model.router.pendingMediaLink = nil
             attentionTarget = AttentionRoute(id: link.libraryId, tmdbId: link.tmdbId, mediaType: link.mediaType,
                                              title: link.title, posterUrl: nil)
         }

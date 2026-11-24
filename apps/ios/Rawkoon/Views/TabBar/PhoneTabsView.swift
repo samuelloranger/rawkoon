@@ -103,7 +103,7 @@ struct PhoneTabsView<Root: View>: View {
                 onReselect: { tab in
                     stackResets[tab, default: 0] += 1
                     if tab == .find {
-                        model.exploreSearchFocusRequest = true
+                        model.router.exploreSearchFocusRequest = true
                     }
                 },
                 animateSelection: { visited.contains($0) },

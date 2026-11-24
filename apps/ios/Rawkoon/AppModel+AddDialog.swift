@@ -124,15 +124,15 @@ extension AppModel {
             return nil
         }
 
-        addRequest?.finish(nil)
+        router.addRequest?.finish(nil)
         let admin = isAdmin
         let answer = await withCheckedContinuation { (continuation: CheckedContinuation<AddChoice?, Never>) in
-            addRequest = AddSheetRequest(
+            router.addRequest = AddSheetRequest(
                 subject: subject, isAdmin: admin, compact: compact, profiles: profiles,
                 seasons: seasons, defaults: defaults, continuation: continuation
             )
         }
-        addRequest = nil
+        router.addRequest = nil
         guard let answer else { throw CancellationError() }
         return answer
     }

@@ -257,7 +257,7 @@ struct BookAudiobookView: View {
             audioState.preparingAudiobookDownload = false
             model.cancelDownload(editionId: editionId)
         case .downloaded:
-            model.pendingConfirm = ConfirmRequest(
+            model.router.pendingConfirm = ConfirmRequest(
                 title: String(localized: "Remove downloaded audiobook?"),
                 message: String(localized: "Deletes the offline chapters from this iPhone. Playback will need the network until you download them again."),
                 confirmTitle: String(localized: "Remove Download")

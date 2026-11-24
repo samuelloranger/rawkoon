@@ -91,7 +91,7 @@ extension AppModel {
                 Task { await onDone() }
             }
         }
-        pendingConfirm = ConfirmRequest(
+        router.pendingConfirm = ConfirmRequest(
             title: pending.title,
             message: pending.message,
             confirmTitle: pending.confirmLabel,

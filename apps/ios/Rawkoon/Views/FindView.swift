@@ -21,7 +21,7 @@ struct FindView: View {
     }
 
     private var mode: Binding<FindMode> {
-        Binding(get: { model.findMode }, set: { model.findMode = $0 })
+        Binding(get: { model.router.findMode }, set: { model.router.findMode = $0 })
     }
 
     var body: some View {
@@ -53,24 +53,24 @@ struct FindView: View {
         .navigationDestination(item: $openShelf) { shelf in
             shelf.destination
         }
-        .onChange(of: model.findMode, initial: true) { _, mode in
+        .onChange(of: model.router.findMode, initial: true) { _, mode in
             switch mode {
             case .browse: browseMounted = true
             case .swipe: swipeMounted = true
             }
         }
         // A re-tap of the Find tab and a deep link both ask for the field or a shelf.
-        .onChange(of: model.exploreSearchFocusRequest, initial: true) { _, requested in
+        .onChange(of: model.router.exploreSearchFocusRequest, initial: true) { _, requested in
             guard requested else { return }
-            model.exploreSearchFocusRequest = false
+            model.router.exploreSearchFocusRequest = false
             Task {
                 try? await Task.sleep(for: .milliseconds(350))
                 searchFocused = true
             }
         }
-        .onChange(of: model.requestedFindShelf, initial: true) { _, shelf in
+        .onChange(of: model.router.requestedFindShelf, initial: true) { _, shelf in
             guard let shelf else { return }
-            model.requestedFindShelf = nil
+            model.router.requestedFindShelf = nil
             openShelf = shelf
         }
         .rawkoonMotion(RawkoonMotion.snappy, value: searching)
@@ -81,16 +81,16 @@ struct FindView: View {
             modePicker
             ZStack {
                 if browseMounted {
-                    ExploreView(filters: $filters, isActive: model.findMode == .browse && !searching)
-                        .opacity(model.findMode == .browse ? 1 : 0)
-                        .allowsHitTesting(model.findMode == .browse)
-                        .accessibilityHidden(model.findMode != .browse)
+                    ExploreView(filters: $filters, isActive: model.router.findMode == .browse && !searching)
+                        .opacity(model.router.findMode == .browse ? 1 : 0)
+                        .allowsHitTesting(model.router.findMode == .browse)
+                        .accessibilityHidden(model.router.findMode != .browse)
                 }
                 if swipeMounted {
                     DiscoverView()
-                        .opacity(model.findMode == .swipe ? 1 : 0)
-                        .allowsHitTesting(model.findMode == .swipe)
-                        .accessibilityHidden(model.findMode != .swipe)
+                        .opacity(model.router.findMode == .swipe ? 1 : 0)
+                        .allowsHitTesting(model.router.findMode == .swipe)
+                        .accessibilityHidden(model.router.findMode != .swipe)
                 }
             }
         }

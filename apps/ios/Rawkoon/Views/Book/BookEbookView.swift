@@ -211,7 +211,7 @@ struct BookEbookView: View {
                             HStack(spacing: 7) {
                                 if downloaded {
                                     Button("Remove") {
-                                        model.pendingConfirm = ConfirmRequest(
+                                        model.router.pendingConfirm = ConfirmRequest(
                                             title: String(localized: "Remove downloaded file?"),
                                             message: String(localized: "Deletes \(file.fileName) from this iPhone. You can download it again anytime."),
                                             confirmTitle: String(localized: "Remove Download")

@@ -97,7 +97,7 @@ extension AppModel {
     func presentPlayerAfterDismiss() {
         Task {
             try? await Task.sleep(for: .milliseconds(600))
-            playerPresentationRequest += 1
+            router.playerPresentationRequest += 1
         }
     }
 

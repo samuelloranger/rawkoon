@@ -33,7 +33,7 @@ struct AppRootView: View {
         .preferredColorScheme(.dark)
         .environment(\.locale, AppLanguage.locale(for: AppLanguage(rawValue: appLanguage) ?? .system))
         .overlay {
-            ToastOverlay(toast: model.currentToast, bottomInset: toastBottomInset)
+            ToastOverlay(toast: model.router.currentToast, bottomInset: toastBottomInset)
         }
         .alert(
             "Login not saved",
@@ -69,21 +69,21 @@ struct AppRootView: View {
         // from the app root so a banner tap works no matter which tab is
         // active; the list itself also navigates here for the same reason.
         .sheet(item: Binding(
-            get: { model.deepLinkTarget },
-            set: { model.deepLinkTarget = $0 }
+            get: { model.router.deepLinkTarget },
+            set: { model.router.deepLinkTarget = $0 }
         )) { destination in
             NavigationStack {
                 NotificationDestinationView(destination: destination)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { model.deepLinkTarget = nil }
+                            Button("Done") { model.router.deepLinkTarget = nil }
                         }
                     }
             }
             // The root cannot present over this sheet, so it hosts the add sheet while it is open.
             .addSheetHost()
         }
-        .addSheetHost(enabled: model.deepLinkTarget == nil)
+        .addSheetHost(enabled: model.router.deepLinkTarget == nil)
         .task {
             #if DEBUG
                 await model.debugAutologinIfNeeded()

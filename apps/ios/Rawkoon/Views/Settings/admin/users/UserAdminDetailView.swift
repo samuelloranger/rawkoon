@@ -151,7 +151,7 @@ struct UserAdminDetailView: View {
         Binding(get: { user.isAdmin }, set: { wantsAdmin in
             guard wantsAdmin != user.isAdmin else { return }
             let name = store.displayName(user)
-            model.pendingConfirm = ConfirmRequest(
+            model.router.pendingConfirm = ConfirmRequest(
                 title: wantsAdmin ? String(localized: "Make \(name) an admin?") : String(localized: "Make \(name) a user?"),
                 message: wantsAdmin
                     ? String(localized: "They get access to every server setting, including users.")
@@ -179,7 +179,7 @@ struct UserAdminDetailView: View {
 
     private func confirmDelete(_ user: AdminUser) {
         let name = store.displayName(user)
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: String(localized: "Delete \(name)?"),
             message: String(localized: "They lose access right away. Their requests and history stay."),
             confirmTitle: String(localized: "Delete"),

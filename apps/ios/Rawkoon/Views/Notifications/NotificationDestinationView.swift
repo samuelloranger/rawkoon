@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Resolves an `AppModel.deepLinkTarget` into the concrete pushed screen.
+/// Resolves an `UIRouter.deepLinkTarget` into the concrete pushed screen.
 ///
 /// `NotificationDestination` only carries ids (whatever the notification's
 /// `url` encoded); this view does the async fetch each destination needs to

@@ -172,14 +172,14 @@ extension AppModel {
         booksEnabled = true
         askBeforeAdding = false
         // Answers a waiting add so its caller stops spinning.
-        addRequest?.finish(nil)
-        addRequest = nil
+        router.addRequest?.finish(nil)
+        router.addRequest = nil
         requestersChooseSeasons = false
 
         stopLiveStreams()
         serverStateStore.clear()
         dismissBanner()
-        deepLinkTarget = nil
+        router.deepLinkTarget = nil
         liveUpdates.resetUnreadCount()
 
         // First, while the client can still send the final position; it also

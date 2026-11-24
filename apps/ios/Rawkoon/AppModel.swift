@@ -27,8 +27,6 @@ final class AppModel {
     /// The server's add-dialog switches; off until the server says otherwise, so a failed fetch keeps the instant add.
     var askBeforeAdding = false
     var requestersChooseSeasons = false
-    /// The add sheet currently waiting for an answer; presented by the app root.
-    var addRequest: AddSheetRequest?
     var libraryGrowth: LibraryGrowth?
     var libraryGrowthFetchedAt: Date?
     /// True once a fetch failed with nothing cached, so the Library strip hides instead of waiting.
@@ -56,18 +54,11 @@ final class AppModel {
     /// can name the chapter before the reader is opened.
     var readingResumePreview: [Int: ReadingPosition] = [:]
     var activeEditionId: Int?
-    /// Bumped to ask the root to show the full player (e.g. after "Listen from here" closes the reader).
-    var playerPresentationRequest = 0
     /// True when `library` was built from the on-device downloaded index because
     /// the server was unreachable and no saved copy of the full library existed —
     /// the UI shows an "Offline" hint instead of a network-error wall, and lists
     /// only downloaded books.
     var isOfflineLibrary = false
-    /// A title a widget tap asked to open; Home pushes its detail and clears it.
-    var pendingMediaLink: MediaLink?
-    /// Shown by the app root: an alert attached to a screen pushed with the zoom
-    /// transition stays hidden until the tab changes.
-    var pendingConfirm: ConfirmRequest?
     /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
     /// share one request.
     var profileTask: Task<Void, Never>?
@@ -81,6 +72,9 @@ final class AppModel {
     /// launch, and every page of the library should be fetched once.
     var libraryTask: Task<Void, Never>?
 
+    /// Toast and navigation/presentation requests; see `UIRouter`.
+    let router = UIRouter()
+
     let serverStateStore = ServerStateStore()
 
     // MARK: Live updates (spec §T2/T4)
@@ -93,33 +87,8 @@ final class AppModel {
 
     /// The one live toast per added or searched title; see `AppModel+LiveSearch`.
     let liveSearch = LiveSearchCoordinator()
-    /// Library id whose release sheet a toast action asked to open; the detail screen consumes it.
-    var releaseSheetRequest: Int?
-    /// A tab another screen asked to open (Home's search button, a calendar link); the root consumes it.
-    var requestedRootTab: RootTab?
-    /// Set when Explore should put its search field in focus; Explore clears it.
-    var exploreSearchFocusRequest = false
-    /// Browse or Swipe, kept for the session so a rebuilt Find tab reopens where it was.
-    var findMode: FindMode = .browse
-    /// A Find shelf a deep link asked to open; Find consumes it.
-    var requestedFindShelf: FindShelf?
-    /// An Activity lane a deep link or an inbox action asked to open; Activity consumes it.
-    var requestedActivityLane: ActivityLane?
     /// Open requests awaiting an admin, for the Activity badge; zero for everyone else.
     var pendingRequestCount = 0
-
-    /// Set from a banner tap or a notification-list row tap (via
-    /// `navigate(toNotificationUrl:)`); `RawkoonApp` presents it as a sheet
-    /// from the app root, so it works regardless of which tab is active.
-    /// Bounded to the paths `NotificationDestination.resolve` understands —
-    /// see spec T6.
-    var deepLinkTarget: NotificationDestination?
-
-    /// Current toast banner, rendered once at the app root by `ToastOverlay`.
-    /// Any screen can call `toast(_:style:)` to surface a background action's
-    /// result without owning any presentation state itself.
-    var currentToast: Toast?
-    private var toastDismissTask: Task<Void, Never>?
 
     let player = AudiobookPlayer()
 
@@ -281,12 +250,7 @@ final class AppModel {
         }
     #endif
 
-    /// Surfaces a brief banner at the app root and auto-dismisses it. This is
-    /// the app-wide fix for actions that used to fail (or succeed) silently:
-    /// call this from anywhere instead of stashing an error string a screen
-    /// might not be showing.
-    /// `duration` overrides the default lifetime (`.infinity` stays until replaced);
-    /// `replacing` reuses a visible toast's identity so its content updates in place.
+    /// Forwards to `UIRouter.toast`; kept because every screen calls it.
     @discardableResult
     func toast(
         _ message: String,
@@ -296,33 +260,10 @@ final class AppModel {
         showsProgress: Bool = false,
         replacing id: UUID? = nil
     ) -> UUID {
-        var next = Toast(message: message, style: style, action: action, showsProgress: showsProgress)
-        if let id, currentToast?.id == id {
-            next.id = id
-        }
-        currentToast = next
-
-        switch style {
-        case .success: RawkoonHaptics.play(.success)
-        case .error: RawkoonHaptics.play(.error)
-        case .info: break
-        }
-
-        // An actionable toast (e.g. discover's "Undo") gets a longer window —
-        // the user needs time to read it and decide, not just glance at it.
-        let dismissDelay = duration ?? (action == nil ? 3 : 5)
-
-        toastDismissTask?.cancel()
-        toastDismissTask = nil
-        if dismissDelay.isFinite {
-            let shown = next.id
-            toastDismissTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(dismissDelay))
-                guard !Task.isCancelled, self?.currentToast?.id == shown else { return }
-                self?.currentToast = nil
-            }
-        }
-        return next.id
+        router.toast(
+            message, style: style, action: action, duration: duration,
+            showsProgress: showsProgress, replacing: id
+        )
     }
 
     /// The configured API client, or nil when logged out. Manage-lane screens
@@ -404,44 +345,6 @@ final class AppModel {
     static func nowMillis() -> Int64 {
         Int64(Date().timeIntervalSince1970 * 1000)
     }
-}
-
-/// A library title to open from outside the app, such as a widget tap.
-struct MediaLink: Hashable {
-    let libraryId: Int
-    let tmdbId: Int
-    let mediaType: String
-    let title: String
-
-    init?(url: URL) {
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        func value(_ name: String) -> String? {
-            items.first { $0.name == name }?.value
-        }
-        guard url.host == "media",
-              let library = value("library").flatMap(Int.init),
-              let tmdb = value("tmdb").flatMap(Int.init),
-              let type = value("type"), type == "movie" || type == "tv"
-        else { return nil }
-        libraryId = library
-        tmdbId = tmdb
-        mediaType = type
-        title = value("title") ?? ""
-    }
-}
-
-struct ConfirmRequest: Identifiable {
-    let id = UUID()
-    let title: String
-    let message: String
-    let confirmTitle: String
-    var isDestructive = true
-    let action: @MainActor () -> Void
-    /// Optional middle choice (e.g. "Choose a release") between confirm and cancel.
-    var secondaryTitle: String?
-    var secondaryAction: (@MainActor () -> Void)?
-    /// Overrides the default "Cancel" label.
-    var cancelTitle: String?
 }
 
 extension Notification.Name {
