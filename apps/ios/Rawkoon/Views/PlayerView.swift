@@ -201,7 +201,7 @@ struct PlayerView: View {
 
     /// Only for a book that also has an ebook, and only online: the match runs on the server.
     @ViewBuilder private var readFromHereButton: some View {
-        if model.isOnline, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true {
+        if model.isOnline, model.libraryStore.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true {
             Button(action: readFromHere) {
                 HStack(spacing: 8) {
                     if findingPlace {
@@ -273,7 +273,9 @@ struct PlayerView: View {
     /// Looks for a more recent reading position in the background; nothing shows
     /// unless it lands well away from where the audiobook is.
     private func startSuggestion() {
-        guard suggestion == nil, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true
+        guard
+            suggestion == nil,
+            model.libraryStore.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true
         else { return }
         suggestionTask?.cancel()
         suggestionTask = Task {

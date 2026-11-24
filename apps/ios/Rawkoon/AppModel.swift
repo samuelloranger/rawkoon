@@ -16,11 +16,6 @@ final class AppModel {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    var library: [BookListItem] = []
-    var libraryGrowth: LibraryGrowth?
-    var libraryGrowthFetchedAt: Date?
-    /// True once a fetch failed with nothing cached, so the Library strip hides instead of waiting.
-    var libraryGrowthFailed = false
     var downloadPlans: [Int: DownloadPlan] = [:]
     /// Books with any fully downloaded edition (audiobook or ebook), mirrored
     /// from the on-disk index so the book list order can react to it.
@@ -33,20 +28,9 @@ final class AppModel {
     /// can name the chapter before the reader is opened.
     var readingResumePreview: [Int: ReadingPosition] = [:]
     var activeEditionId: Int?
-    /// True when `library` was built from the on-device downloaded index because
-    /// the server was unreachable and no saved copy of the full library existed —
-    /// the UI shows an "Offline" hint instead of a network-error wall, and lists
-    /// only downloaded books.
-    var isOfflineLibrary = false
-    /// When the server last confirmed `library`; nil while it is only the saved
-    /// copy painted at launch, so screens know to refresh it once.
-    var libraryFetchedAt: Date?
     /// Bumped whenever the server is reachable again (network back, or the live
     /// stream reconnecting after a drop), so screens painted from saved data refetch.
     var reconnectToken = 0
-    /// The in-flight library load — Home, Library and the root all ask for one on
-    /// launch, and every page of the library should be fetched once.
-    var libraryTask: Task<Void, Never>?
 
     /// Toast and navigation/presentation requests; see `UIRouter`.
     let router = UIRouter()
@@ -55,6 +39,9 @@ final class AppModel {
 
     /// Credentials, API client, profile and server feature switches; see `SessionStore`.
     let session: SessionStore
+
+    /// The book library, its load dedup and the growth card; see `LibraryStore`.
+    let libraryStore: LibraryStore
 
     // MARK: Live updates (spec §T2/T4)
 
@@ -66,8 +53,6 @@ final class AppModel {
 
     /// The one live toast per added or searched title; see `AppModel+LiveSearch`.
     let liveSearch = LiveSearchCoordinator()
-    /// Open requests awaiting an admin, for the Activity badge; zero for everyone else.
-    var pendingRequestCount = 0
 
     let player = AudiobookPlayer()
 
@@ -108,10 +93,12 @@ final class AppModel {
 
     init() {
         session = SessionStore(serverStateStore: serverStateStore)
+        libraryStore = LibraryStore(session: session)
         journalURL = Self.positionLogURL()
         liveUpdates.appModel = self
         liveSearch.appModel = self
         wireSession()
+        wireLibrary()
 
         if
             let token = Keychain.get(SessionStore.authTokenKey),
@@ -152,7 +139,7 @@ final class AppModel {
     /// Hands the store the follow-ups that span other domains, so it holds no back-reference to the model.
     private func wireSession() {
         session.onSessionExpired = { [weak self] in self?.handleSessionExpired() }
-        session.reloadAfterSignIn = { [weak self] in try await self?.reloadLibrary() }
+        session.reloadAfterSignIn = { [weak self] in try await self?.libraryStore.reloadLibrary() }
         session.startAfterSignIn = { [weak self] in
             guard let self else { return }
             registerForPushIfAuthorized()
@@ -162,6 +149,10 @@ final class AppModel {
         }
         session.didIdentifyUser = { [weak self] id in self?.updateServerScope(userId: id) }
         session.describeError = { [weak self] error in self?.message(for: error) ?? error.localizedDescription }
+    }
+
+    private func wireLibrary() {
+        libraryStore.prefetchForOffline = { [weak self] in await self?.prefetchForOffline() }
     }
 
     func refreshDownloadedBookIds() {
@@ -202,7 +193,7 @@ final class AppModel {
             let env = ProcessInfo.processInfo.environment
             // `init` already signed in from RAWKOON_TOKEN; the library still needs its first load.
             if isLoggedIn, env["RAWKOON_TOKEN"] != nil {
-                try? await reloadLibrary()
+                try? await libraryStore.reloadLibrary()
                 return
             }
             guard !isLoggedIn else { return }

@@ -138,7 +138,7 @@ extension AppModel {
     }
 
     func deleteDownloads() {
-        let editionIDs = Set(library.compactMap(\.audiobookEditionId))
+        let editionIDs = Set(libraryStore.library.compactMap(\.audiobookEditionId))
             .union(manifests.keys)
             .union(downloadPlans.keys)
 
@@ -302,7 +302,7 @@ extension AppModel {
         guard UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = String(localized: "Download finished")
-        content.body = library.first { $0.audiobookEditionId == editionId }?.title ?? ""
+        content.body = libraryStore.library.first { $0.audiobookEditionId == editionId }?.title ?? ""
         content.sound = .default
         let request = UNNotificationRequest(identifier: "download-complete-\(editionId)", content: content, trigger: nil)
         Task { try? await UNUserNotificationCenter.current().add(request) }
@@ -320,7 +320,7 @@ extension AppModel {
     /// model already holds and hands them off.
     func persistDownloadedAudiobook(editionId: Int) {
         guard let manifest = manifests[editionId] else { return }
-        let book = library.first { $0.audiobookEditionId == editionId }
+        let book = libraryStore.library.first { $0.audiobookEditionId == editionId }
         OfflineLibraryStore.persistAudiobook(
             editionId: editionId, manifest: manifest, book: book, serverKey: downloadServerKeys[editionId]
         )

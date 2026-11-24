@@ -9,13 +9,13 @@ struct LibraryGrowthStrip: View {
     var body: some View {
         // A container, not a bare `if`: an empty conditional never runs the task that fills it.
         VStack(spacing: 0) {
-            if let growth = model.libraryGrowth {
+            if let growth = model.libraryStore.libraryGrowth {
                 if !growth.isEmpty || model.isAdmin {
                     LibraryGrowthStripBody(
                         growth: growth, isAdmin: model.isAdmin, showBooks: model.session.booksEnabled
                     )
                 }
-            } else if !model.libraryGrowthFailed {
+            } else if !model.libraryStore.libraryGrowthFailed {
                 // Holds the strip's height so the search field doesn't jump when the first load lands.
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Theme.border.opacity(0.5), lineWidth: 1)
@@ -23,7 +23,7 @@ struct LibraryGrowthStrip: View {
                     .accessibilityHidden(true)
             }
         }
-        .task { await model.refreshLibraryGrowth() }
+        .task { await model.libraryStore.refreshLibraryGrowth() }
     }
 }
 

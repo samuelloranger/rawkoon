@@ -237,7 +237,7 @@ struct EbookReaderSheet: View {
     /// Only for a book that also has an audiobook, and only online: the match runs on the server.
     private var canListenFromHere: Bool {
         guard model.isOnline, let bookId = document.bookId else { return false }
-        return model.library.first(where: { $0.bookId == bookId })?.hasAudiobook == true
+        return model.libraryStore.library.first(where: { $0.bookId == bookId })?.hasAudiobook == true
     }
 
     private func listenFromHere() {

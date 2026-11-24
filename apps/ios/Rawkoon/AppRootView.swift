@@ -107,7 +107,7 @@ struct AppRootView: View {
         // titles in the new locale.
         .onChange(of: appLanguage) {
             guard model.isLoggedIn else { return }
-            Task { await model.loadLibrary() }
+            Task { await model.libraryStore.loadLibrary() }
         }
         // Login lingers over the new tabs for its success moment, then the root fades it away.
         // `initial` covers a root first rendered after the session already opened, which would strand Login.

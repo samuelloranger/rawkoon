@@ -11,7 +11,7 @@ extension AppModel {
     /// nil without a toast when the calling task was cancelled.
     func readFromHere(bookId: Int, title: String, positionSecs: Double) async -> EbookPreviewDocument? {
         guard let client = api(),
-              let ebookEditionId = library.first(where: { $0.bookId == bookId })?.ebookEditionId
+              let ebookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.ebookEditionId
         else { return nil }
 
         let spot: BookHandoff.EbookSpot
@@ -62,7 +62,7 @@ extension AppModel {
     /// a toast when the calling task was cancelled.
     func listenFromHere(bookId: Int, spinePath: String, progression: Double) async -> Bool {
         guard let client = api(),
-              let editionId = library.first(where: { $0.bookId == bookId })?.audiobookEditionId
+              let editionId = libraryStore.library.first(where: { $0.bookId == bookId })?.audiobookEditionId
         else { return false }
         let positionSecs: Double
         do {

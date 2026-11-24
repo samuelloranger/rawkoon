@@ -99,7 +99,7 @@ struct BookView: View {
     /// The shared library list wins: setBookRead refreshes it, whereas this screen's own
     /// `detail` copy was not reliably re-rendered after a toggle.
     var isRead: Bool {
-        if let listed = model.library.first(where: { $0.bookId == book.bookId }) {
+        if let listed = model.libraryStore.library.first(where: { $0.bookId == book.bookId }) {
             return listed.isRead
         }
         if let detail {
@@ -243,7 +243,7 @@ struct BookView: View {
         }
         .sheet(item: $releaseSearchLane, onDismiss: {
             Task {
-                await model.loadLibrary()
+                await model.libraryStore.loadLibrary()
                 await loadBookDetail()
                 if hasEbookEdition {
                     await loadEbookFiles()

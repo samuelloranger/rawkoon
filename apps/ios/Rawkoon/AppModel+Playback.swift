@@ -9,7 +9,7 @@ extension AppModel {
     func activeBook() -> (summary: LibrarySummary, manifest: BookManifest)? {
         guard
             let id = activeEditionId,
-            let summary = library.first(where: { $0.audiobookEditionId == id })?.audiobookSummary,
+            let summary = libraryStore.library.first(where: { $0.audiobookEditionId == id })?.audiobookSummary,
             let manifest = manifests[id]
         else {
             return nil
@@ -105,7 +105,7 @@ extension AppModel {
                 manifest: manifest,
                 baseURL: baseURL,
                 resumeAt: resumeAt,
-                artworkURL: library
+                artworkURL: libraryStore.library
                     .first(where: { $0.audiobookEditionId == editionId })?
                     .audiobookSummary?.coverURL
             )

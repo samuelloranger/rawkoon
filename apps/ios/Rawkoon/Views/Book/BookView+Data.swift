@@ -95,7 +95,7 @@ extension BookView {
         defer { addingEditionKind = nil }
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
             if kind == "audiobook" {
                 activeLane = .audiobook
@@ -179,7 +179,7 @@ extension BookView {
             _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
             manifest = try await model.manifest(editionId, forceRefresh: true)
             manifestError = nil
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
         } catch let apiError as APIError {
             manifest = nil
@@ -217,7 +217,7 @@ extension BookView {
         defer { rescanningEbook = false }
         do {
             _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
             await loadEbookFiles()
         } catch let apiError as APIError {

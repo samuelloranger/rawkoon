@@ -16,7 +16,7 @@ final class LibraryBooksModel {
     var showingPlayer = false
 
     func filteredBooks(in model: AppModel) -> [BookListItem] {
-        let filtered = model.library.filter { book in
+        let filtered = model.libraryStore.library.filter { book in
             switch bookKind {
             case .all: true
             case .audiobook: book.hasAudiobook
@@ -52,7 +52,7 @@ final class LibraryBooksModel {
 
     func loadBooks(model: AppModel) async {
         booksError = nil
-        await model.loadLibrary()
+        await model.libraryStore.loadLibrary()
         booksError = model.session.errorMessage
     }
 
@@ -149,7 +149,7 @@ final class LibraryBooksModel {
         guard let client = model.api() else { return }
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             let edition = kind == "audiobook" ? "audiobook" : "ebook"
             model.toast(String(localized: "Added \(edition) edition."), style: .success)
         } catch {
@@ -166,7 +166,7 @@ final class LibraryBooksModel {
             if book.hasEbook {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             model.toast(String(localized: "Rescan started."), style: .success)
         } catch {
             model.toast(libraryErrorMessage(for: error), style: .error)

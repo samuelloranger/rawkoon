@@ -310,14 +310,14 @@ struct HomeView: View {
         }
         // Books refresh on their own; the rails below don't read them, so they
         // no longer wait on every page of the library.
-        if model.needsLibraryRefresh {
-            Task { await model.loadLibrary() }
+        if model.libraryStore.needsLibraryRefresh {
+            Task { await model.libraryStore.loadLibrary() }
         }
         async let recentR = client.recentlyAdded()
         async let upcomingR = client.upcoming()
         async let heroR = client.dashboardHero()
         async let npR = client.nowPlaying()
-        async let growthR: Void = model.refreshLibraryGrowth(force: true)
+        async let growthR: Void = model.libraryStore.refreshLibraryGrowth(force: true)
 
         // A failed refetch (a transient error on pull-to-refresh) must not blank
         // content already on screen: replace each section only when its request

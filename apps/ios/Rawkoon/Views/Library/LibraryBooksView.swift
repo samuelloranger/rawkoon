@@ -21,7 +21,7 @@ struct LibraryBooksView: View {
         .onChange(of: model.bookChangeToken) { _, _ in
             bookReloadTask?.cancel()
             bookReloadTask = Task {
-                await model.loadLibrary()
+                await model.libraryStore.loadLibrary()
                 await state.loadBookProgress(model: model)
             }
         }
@@ -123,9 +123,9 @@ struct LibraryBooksView: View {
         .rawkoonMotion(RawkoonMotion.snappy, value: state.busyBookIds)
         .reportsTabBarScroll()
         .overlay {
-            if model.session.loading, model.library.isEmpty {
+            if model.session.loading, model.libraryStore.library.isEmpty {
                 booksSkeleton
-            } else if let booksError = state.booksError, model.library.isEmpty {
+            } else if let booksError = state.booksError, model.libraryStore.library.isEmpty {
                 ContentUnavailableView {
                     Label("Couldn't load books", systemImage: "exclamationmark.triangle")
                 } description: {

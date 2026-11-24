@@ -211,8 +211,8 @@ struct RootTabsView: View {
         }
         .task { await model.session.refreshBooksEnabled() }
         .task {
-            if model.needsLibraryRefresh {
-                await model.loadLibrary()
+            if model.libraryStore.needsLibraryRefresh {
+                await model.libraryStore.loadLibrary()
             }
         }
     }

@@ -35,15 +35,7 @@ extension AppModel {
         {
             session.applyUser(user)
         }
-        if library.isEmpty, let cached = apiClient.cachedLibraryBooks() {
-            library = Self.sortedLibrary(cached.value)
-        }
-    }
-
-    static func sortedLibrary(_ items: [BookListItem]) -> [BookListItem] {
-        BookOrdering.sorted(items) {
-            BookOrderKey(id: $0.bookId, title: $0.title, isInProgress: false, isDownloaded: false)
-        }
+        libraryStore.hydrateFromCache()
     }
 
     // MARK: Back online
@@ -67,7 +59,7 @@ extension AppModel {
         reconnectToken += 1
         Task {
             let passStart = Date()
-            await loadLibrary()
+            await libraryStore.loadLibrary()
             await session.refreshAdmin()
             await refreshUnreadNotificationCount()
             await pushOfflineProgress(libraryFreshSince: passStart)
@@ -90,8 +82,8 @@ extension AppModel {
             guard total > 0 else { continue }
             if server == nil {
                 // A cached library can hold a stale readAt; only a fetch from this pass can rule out "marked read".
-                guard let fetched = libraryFetchedAt, fetched >= passStart,
-                      library.contains(where: { $0.audiobookEditionId == editionId }),
+                guard let fetched = libraryStore.libraryFetchedAt, fetched >= passStart,
+                      libraryStore.library.contains(where: { $0.audiobookEditionId == editionId }),
                       !markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis)
                 else { continue }
             }

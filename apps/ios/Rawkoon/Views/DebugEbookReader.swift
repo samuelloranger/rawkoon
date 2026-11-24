@@ -67,15 +67,15 @@
 
             guard let client = model.api() else { failure = "No API client"; return }
 
-            if model.library.isEmpty {
-                await model.loadLibrary()
+            if model.libraryStore.library.isEmpty {
+                await model.libraryStore.loadLibrary()
             }
 
             let requested = Int(ProcessInfo.processInfo.environment["RAWKOON_BOOK"] ?? "")
             let book: BookListItem? = if let requested {
-                model.library.first { $0.bookId == requested }
+                model.libraryStore.library.first { $0.bookId == requested }
             } else {
-                model.library.first { $0.hasEbook }
+                model.libraryStore.library.first { $0.hasEbook }
             }
             guard let book else {
                 failure = "No book \(requested.map(String.init) ?? "with an ebook") in the library"

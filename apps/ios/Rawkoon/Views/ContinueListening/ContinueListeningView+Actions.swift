@@ -54,9 +54,9 @@ extension ContinueListeningView {
     func libraryBook(for item: ContinueItem) -> BookListItem? {
         switch item {
         case let .audiobook(audiobook):
-            model.library.first { $0.audiobookEditionId == audiobook.editionId }
+            model.libraryStore.library.first { $0.audiobookEditionId == audiobook.editionId }
         case let .ebook(ebook):
-            model.library.first { $0.bookId == ebook.bookId }
+            model.libraryStore.library.first { $0.bookId == ebook.bookId }
         }
     }
 
@@ -142,7 +142,7 @@ extension ContinueListeningView {
         guard let client = model.api() else { return }
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await load()
             model.toast(String(localized: "Added \(kind == "audiobook" ? "audiobook" : "ebook") edition."), style: .success)
         } catch let error as APIError {
@@ -161,7 +161,7 @@ extension ContinueListeningView {
             if book.hasEbook {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await load()
             model.toast(String(localized: "Rescan started."), style: .success)
         } catch let error as APIError {

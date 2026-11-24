@@ -347,7 +347,7 @@ struct RequestsView: View {
             let response = try await client.requestsList()
             requests = response.requests
             if model.isAdmin {
-                model.pendingRequestCount = response.requests.count { $0.status == "pending" }
+                model.libraryStore.pendingRequestCount = response.requests.count { $0.status == "pending" }
             }
         } catch APIError.unauthorized {
             errorMessage = String(localized: "Sign in required.")

@@ -71,7 +71,7 @@
             guard interfaceController != nil, generation == observationGeneration else { return }
             withObservationTracking {
                 _ = AppModel.shared.isLoggedIn
-                _ = AppModel.shared.library
+                _ = AppModel.shared.libraryStore.library
                 // Continue Listening order and resume labels move while listening.
                 _ = AppModel.shared.activeEditionId
                 _ = AppModel.shared.player.isPlaying
@@ -100,7 +100,7 @@
             let model = AppModel.shared
             return RefreshKey(
                 isLoggedIn: model.isLoggedIn,
-                libraryIds: model.library.map(\.bookId),
+                libraryIds: model.libraryStore.library.map(\.bookId),
                 activeEditionId: model.activeEditionId,
                 isPlaying: model.player.isPlaying
             )
@@ -114,7 +114,7 @@
                 showMessage(String(localized: "Open Rawkoon on your phone to sign in."))
                 return
             }
-            await model.ensureLibraryLoaded()
+            await model.libraryStore.ensureLibraryLoaded()
             let entries = await model.carPlayAudiobooks()
             guard !entries.isEmpty else {
                 showMessage(model.session.errorMessage ?? String(localized: "No audiobooks yet."))

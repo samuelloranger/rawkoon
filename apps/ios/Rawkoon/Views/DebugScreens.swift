@@ -275,8 +275,8 @@
                 .background(Theme.base)
             }
             .task {
-                if model.library.isEmpty {
-                    await model.loadLibrary()
+                if model.libraryStore.library.isEmpty {
+                    await model.libraryStore.loadLibrary()
                 }
                 loaded = true
             }
@@ -286,9 +286,10 @@
             if let raw = ProcessInfo.processInfo.environment["RAWKOON_BOOK"],
                let id = Int(raw)
             {
-                return model.library.first { $0.bookId == id }
+                return model.libraryStore.library.first { $0.bookId == id }
             }
-            return model.library.first { $0.hasEbook && !$0.hasAudiobook } ?? model.library.first
+            let library = model.libraryStore.library
+            return library.first { $0.hasEbook && !$0.hasAudiobook } ?? library.first
         }
     }
 

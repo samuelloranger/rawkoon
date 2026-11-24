@@ -115,7 +115,7 @@ struct SettingsAppView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.faint)
             }
-            if let synced = model.libraryFetchedAt {
+            if let synced = model.libraryStore.libraryFetchedAt {
                 LabeledContent("Last synced") {
                     Text(synced, style: .relative)
                         .font(.caption)

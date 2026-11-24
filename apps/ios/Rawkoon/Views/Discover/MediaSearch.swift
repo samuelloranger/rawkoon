@@ -224,7 +224,7 @@ struct FindSearchResults: View {
     @ViewBuilder
     private func bookSearchRow(_ hit: BookSearchHit) -> some View {
         let inLibraryBook = hit.libraryBookId.flatMap { id in
-            model.library.first { $0.bookId == id }
+            model.libraryStore.library.first { $0.bookId == id }
         }
         HStack(spacing: 12) {
             if let book = inLibraryBook {
@@ -436,7 +436,7 @@ struct FindSearchResults: View {
             ))
             try await client.addBook(googleVolumeId: hit.googleVolumeId, choice: choice)
             model.requestPushAuthorization()
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await runSearch(query: trimmedQuery)
         } catch is CancellationError {
             return

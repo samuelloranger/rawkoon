@@ -24,7 +24,7 @@ extension AppModel {
         let last = UserDefaults.standard.double(forKey: Self.lastPrefetchKey)
         guard force || Date().timeIntervalSince1970 - last > 6 * 3600 else { return }
 
-        let books = Array(library.prefix(Self.prefetchBookLimit))
+        let books = Array(libraryStore.library.prefix(Self.prefetchBookLimit))
         let scale = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.screen.scale }.first ?? 3
         let absolute: @Sendable (String?) -> URL? = { [serverURL = session.serverURL] raw in
@@ -167,7 +167,7 @@ extension AppModel {
     func refreshSavedData() async {
         guard isLoggedIn, let apiClient = session.apiClient else { return }
         let widgetGeneration = WidgetSnapshotWriter.shared.generation
-        await loadLibrary()
+        await libraryStore.loadLibrary()
         await session.refreshAdmin()
         async let recent = try? apiClient.get(Endpoints.recentlyAdded())
         async let upcoming = try? apiClient.get(Endpoints.upcoming)

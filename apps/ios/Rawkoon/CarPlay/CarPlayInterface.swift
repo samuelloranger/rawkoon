@@ -98,7 +98,7 @@
             model: AppModel
         ) {
             guard
-                let book = model.library.first(where: { $0.audiobookEditionId == entry.editionId }),
+                let book = model.libraryStore.library.first(where: { $0.audiobookEditionId == entry.editionId }),
                 let url = book.coverURL
             else { return }
             if let cached = artworkCache[entry.editionId] {

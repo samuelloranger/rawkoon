@@ -31,7 +31,7 @@ extension AppModel {
         openedProgression: Double?
     ) async -> HandoffSuggestionBanner? {
         guard isOnline, let client = api(),
-              let audiobookEditionId = library.first(where: { $0.bookId == bookId })?.audiobookEditionId,
+              let audiobookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.audiobookEditionId,
               let listen = await listeningPoint(editionId: audiobookEditionId),
               HandoffSuggestion.shouldCheckEbook(
                   listenAtMillis: listen.atMillis,
@@ -73,7 +73,7 @@ extension AppModel {
     /// recent one, matches its position into the audiobook.
     func suggestAudiobookSpot(bookId: Int, audiobookEditionId: Int) async -> HandoffSuggestionBanner? {
         guard isOnline, let client = api(),
-              let ebookEditionId = library.first(where: { $0.bookId == bookId })?.ebookEditionId,
+              let ebookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.ebookEditionId,
               let read = await readingPosition(editionId: ebookEditionId),
               !read.finished,
               !Task.isCancelled

@@ -118,17 +118,17 @@ struct NotificationDestinationView: View {
                 unreachable = model.isOffline || (error as? APIError)?.isNetworkFailure == true
             }
         case let .book(bookId):
-            if model.library.isEmpty {
-                await model.ensureLibraryLoaded()
+            if model.libraryStore.library.isEmpty {
+                await model.libraryStore.ensureLibraryLoaded()
             }
-            if let found = model.library.first(where: { $0.bookId == bookId }) {
+            if let found = model.libraryStore.library.first(where: { $0.bookId == bookId }) {
                 bookItem = found
             } else {
                 // Not in the cached list — a book grabbed/downloaded after the
                 // library was last loaded won't be there yet. Refresh once and
                 // retry before falling back to the "unavailable" message.
-                await model.loadLibrary()
-                bookItem = model.library.first { $0.bookId == bookId }
+                await model.libraryStore.loadLibrary()
+                bookItem = model.libraryStore.library.first { $0.bookId == bookId }
                 unreachable = bookItem == nil && model.isOffline
             }
         default:

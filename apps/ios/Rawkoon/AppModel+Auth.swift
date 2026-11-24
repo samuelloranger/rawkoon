@@ -38,9 +38,7 @@ extension AppModel {
         prefetchTask?.cancel()
         PosterCache.removeAll()
         session.clearIdentity()
-        pendingRequestCount = 0
-        library = []
-        libraryFetchedAt = nil
+        libraryStore.reset()
         manifests = [:]
         for (editionId, downloader) in downloaders {
             invalidatingSessions.insert(editionId)

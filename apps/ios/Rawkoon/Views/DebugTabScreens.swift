@@ -85,7 +85,7 @@
                   let manifest = DebugPlayer.syntheticManifest(chapterCount: 12),
                   let baseURL = URL(string: "https://screenshot.invalid")
             else { return }
-            model.library = [BookListItem(
+            model.libraryStore.library = [BookListItem(
                 bookId: manifest.bookId, title: manifest.title, author: manifest.authors.first,
                 coverURL: nil, audiobookEditionId: manifest.editionId, ebookEditionId: nil,
                 audiobookDurationSecs: manifest.totalDurationSecs, audiobookStatus: "downloaded",

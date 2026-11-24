@@ -102,7 +102,7 @@ extension AppModel {
     /// True when the book was marked read at or after the journal entry, so a server with
     /// no progress row means "read", not "never listened".
     func markedReadSince(editionId: Int, journalAtMillis: Int64) -> Bool {
-        guard let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
+        guard let readAt = libraryStore.library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
               let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
               ?? ISO8601DateFormatter().date(from: readAt)
         else { return false }
