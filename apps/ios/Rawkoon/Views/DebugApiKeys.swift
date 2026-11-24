@@ -42,7 +42,7 @@
                     .navigationBarTitleDisplayMode(.inline)
                 }
             }
-            .onAppear { model.serverURL = "https://rawkoon.example.com" }
+            .onAppear { model.session.serverURL = "https://rawkoon.example.com" }
         }
     }
 #endif

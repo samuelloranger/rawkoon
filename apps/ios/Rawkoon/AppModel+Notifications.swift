@@ -140,24 +140,4 @@ extension AppModel {
             }
         }
     }
-
-    /// Called from the app delegate with the hex device token.
-    func handleApnsToken(_ token: String) {
-        pendingApnsToken = token
-        Task { await registerApnsIfPossible() }
-    }
-
-    private func registerApnsIfPossible() async {
-        guard let token = pendingApnsToken, let apiClient else { return }
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-        try? await apiClient.registerApns(
-            deviceToken: token,
-            deviceName: UIDevice.current.name,
-            osVersion: UIDevice.current.systemVersion,
-            appVersion: appVersion,
-            bundleId: Bundle.main.bundleIdentifier
-        )
-        registeredApnsToken = token
-        pendingApnsToken = nil
-    }
 }

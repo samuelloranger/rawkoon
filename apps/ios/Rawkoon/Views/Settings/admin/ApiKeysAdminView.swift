@@ -192,7 +192,7 @@ private struct McpCommandsSection: View {
     let key: String?
 
     var body: some View {
-        let url = McpSetup.endpoint(server: model.serverURL)
+        let url = McpSetup.endpoint(server: model.session.serverURL)
         Section {
             CopyableCommand(label: String(localized: "Endpoint"), text: url)
             ForEach(McpSetup.commands(url: url, key: key ?? McpSetup.keyPlaceholder), id: \.client) { c in

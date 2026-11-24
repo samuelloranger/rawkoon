@@ -8,9 +8,9 @@ extension AppModel {
         }
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            loading = true
-            errorMessage = nil
-            defer { loading = false }
+            session.loading = true
+            session.errorMessage = nil
+            defer { session.loading = false }
 
             do {
                 try await reloadLibrary()
@@ -20,7 +20,7 @@ extension AppModel {
                     Task { await prefetchForOffline() }
                 }
             } catch {
-                errorMessage = message(for: error)
+                session.errorMessage = message(for: error)
             }
         }
         libraryTask = task
@@ -50,7 +50,7 @@ extension AppModel {
     func carPlayAudiobooks() async -> [CarPlayBrowseEntry] {
         // A car with a weak signal must not hold the whole list on the server.
         var remote: [RemoteProgress]?
-        if isOnline, let apiClient {
+        if isOnline, let apiClient = session.apiClient {
             remote = await withDeadline(seconds: 5) { try? await apiClient.getProgress() }
         }
         let progressByEdition = Dictionary(
@@ -86,22 +86,11 @@ extension AppModel {
         return entries
     }
 
-    /// Resolves a possibly-relative image path against the server base URL.
-    /// TMDB poster URLs are already absolute; library posters may be relative.
-    func absoluteURL(_ raw: String?) -> URL? {
-        guard let raw, !raw.isEmpty else { return nil }
-        if let absolute = URL(string: raw), absolute.scheme != nil {
-            return absolute
-        }
-        guard let base = URL(string: serverURL) else { return nil }
-        return URL(string: raw, relativeTo: base)?.absoluteURL
-    }
-
     func reloadLibrary() async throws {
-        guard let apiClient else { throw APIError.unauthorized }
+        guard let apiClient = session.apiClient else { throw APIError.unauthorized }
         // Alongside, not after: the greeting and admin rows must not wait on
         // every page of the library.
-        Task { await refreshAdmin() }
+        Task { await session.refreshAdmin() }
         do {
             let fetched = try await apiClient.libraryBooks()
             library = Self.sortedLibrary(fetched)
@@ -167,8 +156,8 @@ extension AppModel {
     /// Mark the whole book read (or clear the badge). Marking read wipes this
     /// user's ebook and audiobook progress on the server and this device.
     func setBookRead(_ book: BookListItem, read: Bool) async {
-        guard let apiClient else { return }
-        errorMessage = nil
+        guard let apiClient = session.apiClient else { return }
+        session.errorMessage = nil
         do {
             try await apiClient.setBookRead(bookId: book.bookId, read: read)
             if read {
@@ -189,8 +178,8 @@ extension AppModel {
 
     /// Clears ebook and audiobook progress on the server and this device; the read flag is untouched.
     func resetBookProgress(_ book: BookListItem) async {
-        guard let apiClient else { return }
-        errorMessage = nil
+        guard let apiClient = session.apiClient else { return }
+        session.errorMessage = nil
         do {
             try await apiClient.resetBookProgress(bookId: book.bookId)
             clearLocalProgress(for: book)

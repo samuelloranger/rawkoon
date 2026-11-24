@@ -38,17 +38,17 @@ struct AppRootView: View {
         .alert(
             "Login not saved",
             isPresented: Binding(
-                get: { model.authWarning != nil },
+                get: { model.session.authWarning != nil },
                 set: {
                     if !$0 {
-                        model.authWarning = nil
+                        model.session.authWarning = nil
                     }
                 }
             )
         ) {
-            Button("OK", role: .cancel) { model.authWarning = nil }
+            Button("OK", role: .cancel) { model.session.authWarning = nil }
         } message: {
-            if let warning = model.authWarning {
+            if let warning = model.session.authWarning {
                 Text(warning)
             }
         }
@@ -141,7 +141,7 @@ struct AppRootView: View {
                 model.resyncDownloads()
                 Task { await model.refreshUnreadNotificationCount() }
                 Task { await model.refreshPendingRequestCount() }
-                Task { await model.refreshBooksEnabled() }
+                Task { await model.session.refreshBooksEnabled() }
             case .background:
                 model.persistPlaybackProgress(force: true)
                 model.stopLiveStreams()
@@ -168,7 +168,7 @@ struct AppRootView: View {
                     .transition(.opacity)
             }
             if showsLogin {
-                LoginView(hasSavedServer: !model.serverURL.isEmpty)
+                LoginView(hasSavedServer: !model.session.serverURL.isEmpty)
                     .transition(.opacity)
                     // Keeps the leaving Login above the tabs for its whole fade.
                     .zIndex(1)

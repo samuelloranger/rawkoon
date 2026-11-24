@@ -48,7 +48,7 @@ struct LoginServerStep: View {
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             if address.isEmpty {
-                address = model.serverURL
+                address = model.session.serverURL
             }
         }
     }
@@ -58,7 +58,7 @@ struct LoginServerStep: View {
         connecting = true
         fieldFocused = false
         Task {
-            let connected = await model.connect(to: address)
+            let connected = await model.session.connect(to: address)
             connecting = false
             if connected {
                 onConnected()

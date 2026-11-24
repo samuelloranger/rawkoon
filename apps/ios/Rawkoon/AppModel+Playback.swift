@@ -36,7 +36,7 @@ extension AppModel {
             manifests[editionId] = disk
             return disk
         }
-        guard let apiClient else {
+        guard let apiClient = session.apiClient else {
             // Logged out or no client: a downloaded book still opens from its
             // persisted manifest rather than failing.
             if let disk = DownloadedStore.readManifest(editionId: editionId) {
@@ -76,7 +76,7 @@ extension AppModel {
     }
 
     func openPlayer(editionId: Int, resumeAt overridePosition: Double? = nil) async {
-        errorMessage = nil
+        session.errorMessage = nil
 
         // Reloading the book already playing would pause it and rewind it to a
         // stale snapshot, so only an explicitly chosen position moves it.
@@ -89,8 +89,8 @@ extension AppModel {
 
         do {
             let manifest = try await manifest(editionId)
-            guard let baseURL = URL(string: serverURL) else {
-                errorMessage = String(localized: "Enter a valid server URL.")
+            guard let baseURL = URL(string: session.serverURL) else {
+                session.errorMessage = String(localized: "Enter a valid server URL.")
                 return
             }
 
@@ -116,7 +116,7 @@ extension AppModel {
                 self?.player.adoptRefreshedManifest(fresh)
             }
         } catch {
-            errorMessage = message(for: error)
+            session.errorMessage = message(for: error)
         }
     }
 
@@ -124,7 +124,7 @@ extension AppModel {
     /// when the server re-imported the book. The downloaded copy on disk is
     /// rewritten too, so the next cold start has live URLs.
     func refreshedManifest(editionId: Int) async -> BookManifest? {
-        guard isOnline, let apiClient else { return nil }
+        guard isOnline, let apiClient = session.apiClient else { return nil }
         do {
             let fresh = try await apiClient.manifest(editionId: editionId)
             // URLs only: a re-import is left to `manifest()`'s stale-download

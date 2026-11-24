@@ -11,7 +11,7 @@ extension ContinueListeningView {
             // The card's position is a snapshot; the loaded book is already past it.
             let resumeAt = model.activeEditionId == audiobook.editionId ? nil : audiobook.positionSecs
             await model.openPlayer(editionId: audiobook.editionId, resumeAt: resumeAt)
-            if let error = model.errorMessage {
+            if let error = model.session.errorMessage {
                 model.toast(error, style: .error)
             } else {
                 showingPlayer = true
@@ -89,10 +89,12 @@ extension ContinueListeningView {
                 busyIds.insert(item.id)
                 Task {
                     await model.openPlayer(editionId: editionId)
-                    if model.errorMessage == nil {
+                    if model.session.errorMessage == nil {
                         showingPlayer = true
                     } else {
-                        model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
+                        model.toast(
+                            model.session.errorMessage ?? String(localized: "Could not start playback."), style: .error
+                        )
                     }
                     busyIds.remove(item.id)
                 }

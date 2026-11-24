@@ -192,7 +192,7 @@ struct HealthSettingsView: View {
         if let mediaId = issue.mediaId {
             return .media(libraryId: mediaId, season: nil, episode: nil, focusManagement: true)
         }
-        if let bookId = issue.bookId, model.booksEnabled {
+        if let bookId = issue.bookId, model.session.booksEnabled {
             return .book(bookId: bookId)
         }
         return nil

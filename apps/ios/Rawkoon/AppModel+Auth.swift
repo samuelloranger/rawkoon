@@ -2,140 +2,6 @@ import Foundation
 import RawkoonKit
 
 extension AppModel {
-    func login(server: String, email: String, password: String) async {
-        await signIn(server: server) { client in
-            try await client.login(email: email, password: password)
-        }
-    }
-
-    func loginWithJellyfin(server: String, username: String, password: String) async {
-        await signIn(server: server, errorMessage: jellyfinMessage(for:)) { client in
-            try await client.loginWithJellyfin(username: username, password: password)
-        }
-    }
-
-    /// Status-code copy for a failed Jellyfin sign-in (the body is not relied on).
-    func jellyfinMessage(for error: Error) -> String {
-        guard let apiError = error as? APIError else { return message(for: error) }
-        return JellyfinSignInFailure(apiError: apiError)?.message ?? apiError.userMessage()
-    }
-
-    private func signIn(
-        server: String,
-        errorMessage render: ((Error) -> String)? = nil,
-        authenticate: (APIClient) async throws -> String
-    ) async {
-        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let baseURL = URL(string: normalizedServer) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-
-        do {
-            let client = APIClient(baseURL: baseURL, token: nil)
-            let token = try await authenticate(client)
-
-            let serverSaved = Keychain.set(normalizedServer, for: Self.serverURLKey)
-            let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-            if !serverSaved || !tokenSaved {
-                authWarning = Self.persistFailedWarning
-            }
-
-            serverURL = normalizedServer
-            apiClient = makeAPIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
-            try await reloadLibrary()
-            registerForPushIfAuthorized()
-            startLiveStreams()
-            ReencodeActivityCoordinator.shared.start(model: self)
-            await refreshUnreadNotificationCount()
-        } catch {
-            errorMessage = (render ?? message(for:))(error)
-        }
-    }
-
-    /// Load the enabled OAuth providers for the login screen (public endpoint).
-    func loadSsoProviders() async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty, let base = URL(string: raw) else {
-            ssoProviders = []
-            jellyfinSignInEnabled = false
-            return
-        }
-        let client = apiClient ?? APIClient(baseURL: base, token: nil)
-        let response = try? await client.ssoProviders()
-        ssoProviders = response?.providers ?? []
-        jellyfinSignInEnabled = response?.jellyfinSignIn ?? false
-    }
-
-    /// Login step one: checks that `address` answers as a Rawkoon server, then keeps it and its sign-in options.
-    func connect(to address: String) async -> Bool {
-        guard let normalized = ServerAddress.normalize(address), let base = URL(string: normalized) else {
-            errorMessage = String(localized: "Enter a server address like https://rawkoon.example.com.")
-            return false
-        }
-        errorMessage = nil
-        do {
-            let response = try await APIClient(baseURL: base, token: nil).ssoProviders()
-            serverURL = normalized
-            ssoProviders = response.providers
-            jellyfinSignInEnabled = response.jellyfinSignIn ?? false
-            return true
-        } catch {
-            let host = ServerAddress.displayName(normalized)
-            errorMessage = String(
-                localized: "Can't reach a Rawkoon server at \(host). Check the address and that the server is running."
-            )
-            return false
-        }
-    }
-
-    /// Sign in through a provider using the native browser OAuth flow.
-    func signInWithProvider(_ slug: String) async {
-        let raw = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            let base = URL(string: raw),
-            let startURL = URL(string: "/api/mobile/oauth-start?provider=\(slug)", relativeTo: base)?.absoluteURL
-        else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        errorMessage = nil
-        guard let callback = await WebAuthCoordinator.shared.start(url: startURL, scheme: "rawkoon") else {
-            return // cancelled
-        }
-        let comps = URLComponents(url: callback, resolvingAgainstBaseURL: false)
-        if let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value, !token.isEmpty {
-            await applyOAuthToken(server: raw, token: token)
-        } else {
-            errorMessage = String(localized: "Sign-in failed. Please try again.")
-        }
-    }
-
-    private func applyOAuthToken(server: String, token: String) async {
-        guard let base = URL(string: server) else {
-            errorMessage = String(localized: "Enter a valid server URL.")
-            return
-        }
-        let serverSaved = Keychain.set(server, for: Self.serverURLKey)
-        let tokenSaved = Keychain.set(token, for: Self.authTokenKey)
-        if !serverSaved || !tokenSaved {
-            authWarning = Self.persistFailedWarning
-        }
-        serverURL = server
-        apiClient = makeAPIClient(baseURL: base, token: token)
-        isLoggedIn = true
-        do { try await reloadLibrary() } catch { errorMessage = message(for: error) }
-        registerForPushIfAuthorized()
-        startLiveStreams()
-        ReencodeActivityCoordinator.shared.start(model: self)
-        await refreshUnreadNotificationCount()
-    }
-
     /// Authenticated 401 — the Keychain token is stale. Drop the session so
     /// the next frame shows LoginView rather than retrying forever.
     func handleSessionExpired() {
@@ -144,37 +10,14 @@ extension AppModel {
         logout()
     }
 
-    func makeAPIClient(baseURL: URL, token: String?) -> APIClient {
-        serverStateStore.clear()
-        PosterCache.authorize(server: baseURL, token: token)
-        return APIClient(
-            baseURL: baseURL,
-            token: token,
-            responseCache: Self.makeResponseCache(server: baseURL.absoluteString),
-            onUnauthorized: {
-                Task { @MainActor in
-                    AppModel.shared.handleSessionExpired()
-                }
-            }
-        )
-    }
-
     func logout() {
         WidgetSnapshotWriter.shared.clear()
         ReencodeActivityCoordinator.shared.stop(model: self)
-        // Before apiClient is torn down: an APNs token identifies the phone, not
-        // the account, so leaving it registered would deliver this user's
-        // notifications to whoever signs in next.
-        if let token = registeredApnsToken, let client = apiClient {
-            Task { try? await client.unregisterApns(deviceToken: token) }
-        }
-        registeredApnsToken = nil
-        booksEnabled = true
-        askBeforeAdding = false
+        session.unregisterPushToken()
+        session.resetServerFeatures()
         // Answers a waiting add so its caller stops spinning.
         router.addRequest?.finish(nil)
         router.addRequest = nil
-        requestersChooseSeasons = false
 
         stopLiveStreams()
         serverStateStore.clear()
@@ -186,27 +29,16 @@ extension AppModel {
         // drops the Now Playing entry a logged-out app could not serve.
         closePlayer()
 
-        Keychain.delete(Self.serverURLKey)
-        Keychain.delete(Self.authTokenKey)
+        session.deleteStoredCredentials()
         clearServerScope()
-        profileTask?.cancel()
-        profileTask = nil
-        apiClient?.responseCache?.invalidate()
-        wipeResponseCache()
-
-        apiClient = nil
-        PosterCache.authorize(server: nil, token: nil)
+        session.cancelProfileFetch()
+        session.dropAPIClient()
         // Images the server serves were fetched with this account's token; an
         // in-flight prefetch would write them back after the wipe.
         prefetchTask?.cancel()
         PosterCache.removeAll()
-        isLoggedIn = false
-        isAdmin = false
-        userId = nil
+        session.clearIdentity()
         pendingRequestCount = 0
-        userFirstName = nil
-        userInitials = nil
-        userAvatarURL = nil
         library = []
         libraryFetchedAt = nil
         manifests = [:]
@@ -220,59 +52,5 @@ extension AppModel {
         downloadPlans = [:]
         verifiedCounts = [:]
         downloadServerKeys = [:]
-        errorMessage = nil
-    }
-
-    /// Refresh admin state on a cold Settings open (or after a promotion/demotion),
-    /// since `refreshAdmin()` otherwise only runs on login/library-reload (spec §4.5).
-    /// Only ever *adds* admin rows for real admins.
-    func refreshAdminIfNeeded() async {
-        guard apiClient != nil, !didRefreshAdminOnce else { return }
-        didRefreshAdminOnce = true
-        await refreshAdmin()
-    }
-
-    /// Best-effort: learn whether the signed-in user is an admin, so the UI can
-    /// offer "Add to library" (admin) vs "Request" (non-admin). Concurrent callers
-    /// share one request; a failure keeps the profile painted from the cache.
-    func refreshAdmin() async {
-        if let profileTask {
-            return await profileTask.value
-        }
-        guard let apiClient else { return }
-        let task = Task { @MainActor [weak self] in
-            if let user = await (try? apiClient.currentUser())?.user {
-                self?.applyUser(user)
-            }
-        }
-        profileTask = task
-        await task.value
-        if profileTask == task {
-            profileTask = nil
-        }
-    }
-}
-
-nonisolated extension JellyfinSignInFailure {
-    /// Nil for errors with no sign-in specific copy (transport, decode, offline).
-    init?(apiError: APIError) {
-        switch apiError {
-        case .unauthorized: self = .wrongCredentials
-        case .forbidden: self = .noAccess
-        case let .http(status), let .server(status, _): self.init(status: status)
-        default: return nil
-        }
-    }
-
-    /// Nil for `.other`, which falls back to the generic API error copy.
-    var message: String? {
-        switch self {
-        case .wrongCredentials: String(localized: "Wrong Jellyfin username or password.")
-        case .noAccess: String(localized: "This Jellyfin account can't sign in to Rawkoon yet. Ask your admin.")
-        case .jellyfinUnreachable: String(localized: "Can't reach Jellyfin. Try again in a moment.")
-        case .notEnabled: String(localized: "Jellyfin sign-in isn't enabled on this server.")
-        case .tooManyAttempts: String(localized: "Too many attempts. Try again in a few minutes.")
-        case .other: nil
-        }
     }
 }

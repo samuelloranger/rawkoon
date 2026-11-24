@@ -103,7 +103,7 @@ struct RootTabsView: View {
     /// The selection as shown: a tab absent at this width or role falls back instead of staying selected.
     private var shownTab: RootTab {
         RootTab.validated(
-            selection.rawValue, compact: compact, isAdmin: model.isAdmin, booksEnabled: model.booksEnabled
+            selection.rawValue, compact: compact, isAdmin: model.isAdmin, booksEnabled: model.session.booksEnabled
         )
     }
 
@@ -209,7 +209,7 @@ struct RootTabsView: View {
                 showFullPlayer = true
             }
         }
-        .task { await model.refreshBooksEnabled() }
+        .task { await model.session.refreshBooksEnabled() }
         .task {
             if model.needsLibraryRefresh {
                 await model.loadLibrary()
@@ -229,7 +229,7 @@ struct RootTabsView: View {
             TabSection("Library") {
                 Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { sidebarRoot(.library) }
                     .customizationID("tab.library")
-                if model.booksEnabled {
+                if model.session.booksEnabled {
                     Tab("Books", systemImage: "books.vertical", value: RootTab.books) { sidebarRoot(.books) }
                         .customizationID("tab.books")
                 }

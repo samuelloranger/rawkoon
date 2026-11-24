@@ -11,7 +11,9 @@ struct LibraryGrowthStrip: View {
         VStack(spacing: 0) {
             if let growth = model.libraryGrowth {
                 if !growth.isEmpty || model.isAdmin {
-                    LibraryGrowthStripBody(growth: growth, isAdmin: model.isAdmin, showBooks: model.booksEnabled)
+                    LibraryGrowthStripBody(
+                        growth: growth, isAdmin: model.isAdmin, showBooks: model.session.booksEnabled
+                    )
                 }
             } else if !model.libraryGrowthFailed {
                 // Holds the strip's height so the search field doesn't jump when the first load lands.

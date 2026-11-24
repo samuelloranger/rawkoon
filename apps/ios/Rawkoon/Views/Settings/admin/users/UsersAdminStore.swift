@@ -166,7 +166,7 @@ final class UsersAdminStore {
         do {
             let response = try await client.resendInvitation(id: invitation.id)
             if let token = response.token {
-                UIPasteboard.general.string = Self.inviteLink(server: model.serverURL, token: token)
+                UIPasteboard.general.string = Self.inviteLink(server: model.session.serverURL, token: token)
                 model.toast(String(localized: "New link copied."), style: .success)
             } else {
                 model.toast(String(localized: "The invitation was renewed, but no link came back."), style: .info)

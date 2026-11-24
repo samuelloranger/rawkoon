@@ -54,7 +54,7 @@ struct LibraryDefaultsView: View {
                 Section {
                     PickerRow(title: "Default movie profile", selection: $movieProfile, options: mediaOptions)
                     PickerRow(title: "Default show profile", selection: $showProfile, options: mediaOptions)
-                    if model.booksEnabled {
+                    if model.session.booksEnabled {
                         PickerRow(title: "Default book profile", selection: $bookProfile, options: bookOptions)
                     }
                 } footer: {
@@ -91,7 +91,7 @@ struct LibraryDefaultsView: View {
         do {
             let settings = try await client.postProcessingSettings().settings
             mediaProfiles = await (try? client.qualityProfiles().profiles) ?? []
-            if model.booksEnabled {
+            if model.session.booksEnabled {
                 bookProfiles = await (try? client.bookQualityProfiles().profiles) ?? []
             }
             movieProfile = settings.defaultMovieQualityProfileId
@@ -114,7 +114,7 @@ struct LibraryDefaultsView: View {
                     defaultMovieQualityProfileId: movieProfile,
                     defaultShowQualityProfileId: showProfile,
                     // Hidden with books off: keep what is stored instead of clearing it.
-                    defaultBookQualityProfileId: model.booksEnabled ? bookProfile : loaded.book
+                    defaultBookQualityProfileId: model.session.booksEnabled ? bookProfile : loaded.book
                 )
             )
             loaded = current

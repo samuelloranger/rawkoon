@@ -195,7 +195,7 @@
                 return
             }
 
-            guard let baseURL = URL(string: model.serverURL) else {
+            guard let baseURL = URL(string: model.session.serverURL) else {
                 failure = "Server URL is not usable"
                 return
             }

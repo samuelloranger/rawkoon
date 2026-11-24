@@ -123,7 +123,7 @@ struct LibraryBooksView: View {
         .rawkoonMotion(RawkoonMotion.snappy, value: state.busyBookIds)
         .reportsTabBarScroll()
         .overlay {
-            if model.loading, model.library.isEmpty {
+            if model.session.loading, model.library.isEmpty {
                 booksSkeleton
             } else if let booksError = state.booksError, model.library.isEmpty {
                 ContentUnavailableView {
@@ -136,7 +136,7 @@ struct LibraryBooksView: View {
                         .tint(Theme.apricot)
                 }
                 .rawkoonLivingSymbol(.error)
-            } else if !model.loading, state.filteredBooks(in: model).isEmpty {
+            } else if !model.session.loading, state.filteredBooks(in: model).isEmpty {
                 ContentUnavailableView(
                     "No books", systemImage: "books.vertical",
                     description: Text("Books added on your server show up here.")

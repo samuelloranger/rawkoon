@@ -27,7 +27,7 @@ struct LoginView: View {
         .tint(Theme.apricot)
         // An error belongs to the step that raised it.
         .onChange(of: path) { _, _ in
-            model.errorMessage = nil
+            model.session.errorMessage = nil
         }
     }
 }

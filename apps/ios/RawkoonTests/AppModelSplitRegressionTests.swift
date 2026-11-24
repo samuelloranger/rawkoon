@@ -7,7 +7,7 @@ import Testing
 struct AppModelSplitRegressionTests {
     @Test func failedLibraryRefreshKeepsVisibleBooks() async throws {
         let model = AppModel()
-        model.apiClient = try APIClient(baseURL: #require(URL(string: "http://127.0.0.1:1")), token: "test")
+        model.session.apiClient = try APIClient(baseURL: #require(URL(string: "http://127.0.0.1:1")), token: "test")
         model.library = [book(id: 21, title: "Already visible")]
         model.libraryFetchedAt = nil
         model.isOfflineLibrary = false
@@ -21,7 +21,7 @@ struct AppModelSplitRegressionTests {
 
     @Test func cachedManifestIsReturnedWithoutAnAPIClient() async throws {
         let model = AppModel()
-        model.apiClient = nil
+        model.session.apiClient = nil
         let cached = manifest(editionId: 987_654_321, bookId: 21)
         model.manifests[cached.editionId] = cached
 
@@ -47,7 +47,7 @@ struct AppModelSplitRegressionTests {
 
     @Test func carPlayBrowseIncludesOnlyAudiobookEditions() async {
         let model = AppModel()
-        model.apiClient = nil
+        model.session.apiClient = nil
         model.library = [
             book(id: 31, title: "Ebook only"),
             book(id: 32, title: "Audiobook", editionId: 987_654_323),
@@ -72,7 +72,7 @@ struct AppModelSplitRegressionTests {
 
     @Test func artworkURLResolvesRelativePathsAgainstTheServer() {
         let model = AppModel()
-        model.serverURL = "https://rawkoon.example/base/"
+        model.session.serverURL = "https://rawkoon.example/base/"
 
         #expect(model.absoluteURL("/posters/21.jpg")?.absoluteString == "https://rawkoon.example/posters/21.jpg")
         #expect(model.absoluteURL("https://images.example/cover.jpg")?.absoluteString == "https://images.example/cover.jpg")

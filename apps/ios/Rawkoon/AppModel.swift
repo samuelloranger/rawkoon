@@ -16,32 +16,11 @@ final class AppModel {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    var isLoggedIn = false
-    var serverURL: String
     var library: [BookListItem] = []
-    var isAdmin = false
-    /// The signed-in user's id, to tell their own requests from others'.
-    var userId: String?
-    /// Mirrors the server's books feature flag; stays on until the server says otherwise.
-    var booksEnabled = true
-    /// The server's add-dialog switches; off until the server says otherwise, so a failed fetch keeps the instant add.
-    var askBeforeAdding = false
-    var requestersChooseSeasons = false
     var libraryGrowth: LibraryGrowth?
     var libraryGrowthFetchedAt: Date?
     /// True once a fetch failed with nothing cached, so the Library strip hides instead of waiting.
     var libraryGrowthFailed = false
-    var userFirstName: String?
-    var userInitials: String?
-    var userAvatarURL: URL?
-    var ssoProviders: [SsoProvider] = []
-    var jellyfinSignInEnabled = false
-    var loading = false
-    var errorMessage: String?
-    /// Set when sign-in succeeded but the credential could not be written to the
-    /// Keychain — the session works now but will not survive a relaunch. Surfaced
-    /// as an alert at the app root, distinct from `errorMessage` (a login failure).
-    var authWarning: String?
     var downloadPlans: [Int: DownloadPlan] = [:]
     /// Books with any fully downloaded edition (audiobook or ebook), mirrored
     /// from the on-disk index so the book list order can react to it.
@@ -59,9 +38,6 @@ final class AppModel {
     /// the UI shows an "Offline" hint instead of a network-error wall, and lists
     /// only downloaded books.
     var isOfflineLibrary = false
-    /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
-    /// share one request.
-    var profileTask: Task<Void, Never>?
     /// When the server last confirmed `library`; nil while it is only the saved
     /// copy painted at launch, so screens know to refresh it once.
     var libraryFetchedAt: Date?
@@ -76,6 +52,9 @@ final class AppModel {
     let router = UIRouter()
 
     let serverStateStore = ServerStateStore()
+
+    /// Credentials, API client, profile and server feature switches; see `SessionStore`.
+    let session: SessionStore
 
     // MARK: Live updates (spec §T2/T4)
 
@@ -92,13 +71,6 @@ final class AppModel {
 
     let player = AudiobookPlayer()
 
-    static let serverURLKey = "server_url"
-    static let authTokenKey = "auth_token"
-    private static let deviceIDKey = "device_id"
-
-    static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
-
-    var apiClient: APIClient?
     var manifests: [Int: BookManifest] = [:]
     var downloaders: [Int: ChapterDownloader] = [:]
     var pendingBackgroundCompletions: [String: () -> Void] = [:]
@@ -133,37 +105,34 @@ final class AppModel {
     var handoffAgreedAtMillis: [Int: Int64] = [:]
 
     let journalURL: URL
-    /// Not `let`: before the first unlock the Keychain is unreadable, so the
-    /// launch value can be provisional until protected data becomes available.
-    private(set) var deviceID: String
 
     init() {
-        serverURL = Keychain.get(Self.serverURLKey) ?? ""
+        session = SessionStore(serverStateStore: serverStateStore)
         journalURL = Self.positionLogURL()
-        deviceID = Self.resolveDeviceID()
         liveUpdates.appModel = self
         liveSearch.appModel = self
+        wireSession()
 
         if
-            let token = Keychain.get(Self.authTokenKey),
-            let baseURL = URL(string: serverURL)
+            let token = Keychain.get(SessionStore.authTokenKey),
+            let baseURL = URL(string: session.serverURL)
         {
-            apiClient = makeAPIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
+            session.apiClient = session.makeAPIClient(baseURL: baseURL, token: token)
+            session.isLoggedIn = true
             hydrateFromCache()
         }
         #if DEBUG
             // A simulator has no keychain; signing in before the first frame matches a signed-in device launch.
             let env = ProcessInfo.processInfo.environment
             if
-                !isLoggedIn,
+                !session.isLoggedIn,
                 let server = env["RAWKOON_SERVER"],
                 let token = env["RAWKOON_TOKEN"],
                 let baseURL = URL(string: server)
             {
-                serverURL = server
-                apiClient = makeAPIClient(baseURL: baseURL, token: token)
-                isLoggedIn = true
+                session.serverURL = server
+                session.apiClient = session.makeAPIClient(baseURL: baseURL, token: token)
+                session.isLoggedIn = true
                 hydrateFromCache()
             }
         #endif
@@ -178,6 +147,21 @@ final class AppModel {
         compactJournal()
         restoreDownloadedAudiobooks()
         refreshDownloadedBookIds()
+    }
+
+    /// Hands the store the follow-ups that span other domains, so it holds no back-reference to the model.
+    private func wireSession() {
+        session.onSessionExpired = { [weak self] in self?.handleSessionExpired() }
+        session.reloadAfterSignIn = { [weak self] in try await self?.reloadLibrary() }
+        session.startAfterSignIn = { [weak self] in
+            guard let self else { return }
+            registerForPushIfAuthorized()
+            startLiveStreams()
+            ReencodeActivityCoordinator.shared.start(model: self)
+            await refreshUnreadNotificationCount()
+        }
+        session.didIdentifyUser = { [weak self] id in self?.updateServerScope(userId: id) }
+        session.describeError = { [weak self] error in self?.message(for: error) ?? error.localizedDescription }
     }
 
     func refreshDownloadedBookIds() {
@@ -228,7 +212,7 @@ final class AppModel {
                 let email = env["RAWKOON_EMAIL"],
                 let password = env["RAWKOON_PASSWORD"]
             else { return }
-            await login(server: server, email: email, password: password)
+            await session.login(server: server, email: email, password: password)
         }
 
         /// Simulator convenience: start an edition's chapter downloads straight from
@@ -269,22 +253,31 @@ final class AppModel {
     /// The configured API client, or nil when logged out. Manage-lane screens
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? {
-        apiClient
+        session.apiClient
+    }
+
+    /// Read-only forwards to `SessionStore`; screens ask these hundreds of times.
+    var isLoggedIn: Bool {
+        session.isLoggedIn
+    }
+
+    var isAdmin: Bool {
+        session.isAdmin
+    }
+
+    /// Forwards to `SessionStore.absoluteURL`.
+    func absoluteURL(_ raw: String?) -> URL? {
+        session.absoluteURL(raw)
     }
 
     // MARK: Notification and download coordination state
 
-    var pendingApnsToken: String?
-    /// Retained after registration so sign-out can unregister it.
-    var registeredApnsToken: String?
     /// Editions whose grants are being refetched, and how often — a server whose
     /// secret rotated would otherwise refetch forever.
     var grantRefreshAttempts: [Int: Int] = [:]
     var startingDownloads: Set<Int> = []
     var invalidatingSessions: Set<Int> = []
     var grantRefreshInFlight: Set<Int> = []
-
-    var didRefreshAdminOnce = false
 
     func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
@@ -307,28 +300,17 @@ final class AppModel {
     }
 
     private func reloadCredentialsAfterUnlock() {
-        deviceID = Self.resolveDeviceID()
+        session.refreshDeviceID()
         guard !isLoggedIn,
-              let token = Keychain.get(Self.authTokenKey),
-              let server = Keychain.get(Self.serverURLKey),
+              let token = Keychain.get(SessionStore.authTokenKey),
+              let server = Keychain.get(SessionStore.serverURLKey),
               let baseURL = URL(string: server)
         else { return }
-        serverURL = server
-        apiClient = makeAPIClient(baseURL: baseURL, token: token)
-        isLoggedIn = true
+        session.activate(server: server, baseURL: baseURL, token: token)
         restoreServerScope()
         restoreDownloadedAudiobooks()
         refreshDownloadedBookIds()
         hydrateFromCache()
-    }
-
-    private static func resolveDeviceID() -> String {
-        if let existing = Keychain.get(deviceIDKey), !existing.isEmpty {
-            return existing
-        }
-        let newValue = UUID().uuidString
-        Keychain.set(newValue, for: deviceIDKey)
-        return newValue
     }
 
     private static func positionLogURL() -> URL {

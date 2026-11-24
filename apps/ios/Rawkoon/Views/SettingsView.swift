@@ -59,7 +59,7 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             hydrateFromCache()
-            await model.refreshAdminIfNeeded()
+            await model.session.refreshAdminIfNeeded()
             await loadAccount()
             await loadVersion()
             await loadHealth()
@@ -174,8 +174,8 @@ struct SettingsView: View {
                 SettingsProfileCard(
                     name: accountName,
                     email: sessionUser?.email,
-                    initials: model.userInitials,
-                    avatarURL: model.userAvatarURL,
+                    initials: model.session.userInitials,
+                    avatarURL: model.session.userAvatarURL,
                     version: appVersion,
                     isOffline: model.isOffline
                 )
@@ -281,7 +281,7 @@ struct SettingsView: View {
             sessionUser = session.user
             // The tab bar and the profile card read the model, so a changed picture or name reaches them too.
             if let user = session.user {
-                model.applyUser(user)
+                model.session.applyUser(user)
             }
         } catch {
             // Best-effort only; do not fail the screen.

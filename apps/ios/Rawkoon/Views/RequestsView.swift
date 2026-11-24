@@ -206,7 +206,8 @@ struct RequestsView: View {
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if let action = RequestDeleteAction.action(
-                status: req.status, requesterId: req.requestedBy?.id, userId: model.userId, isAdmin: model.isAdmin
+                status: req.status, requesterId: req.requestedBy?.id,
+                userId: model.session.userId, isAdmin: model.isAdmin
             ) {
                 Button(action.label, action: OfflineFeedback.gate(model.isOffline) {
                     Task { await delete(request: req) }

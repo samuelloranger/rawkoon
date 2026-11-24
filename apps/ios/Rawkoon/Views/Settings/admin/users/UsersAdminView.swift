@@ -88,7 +88,7 @@ struct UsersAdminView: View {
 
     private func rows(_ users: [AdminUser]) -> some View {
         ForEach(users) { user in
-            let isYou = user.id == model.userId
+            let isYou = user.id == model.session.userId
             NavigationLink {
                 UserAdminDetailView(store: store, userId: user.id)
             } label: {

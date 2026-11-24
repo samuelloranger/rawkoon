@@ -153,7 +153,7 @@ struct BookAudiobookView: View {
                 let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
                 await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
                 audioState.loadingPlayer = false
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     audioState.audiobookActionError = error
                 } else {
                     showingPlayer = true
@@ -246,7 +246,7 @@ struct BookAudiobookView: View {
                 audioState.preparingAudiobookDownload = true
                 await model.startDownload(editionId: editionId)
                 audioState.preparingAudiobookDownload = false
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     audioState.audiobookActionError = error
                 }
             }
@@ -310,7 +310,7 @@ struct BookAudiobookView: View {
                                         resumeAt: page.resumePosition(in: chapter) ?? chapter.startSecs
                                     )
                                     audioState.loadingPlayer = false
-                                    if model.errorMessage == nil {
+                                    if model.session.errorMessage == nil {
                                         showingPlayer = true
                                     }
                                 }

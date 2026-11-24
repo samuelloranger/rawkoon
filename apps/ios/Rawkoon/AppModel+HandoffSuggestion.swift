@@ -134,7 +134,7 @@ extension AppModel {
     /// device's journal and the server's row.
     private func listeningPoint(editionId: Int) async -> (positionSecs: Double, atMillis: Int64)? {
         var best = await journalEntries()[editionId].map { (positionSecs: $0.positionSecs, atMillis: $0.atMillis) }
-        if let apiClient,
+        if let apiClient = session.apiClient,
            let remote = await withDeadline(seconds: 5, { try? await apiClient.getProgress() })?
            .first(where: { $0.editionId == editionId })
         {

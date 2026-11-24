@@ -39,7 +39,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in
-            appModel.handleApnsToken(token)
+            appModel.session.handleApnsToken(token)
         }
     }
 

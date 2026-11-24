@@ -46,7 +46,7 @@ extension AppModel {
     }
 
     func startDownload(editionId: Int, preferDiskManifest: Bool = false) async {
-        errorMessage = nil
+        session.errorMessage = nil
         // The manifest await below is a window where a second call (a re-tap, a
         // background relaunch) would build a second downloader on the same session id.
         guard !startingDownloads.contains(editionId) else { return }
@@ -74,8 +74,8 @@ extension AppModel {
             }
             manifests[editionId] = manifests[editionId] ?? manifest
             DownloadedStore.writeManifest(manifest, editionId: editionId)
-            guard let baseURL = URL(string: serverURL) else {
-                errorMessage = String(localized: "Enter a valid server URL.")
+            guard let baseURL = URL(string: session.serverURL) else {
+                session.errorMessage = String(localized: "Enter a valid server URL.")
                 return
             }
             if let existing = downloaders[editionId] {
@@ -105,7 +105,7 @@ extension AppModel {
             downloaders[editionId] = downloader
             downloader.start()
         } catch {
-            errorMessage = message(for: error)
+            session.errorMessage = message(for: error)
         }
     }
 
@@ -216,7 +216,7 @@ extension AppModel {
         guard !grantRefreshInFlight.contains(editionId) else { return }
         let attempts = grantRefreshAttempts[editionId] ?? 0
         guard attempts < Self.maxGrantRefreshAttempts else {
-            errorMessage = String(localized: "Downloads for this book need a fresh sign-in.")
+            session.errorMessage = String(localized: "Downloads for this book need a fresh sign-in.")
             downloaders[editionId]?.grantRefreshFailed()
             return
         }
@@ -227,7 +227,7 @@ extension AppModel {
         do {
             // Straight to the API: manifest(forceRefresh:) falls back to the disk
             // copy, whose URLs are the expired ones being replaced.
-            guard let apiClient else { throw APIError.unauthorized }
+            guard let apiClient = session.apiClient else { throw APIError.unauthorized }
             let refreshed = try await apiClient.manifest(editionId: editionId)
             manifests[editionId] = refreshed
             downloaders[editionId]?.refreshChapterURLs(from: refreshed)

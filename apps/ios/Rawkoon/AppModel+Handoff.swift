@@ -83,7 +83,7 @@ extension AppModel {
     /// player failed to load.
     func playHandoffPosition(bookId: Int, editionId: Int, positionSecs: Double) async -> Bool {
         await openPlayer(editionId: editionId, resumeAt: positionSecs)
-        if let error = errorMessage {
+        if let error = session.errorMessage {
             toast(error, style: .error)
             return false
         }

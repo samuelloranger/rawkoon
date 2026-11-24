@@ -117,7 +117,7 @@
             await model.ensureLibraryLoaded()
             let entries = await model.carPlayAudiobooks()
             guard !entries.isEmpty else {
-                showMessage(model.errorMessage ?? String(localized: "No audiobooks yet."))
+                showMessage(model.session.errorMessage ?? String(localized: "No audiobooks yet."))
                 return
             }
             showBrowse(entries: entries, model: model)
@@ -161,7 +161,7 @@
                     done()
                 }
                 await model.openPlayer(editionId: editionId)
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     showAlert(error)
                     return
                 }

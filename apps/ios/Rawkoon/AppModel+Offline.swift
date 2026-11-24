@@ -11,34 +11,16 @@ extension AppModel {
         !isOnline
     }
 
-    // MARK: Response cache
-
-    private static func responseCacheRoot() -> URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ResponseCache", isDirectory: true)
-    }
-
-    static func makeResponseCache(server: String) -> ResponseCache {
-        ResponseCache(
-            directory: responseCacheRoot()
-                .appendingPathComponent(ResponseCache.namespace(forServer: server), isDirectory: true)
-        )
-    }
-
-    /// Sign-out drops every server's saved responses: they belong to the account
-    /// that fetched them.
-    func wipeResponseCache() {
-        try? FileManager.default.removeItem(at: Self.responseCacheRoot())
-    }
+    // MARK: Saved data
 
     /// Saved responses plus cached artwork, in bytes.
     var savedDataBytes: Int {
-        (apiClient?.responseCache?.diskUsage() ?? 0) + PosterCache.diskUsage
+        (session.apiClient?.responseCache?.diskUsage() ?? 0) + PosterCache.diskUsage
     }
 
     /// Frees the saved copies without signing out; screens refill on their next load.
     func clearSavedData() {
-        apiClient?.responseCache?.removeAll()
+        session.apiClient?.responseCache?.removeAll()
         PosterCache.removeAll()
         UserDefaults.standard.removeObject(forKey: "offline_prefetch_at")
     }
@@ -47,27 +29,15 @@ extension AppModel {
     /// a cold launch shows the user's own name and books before (or without) the
     /// network.
     func hydrateFromCache() {
-        guard let apiClient else { return }
-        if userFirstName == nil, let cached = apiClient.cached(Endpoints.currentUser),
+        guard let apiClient = session.apiClient else { return }
+        if session.userFirstName == nil, let cached = apiClient.cached(Endpoints.currentUser),
            let user = cached.value.user
         {
-            applyUser(user)
+            session.applyUser(user)
         }
         if library.isEmpty, let cached = apiClient.cachedLibraryBooks() {
             library = Self.sortedLibrary(cached.value)
         }
-    }
-
-    func applyUser(_ user: SessionUser) {
-        isAdmin = user.isAdmin ?? false
-        userId = user.id
-        if let id = user.id {
-            updateServerScope(userId: id)
-        }
-        let full = [user.firstName, user.lastName].compactMap(\.self).joined(separator: " ")
-        userFirstName = user.firstName ?? (full.isEmpty ? user.name : full)
-        userInitials = UserInitials.from(firstName: user.firstName, lastName: user.lastName, name: user.name)
-        userAvatarURL = absoluteURL(user.avatarUrl)
     }
 
     static func sortedLibrary(_ items: [BookListItem]) -> [BookListItem] {
@@ -98,7 +68,7 @@ extension AppModel {
         Task {
             let passStart = Date()
             await loadLibrary()
-            await refreshAdmin()
+            await session.refreshAdmin()
             await refreshUnreadNotificationCount()
             await pushOfflineProgress(libraryFreshSince: passStart)
         }
@@ -111,7 +81,7 @@ extension AppModel {
     /// With no server row the book may have been marked read; push only when this pass
     /// fetched the library and the journal line is newer than any read mark.
     func pushOfflineProgress(libraryFreshSince passStart: Date) async {
-        guard let apiClient, let remote = try? await apiClient.getProgress() else { return }
+        guard let apiClient = session.apiClient, let remote = try? await apiClient.getProgress() else { return }
         let remoteByEdition = Dictionary(remote.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first })
 
         for (editionId, entry) in await journalEntries() {
@@ -146,7 +116,7 @@ extension AppModel {
                 totalDurationSecs: total,
                 finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
                 updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
-                deviceId: deviceID
+                deviceId: session.deviceID
             )
         }
 
@@ -158,7 +128,7 @@ extension AppModel {
             guard let server = readingByEdition[editionId],
                   ReadingProgressReconciler.reconcile(local: local, remote: server) == .push
             else { continue }
-            try? await apiClient.putReadingProgress(local, deviceId: deviceID)
+            try? await apiClient.putReadingProgress(local, deviceId: session.deviceID)
         }
     }
 }

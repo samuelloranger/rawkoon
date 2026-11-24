@@ -18,14 +18,16 @@ extension AppModel {
     /// Warms saved detail pages and artwork for recent library titles. Skipped on
     /// cellular and in Low Data Mode, and at most every 6 hours unless forced.
     func prefetchForOffline(force: Bool = false) async {
-        guard isLoggedIn, isOnline, !isOnExpensiveNetwork, let apiClient, prefetchTask == nil else { return }
+        guard
+            isLoggedIn, isOnline, !isOnExpensiveNetwork, let apiClient = session.apiClient, prefetchTask == nil
+        else { return }
         let last = UserDefaults.standard.double(forKey: Self.lastPrefetchKey)
         guard force || Date().timeIntervalSince1970 - last > 6 * 3600 else { return }
 
         let books = Array(library.prefix(Self.prefetchBookLimit))
         let scale = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.screen.scale }.first ?? 3
-        let absolute: @Sendable (String?) -> URL? = { [serverURL] raw in
+        let absolute: @Sendable (String?) -> URL? = { [serverURL = session.serverURL] raw in
             guard let raw, !raw.isEmpty else { return nil }
             if let url = URL(string: raw), url.scheme != nil {
                 return url
@@ -163,10 +165,10 @@ extension AppModel {
 
     /// Refetches what the main tabs paint first, which rewrites their saved copies.
     func refreshSavedData() async {
-        guard isLoggedIn, let apiClient else { return }
+        guard isLoggedIn, let apiClient = session.apiClient else { return }
         let widgetGeneration = WidgetSnapshotWriter.shared.generation
         await loadLibrary()
-        await refreshAdmin()
+        await session.refreshAdmin()
         async let recent = try? apiClient.get(Endpoints.recentlyAdded())
         async let upcoming = try? apiClient.get(Endpoints.upcoming)
         async let deck = try? apiClient.get(Endpoints.discoverDeck(limit: 12))

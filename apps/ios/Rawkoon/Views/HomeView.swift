@@ -212,7 +212,7 @@ struct HomeView: View {
     /// a placeholder.
     private func greetingLine(_ period: HomeGreeting.Period) -> Text {
         let greeting = Text(greetingKey(period))
-        guard let name = model.userFirstName, !name.isEmpty else { return greeting }
+        guard let name = model.session.userFirstName, !name.isEmpty else { return greeting }
         return greeting + Text(verbatim: ", ") + Text(verbatim: name)
     }
 

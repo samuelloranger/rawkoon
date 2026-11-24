@@ -24,7 +24,7 @@ struct UserAdminDetailView: View {
     }
 
     private func form(_ user: AdminUser) -> some View {
-        let isYou = user.id == model.userId
+        let isYou = user.id == model.session.userId
         return Form {
             Section { hero(user, isYou: isYou) }
                 .listRowBackground(Color.clear)

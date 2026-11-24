@@ -64,8 +64,8 @@ struct RawkoonCommands: Commands {
     }
 
     private var goTabs: [RootTab] {
-        isPhone ? RootTab.phoneTabs(booksEnabled: model.booksEnabled)
-            : RootTab.visibleSidebar(isAdmin: model.isAdmin, booksEnabled: model.booksEnabled)
+        isPhone ? RootTab.phoneTabs(booksEnabled: model.session.booksEnabled)
+            : RootTab.visibleSidebar(isAdmin: model.isAdmin, booksEnabled: model.session.booksEnabled)
     }
 
     private var noBook: Bool {

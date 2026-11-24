@@ -346,13 +346,13 @@ final class LiveUpdatesCoordinator {
         // A book link is unopenable while the books feature is off, same as an unresolvable URL.
         switch destination {
         case .book, .findShelf(.bestsellers), .tab(.books):
-            if appModel?.booksEnabled == false {
+            if appModel?.session.booksEnabled == false {
                 return
             }
         default: break
         }
         // Before the user loads (a cold launch from a link) the server's 403 is the gate.
-        if destination.isAdminOnly, appModel?.userId != nil, appModel?.isAdmin != true {
+        if destination.isAdminOnly, appModel?.session.userId != nil, appModel?.isAdmin != true {
             return
         }
         // Activity lanes, Find shelves and tab roots are tab content, not pushed screens.

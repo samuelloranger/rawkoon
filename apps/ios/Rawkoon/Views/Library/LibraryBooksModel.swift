@@ -53,7 +53,7 @@ final class LibraryBooksModel {
     func loadBooks(model: AppModel) async {
         booksError = nil
         await model.loadLibrary()
-        booksError = model.errorMessage
+        booksError = model.session.errorMessage
     }
 
     func loadBookProgress(model: AppModel) async {
@@ -138,10 +138,10 @@ final class LibraryBooksModel {
     private func playAudiobook(_ book: BookListItem, model: AppModel) async {
         guard let editionId = book.audiobookEditionId else { return }
         await model.openPlayer(editionId: editionId)
-        if model.errorMessage == nil {
+        if model.session.errorMessage == nil {
             showingPlayer = true
         } else {
-            model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
+            model.toast(model.session.errorMessage ?? String(localized: "Could not start playback."), style: .error)
         }
     }
 

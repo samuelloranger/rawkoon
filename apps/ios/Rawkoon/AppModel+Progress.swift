@@ -50,7 +50,7 @@ extension AppModel {
         // Same deadline as the ebook path: a downloaded book must not wait on an
         // unreachable server before it plays.
         var remoteProgress: [RemoteProgress]?
-        if isOnline, let apiClient {
+        if isOnline, let apiClient = session.apiClient {
             remoteProgress = await withDeadline(seconds: 5) {
                 try? await apiClient.getProgress()
             }
@@ -195,7 +195,7 @@ extension AppModel {
         // URLSession's full 60-second timeout, and the reader sat on
         // "Opening book…" that whole time for a book already on disk. So it is
         // also given a short deadline, after which the local position wins.
-        if isOnline, let apiClient {
+        if isOnline, let apiClient = session.apiClient {
             remote = await withDeadline(seconds: 5) {
                 await (try? apiClient.readingProgress())?
                     .first { $0.editionId == editionId }
@@ -228,8 +228,8 @@ extension AppModel {
     /// position survive a crash or an offline session; the push is best-effort.
     func saveReadingPosition(_ position: ReadingPosition) {
         try? readingProgressStore.save(position)
-        guard let apiClient else { return }
-        Task { try? await apiClient.putReadingProgress(position, deviceId: deviceID) }
+        guard let apiClient = session.apiClient else { return }
+        Task { try? await apiClient.putReadingProgress(position, deviceId: session.deviceID) }
     }
 
     private func sendProgress(
@@ -238,7 +238,7 @@ extension AppModel {
         totalDurationSecs: Double,
         updatedAtMillis: Int64
     ) {
-        guard let apiClient else { return }
+        guard let apiClient = session.apiClient else { return }
         let finished = isListeningFinished(positionSecs: positionSecs, totalDurationSecs: totalDurationSecs)
         let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
 
@@ -249,7 +249,7 @@ extension AppModel {
                 totalDurationSecs: totalDurationSecs,
                 finished: finished,
                 updatedAt: updatedAt,
-                deviceId: deviceID
+                deviceId: session.deviceID
             )
         }
     }

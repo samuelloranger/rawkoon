@@ -42,7 +42,7 @@ struct FindSearchResults: View {
     }
 
     private var libraryBooks: [QuickSearchBook] {
-        model.booksEnabled ? libraryResults?.books ?? [] : []
+        model.session.booksEnabled ? libraryResults?.books ?? [] : []
     }
 
     private var hasLibraryHits: Bool {
@@ -62,7 +62,9 @@ struct FindSearchResults: View {
         searchContent
             .rawkoonMotion(RawkoonMotion.spring, value: loadingSearch)
             // Debounced; a new key cancels the pending search before it runs.
-            .task(id: SearchTrigger(query: trimmedQuery, offline: model.isOffline, booksEnabled: model.booksEnabled)) {
+            .task(id: SearchTrigger(
+                query: trimmedQuery, offline: model.isOffline, booksEnabled: model.session.booksEnabled
+            )) {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 await runSearch(query: trimmedQuery)
@@ -111,7 +113,7 @@ struct FindSearchResults: View {
             .transition(.rawkoonSwap)
         } else {
             VStack(alignment: .leading, spacing: 20) {
-                ForEach(FindResultGroup.visible(booksEnabled: model.booksEnabled), id: \.self) { group in
+                ForEach(FindResultGroup.visible(booksEnabled: model.session.booksEnabled), id: \.self) { group in
                     groupSection(group)
                 }
             }
@@ -347,7 +349,7 @@ struct FindSearchResults: View {
             return
         }
 
-        let withBooks = model.booksEnabled
+        let withBooks = model.session.booksEnabled
         async let library = Self.attempt { try await client.quickSearch(q: query) }
         async let titles = Self.attempt { try await client.tmdbSearch(q: query).items }
         async let books: Attempt<[BookSearchHit]> = withBooks
