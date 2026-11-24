@@ -62,7 +62,7 @@ extension BookView {
 
     func isChapterDownloaded(_ chapter: ManifestChapter) -> Bool {
         guard let editionId = audiobookEditionId else { return false }
-        if model.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
+        if model.downloads.downloadPlans[editionId]?.states[chapter.fileId] == .verified {
             return true
         }
         return FileStore.exists(editionId: editionId, fileId: chapter.fileId, ext: chapterExtension(chapter))

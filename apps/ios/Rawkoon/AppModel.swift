@@ -16,10 +16,6 @@ final class AppModel {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    var downloadPlans: [Int: DownloadPlan] = [:]
-    /// Books with any fully downloaded edition (audiobook or ebook), mirrored
-    /// from the on-disk index so the book list order can react to it.
-    private(set) var downloadedBookIds: Set<Int> = []
     /// Last known resume point per audiobook edition, so a button can read
     /// "Resume from …" before the player is opened. Filled by
     /// `loadResumePreview(editionId:totalDurationSecs:)`.
@@ -43,6 +39,9 @@ final class AppModel {
     /// The book library, its load dedup and the growth card; see `LibraryStore`.
     let libraryStore: LibraryStore
 
+    /// Audiobook downloads, manifests and the offline prefetch; see `DownloadsStore`.
+    let downloads: DownloadsStore
+
     // MARK: Live updates (spec §T2/T4)
 
     /// Owns the SSE consumers and the observable state they feed (change tokens,
@@ -56,16 +55,6 @@ final class AppModel {
 
     let player = AudiobookPlayer()
 
-    var manifests: [Int: BookManifest] = [:]
-    var downloaders: [Int: ChapterDownloader] = [:]
-    var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    var verifiedCounts: [Int: Int] = [:]
-    /// The server key in force when each edition's download started; the index entry is stamped with it.
-    var downloadServerKeys: [Int: String] = [:]
-    /// Live in-flight chapter fractions per edition, for the chapter pills and the overall bar.
-    var chapterFractions: [Int: [Int: Double]] = [:]
-    /// Smooth, never-decreasing overall fraction per edition while it downloads.
-    var downloadFractions: [Int: Double] = [:]
     var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
@@ -76,7 +65,6 @@ final class AppModel {
     private(set) var isOnline = true
     /// Cellular, a personal hotspot, or Low Data Mode: background prefetching waits.
     private(set) var isOnExpensiveNetwork = false
-    var prefetchTask: Task<Void, Never>?
     private let pathMonitor = NWPathMonitor()
 
     let readingProgressStore = ReadingProgressStore(
@@ -94,11 +82,13 @@ final class AppModel {
     init() {
         session = SessionStore(serverStateStore: serverStateStore)
         libraryStore = LibraryStore(session: session)
+        downloads = DownloadsStore(session: session, libraryStore: libraryStore, router: router)
         journalURL = Self.positionLogURL()
         liveUpdates.appModel = self
         liveSearch.appModel = self
         wireSession()
         wireLibrary()
+        wireDownloads()
 
         if
             let token = Keychain.get(SessionStore.authTokenKey),
@@ -126,14 +116,16 @@ final class AppModel {
 
         player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
         player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
-        player.refreshManifest = { [weak self] editionId in await self?.refreshedManifest(editionId: editionId) }
+        player.refreshManifest = { [weak self] editionId in
+            await self?.downloads.refreshedManifest(editionId: editionId)
+        }
         player.isNetworkAvailable = { [weak self] in self?.isOnline ?? true }
         startPathMonitor()
         observeProtectedData()
         restoreServerScope()
         compactJournal()
-        restoreDownloadedAudiobooks()
-        refreshDownloadedBookIds()
+        downloads.restoreDownloadedAudiobooks()
+        downloads.refreshDownloadedBookIds()
     }
 
     /// Hands the store the follow-ups that span other domains, so it holds no back-reference to the model.
@@ -152,11 +144,15 @@ final class AppModel {
     }
 
     private func wireLibrary() {
-        libraryStore.prefetchForOffline = { [weak self] in await self?.prefetchForOffline() }
+        libraryStore.prefetchForOffline = { [weak self] in await self?.downloads.prefetchForOffline() }
     }
 
-    func refreshDownloadedBookIds() {
-        downloadedBookIds = Set(DownloadedStore.readIndex().map(\.bookId))
+    /// Hands the store the network path and the playing edition, which stay with the model and player.
+    private func wireDownloads() {
+        downloads.isOnline = { [weak self] in self?.isOnline ?? true }
+        downloads.isOnExpensiveNetwork = { [weak self] in self?.isOnExpensiveNetwork ?? false }
+        downloads.activeEditionId = { [weak self] in self?.activeEditionId }
+        downloads.rebuildPlayer = { [weak self] in self?.player.rebuild() }
     }
 
     private func startPathMonitor() {
@@ -221,7 +217,7 @@ final class AppModel {
                 let raw = ProcessInfo.processInfo.environment["RAWKOON_DOWNLOAD_EDITION"],
                 let editionId = Int(raw)
             else { return }
-            await startDownload(editionId: editionId)
+            await downloads.startDownload(editionId: editionId)
         }
     #endif
 
@@ -261,15 +257,6 @@ final class AppModel {
         session.absoluteURL(raw)
     }
 
-    // MARK: Notification and download coordination state
-
-    /// Editions whose grants are being refetched, and how often — a server whose
-    /// secret rotated would otherwise refetch forever.
-    var grantRefreshAttempts: [Int: Int] = [:]
-    var startingDownloads: Set<Int> = []
-    var invalidatingSessions: Set<Int> = []
-    var grantRefreshInFlight: Set<Int> = []
-
     func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
             return String(localized: "Unexpected error. Please try again.")
@@ -299,8 +286,8 @@ final class AppModel {
         else { return }
         session.activate(server: server, baseURL: baseURL, token: token)
         restoreServerScope()
-        restoreDownloadedAudiobooks()
-        refreshDownloadedBookIds()
+        downloads.restoreDownloadedAudiobooks()
+        downloads.refreshDownloadedBookIds()
         hydrateFromCache()
     }
 

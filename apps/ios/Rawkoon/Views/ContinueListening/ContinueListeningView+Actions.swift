@@ -68,7 +68,8 @@ extension ContinueListeningView {
             isAdmin: model.isAdmin,
             isRead: book.isRead,
             hasProgress: true,
-            audiobookDownloaded: book.audiobookEditionId.map { model.downloadPlans[$0]?.isComplete == true } ?? false
+            audiobookDownloaded: book.audiobookEditionId
+                .map { model.downloads.downloadPlans[$0]?.isComplete == true } ?? false
         )
     }
 
@@ -128,7 +129,7 @@ extension ContinueListeningView {
             model.confirmBookAction(.removeDownload(book)) { await load() }
         case .download:
             if let editionId = book.audiobookEditionId {
-                Task { await model.startDownload(editionId: editionId) }
+                Task { await model.downloads.startDownload(editionId: editionId) }
             }
         case .markUnread:
             Task {

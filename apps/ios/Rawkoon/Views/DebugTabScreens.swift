@@ -91,7 +91,7 @@
                 audiobookDurationSecs: manifest.totalDurationSecs, audiobookStatus: "downloaded",
                 audiobookFileCount: manifest.files.count, hasEbook: false, readAt: nil
             )]
-            model.manifests[manifest.editionId] = manifest
+            model.downloads.manifests[manifest.editionId] = manifest
             model.activeEditionId = manifest.editionId
             model.player.load(manifest: manifest, baseURL: baseURL, resumeAt: 1800)
         }

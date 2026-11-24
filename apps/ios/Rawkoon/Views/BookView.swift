@@ -119,7 +119,8 @@ struct BookView: View {
             isAdmin: model.isAdmin,
             isRead: isRead,
             hasProgress: hasProgress,
-            audiobookDownloaded: audiobookEditionId.map { model.downloadPlans[$0]?.isComplete == true } ?? false
+            audiobookDownloaded: audiobookEditionId
+                .map { model.downloads.downloadPlans[$0]?.isComplete == true } ?? false
         )
         .filter { $0 != .read && $0 != .play }
     }
@@ -137,7 +138,7 @@ struct BookView: View {
             model.confirmBookAction(.resetProgress(book)) { await loadBookDetail() }
         case .download:
             if let editionId = audiobookEditionId {
-                Task { await model.startDownload(editionId: editionId) }
+                Task { await model.downloads.startDownload(editionId: editionId) }
             }
         case .removeDownload:
             model.confirmBookAction(.removeDownload(book)) { await loadBookDetail() }

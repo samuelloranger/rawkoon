@@ -86,7 +86,7 @@ struct SettingsAppView: View {
             isPresented: $confirmDeleteDownloads
         ) {
             Button("Delete Downloads", role: .destructive) {
-                model.deleteDownloads()
+                model.downloads.deleteDownloads()
             }
             Button("Cancel", role: .cancel) {}
         } message: {

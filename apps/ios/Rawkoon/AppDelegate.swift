@@ -55,7 +55,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                      completionHandler: @escaping () -> Void)
     {
         Task { @MainActor in
-            appModel.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
+            appModel.downloads.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
         }
     }
 }

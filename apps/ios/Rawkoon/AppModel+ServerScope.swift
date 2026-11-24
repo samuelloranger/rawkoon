@@ -26,8 +26,8 @@ extension AppModel {
         ActiveServerKey.shared.value = key
         Keychain.set(key, for: Self.serverScopeKey)
         adoptLegacyEntries(serverKey: key)
-        refreshDownloadedBookIds()
-        restoreDownloadedAudiobooks()
+        downloads.refreshDownloadedBookIds()
+        downloads.restoreDownloadedAudiobooks()
     }
 
     private func adoptLegacyEntries(serverKey key: String) {
@@ -42,6 +42,6 @@ extension AppModel {
     func clearServerScope() {
         ActiveServerKey.shared.value = nil
         Keychain.delete(Self.serverScopeKey)
-        refreshDownloadedBookIds()
+        downloads.refreshDownloadedBookIds()
     }
 }

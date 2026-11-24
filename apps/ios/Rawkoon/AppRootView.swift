@@ -138,7 +138,7 @@ struct AppRootView: View {
             case .active:
                 Self.configureCatalystTitlebar()
                 model.startLiveStreams()
-                model.resyncDownloads()
+                model.downloads.resyncDownloads()
                 Task { await model.refreshUnreadNotificationCount() }
                 Task { await model.refreshPendingRequestCount() }
                 Task { await model.session.refreshBooksEnabled() }

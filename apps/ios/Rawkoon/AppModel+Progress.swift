@@ -145,7 +145,7 @@ extension AppModel {
     }
 
     func persistPlaybackProgress(force: Bool) {
-        guard let editionId = activeEditionId, let manifest = manifests[editionId] else {
+        guard let editionId = activeEditionId, let manifest = downloads.manifests[editionId] else {
             return
         }
 

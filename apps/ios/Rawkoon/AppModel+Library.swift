@@ -36,7 +36,7 @@ extension AppModel {
                     totalDurationSecs: progress?.totalDurationSecs ?? summary.durationSecs,
                     updatedAtMillis: progress.map { Int64($0.updatedAt.timeIntervalSince1970 * 1000) }
                         ?? local?.atMillis,
-                    isDownloaded: downloadedBookIds.contains(book.bookId)
+                    isDownloaded: downloads.downloadedBookIds.contains(book.bookId)
                 )
             )
         }

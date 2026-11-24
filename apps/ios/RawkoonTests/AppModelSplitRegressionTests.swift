@@ -23,9 +23,9 @@ struct AppModelSplitRegressionTests {
         let model = AppModel()
         model.session.apiClient = nil
         let cached = manifest(editionId: 987_654_321, bookId: 21)
-        model.manifests[cached.editionId] = cached
+        model.downloads.manifests[cached.editionId] = cached
 
-        let result = try await model.manifest(cached.editionId)
+        let result = try await model.downloads.manifest(cached.editionId)
 
         #expect(result == cached)
     }
@@ -37,7 +37,7 @@ struct AppModelSplitRegressionTests {
         model.activeEditionId = cached.editionId
         #expect(model.activeBook() == nil)
 
-        model.manifests[cached.editionId] = cached
+        model.downloads.manifests[cached.editionId] = cached
         #expect(model.activeBook()?.summary.title == "Playing")
         #expect(model.activeBook()?.manifest == cached)
 
@@ -63,7 +63,7 @@ struct AppModelSplitRegressionTests {
         let model = AppModel()
         var finished = false
 
-        model.handleBackgroundEvents(identifier: "not-a-rawkoon-session") {
+        model.downloads.handleBackgroundEvents(identifier: "not-a-rawkoon-session") {
             finished = true
         }
 

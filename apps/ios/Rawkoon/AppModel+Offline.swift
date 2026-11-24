@@ -43,7 +43,7 @@ extension AppModel {
     /// Everything a reconnect should catch up on, after the path monitor reports
     /// a usable network again.
     func handleReconnect() {
-        for downloader in downloaders.values {
+        for downloader in downloads.downloaders.values {
             downloader.retryFailedChapters()
         }
         guard isLoggedIn else { return }

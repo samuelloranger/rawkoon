@@ -35,20 +35,10 @@ extension AppModel {
         session.dropAPIClient()
         // Images the server serves were fetched with this account's token; an
         // in-flight prefetch would write them back after the wipe.
-        prefetchTask?.cancel()
+        downloads.prefetchTask?.cancel()
         PosterCache.removeAll()
         session.clearIdentity()
         libraryStore.reset()
-        manifests = [:]
-        for (editionId, downloader) in downloaders {
-            invalidatingSessions.insert(editionId)
-            downloader.cancel { [weak self] in
-                Task { @MainActor in self?.invalidatingSessions.remove(editionId) }
-            }
-        }
-        downloaders = [:]
-        downloadPlans = [:]
-        verifiedCounts = [:]
-        downloadServerKeys = [:]
+        downloads.reset()
     }
 }

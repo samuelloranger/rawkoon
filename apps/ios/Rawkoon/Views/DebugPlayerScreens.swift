@@ -190,7 +190,7 @@
                 return
             }
 
-            guard let manifest = try? await model.manifest(summary.editionId) else {
+            guard let manifest = try? await model.downloads.manifest(summary.editionId) else {
                 failure = "Edition \(summary.editionId) has no manifest — it is not offline-ready"
                 return
             }

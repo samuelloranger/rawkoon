@@ -82,7 +82,7 @@ final class LibraryBooksModel {
     }
 
     func isDownloaded(_ book: BookListItem, model: AppModel) -> Bool {
-        model.downloadedBookIds.contains(book.bookId)
+        model.downloads.downloadedBookIds.contains(book.bookId)
     }
 
     // Each menu case is a distinct user action; splitting this exhaustive switch obscures it.
@@ -106,7 +106,7 @@ final class LibraryBooksModel {
             model.confirmBookAction(.removeDownload(book))
         case .download:
             if let editionId = book.audiobookEditionId {
-                Task { await model.startDownload(editionId: editionId) }
+                Task { await model.downloads.startDownload(editionId: editionId) }
             }
         case .markUnread:
             busyBookIds.insert(book.bookId)

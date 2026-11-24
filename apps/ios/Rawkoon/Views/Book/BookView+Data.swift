@@ -121,7 +121,7 @@ extension BookView {
 
     func seedManifestFromCache() {
         guard manifest == nil, let editionId = audiobookEditionId else { return }
-        let cached = model.cachedManifest(editionId)
+        let cached = model.downloads.cachedManifest(editionId)
             ?? DownloadedStore.readManifest(editionId: editionId)
         guard let cached, !cached.chapters.isEmpty else { return }
         manifest = cached
@@ -148,7 +148,7 @@ extension BookView {
         manifestError = nil
         defer { loadingManifest = false }
         do {
-            manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
+            manifest = try await model.downloads.manifest(editionId, forceRefresh: forceRefresh)
             attemptedAutomaticRecovery = false
         } catch let apiError as APIError {
             if manifest == nil {
@@ -177,7 +177,7 @@ extension BookView {
 
         do {
             _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
-            manifest = try await model.manifest(editionId, forceRefresh: true)
+            manifest = try await model.downloads.manifest(editionId, forceRefresh: true)
             manifestError = nil
             await model.libraryStore.loadLibrary()
             await loadBookDetail()
@@ -201,7 +201,7 @@ extension BookView {
             // Offline / server unreachable: fall back to the persisted file list
             // so a downloaded ebook can still be opened. Only when there is no
             // cached list do we surface an error.
-            if let cached = model.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
+            if let cached = model.downloads.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
                 ebookFiles = cached
                 ebookFilesError = nil
             } else {
@@ -285,7 +285,7 @@ extension BookView {
         do {
             _ = try await ensureLocalEbookFile(file)
             // Persist enough to list and open this ebook offline.
-            model.recordEbookDownloaded(
+            model.downloads.recordEbookDownloaded(
                 editionId: ebookStorageEditionId,
                 bookId: book.bookId,
                 title: titleText,
@@ -309,7 +309,7 @@ extension BookView {
     func removeEbookDownload(_ file: BookEditionFile) {
         FileStore.delete(url: localEbookURL(for: file))
         if !ebookFiles.contains(where: isEbookDownloaded) {
-            model.forgetDownloadedEdition(editionId: ebookStorageEditionId)
+            model.downloads.forgetDownloadedEdition(editionId: ebookStorageEditionId)
         }
     }
 
