@@ -19,12 +19,12 @@ struct ResumeRawkoonAudiobookIntent: AudioPlaybackIntent {
         // A cold launch has no library yet, so nothing would look in progress.
         // Bounded like the ebook path: an unreachable server must not hold Siri.
         _ = await withDeadline(seconds: 5) {
-            await model.ensureLibraryLoaded()
+            await model.libraryStore.ensureLibraryLoaded()
             return true
         }
         let entries = await model.carPlayAudiobooks()
         guard let editionId = AudiobookResume.editionId(
-            activeEditionId: model.activeEditionId,
+            activeEditionId: model.progress.activeEditionId,
             entries: entries
         ) else {
             return .result(dialog: "You don't have an audiobook in progress.")

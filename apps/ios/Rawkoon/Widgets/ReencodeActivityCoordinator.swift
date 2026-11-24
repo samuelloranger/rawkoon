@@ -52,7 +52,7 @@ import Foundation
             activityTask = nil
             tokenTasks = [:]
             if let client = model.api(), model.isAdmin {
-                let installationId = model.deviceID
+                let installationId = model.session.deviceID
                 Task { try? await client.unregisterReencodePushToStart(installationId: installationId) }
             }
         }
@@ -60,7 +60,7 @@ import Foundation
         private func registerStartToken(_ token: Data, model: AppModel) async {
             guard model.isLoggedIn, model.isAdmin, let client = model.api() else { return }
             try? await client.registerReencodePushToStart(
-                installationId: model.deviceID,
+                installationId: model.session.deviceID,
                 token: token.map { String(format: "%02x", $0) }.joined()
             )
         }
@@ -89,7 +89,7 @@ import Foundation
             guard model.isLoggedIn, model.isAdmin, let client = model.api() else { return }
             do {
                 try await client.registerReencodeActivityToken(
-                    installationId: model.deviceID,
+                    installationId: model.session.deviceID,
                     jobId: activity.attributes.jobId,
                     token: token.map { String(format: "%02x", $0) }.joined()
                 )

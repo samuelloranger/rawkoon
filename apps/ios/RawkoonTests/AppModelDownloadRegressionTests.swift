@@ -12,13 +12,13 @@ struct AppModelDownloadRegressionTests {
             sizeBytes: 100, sha256: nil, url: "https://rawkoon.example/chapter"
         )
         let snapshot = DownloadEngine(files: [file]).snapshot
-        model.verifiedCounts[editionId] = 0
+        model.downloads.verifiedCounts[editionId] = 0
 
-        model.applyDownloadSnapshot(snapshot, editionId: editionId)
+        model.downloads.applyDownloadSnapshot(snapshot, editionId: editionId)
 
-        #expect(model.downloadPlans[editionId] == nil)
-        #expect(model.chapterFractions[editionId] == nil)
-        #expect(model.downloadFractions[editionId] == nil)
-        #expect(model.verifiedCounts[editionId] == 0)
+        #expect(model.downloads.downloadPlans[editionId] == nil)
+        #expect(model.downloads.chapterFractions[editionId] == nil)
+        #expect(model.downloads.downloadFractions[editionId] == nil)
+        #expect(model.downloads.verifiedCounts[editionId] == 0)
     }
 }

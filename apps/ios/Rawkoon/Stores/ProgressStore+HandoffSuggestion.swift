@@ -19,7 +19,7 @@ struct HandoffSuggestionBanner: Equatable, Identifiable {
     let snippet: String?
 }
 
-extension AppModel {
+extension ProgressStore {
     /// The reader just opened for a book with an audiobook: when the audiobook is
     /// the more recent one, matches its position into the ebook. `stored` is the
     /// reading position the reader opened from, read before the reader's own
@@ -30,8 +30,8 @@ extension AppModel {
         openedSpinePath: String?,
         openedProgression: Double?
     ) async -> HandoffSuggestionBanner? {
-        guard isOnline, let client = api(),
-              let audiobookEditionId = library.first(where: { $0.bookId == bookId })?.audiobookEditionId,
+        guard isOnline(), let client = session.apiClient,
+              let audiobookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.audiobookEditionId,
               let listen = await listeningPoint(editionId: audiobookEditionId),
               HandoffSuggestion.shouldCheckEbook(
                   listenAtMillis: listen.atMillis,
@@ -72,8 +72,8 @@ extension AppModel {
     /// The player just opened for a book with an ebook: when the ebook is the more
     /// recent one, matches its position into the audiobook.
     func suggestAudiobookSpot(bookId: Int, audiobookEditionId: Int) async -> HandoffSuggestionBanner? {
-        guard isOnline, let client = api(),
-              let ebookEditionId = library.first(where: { $0.bookId == bookId })?.ebookEditionId,
+        guard isOnline(), let client = session.apiClient,
+              let ebookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.ebookEditionId,
               let read = await readingPosition(editionId: ebookEditionId),
               !read.finished,
               !Task.isCancelled
@@ -134,7 +134,7 @@ extension AppModel {
     /// device's journal and the server's row.
     private func listeningPoint(editionId: Int) async -> (positionSecs: Double, atMillis: Int64)? {
         var best = await journalEntries()[editionId].map { (positionSecs: $0.positionSecs, atMillis: $0.atMillis) }
-        if let apiClient,
+        if let apiClient = session.apiClient,
            let remote = await withDeadline(seconds: 5, { try? await apiClient.getProgress() })?
            .first(where: { $0.editionId == editionId })
         {

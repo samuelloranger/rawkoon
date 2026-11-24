@@ -71,7 +71,7 @@ extension AppModel {
                 choice: choice
             )
             added = item
-            await loadLibrary()
+            await libraryStore.loadLibrary()
             if mode.opensReleaseSheet {
                 liveSearch.openReleaseSheet(mediaId: item.id)
             }

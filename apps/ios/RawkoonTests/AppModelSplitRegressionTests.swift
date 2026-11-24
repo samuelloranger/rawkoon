@@ -7,25 +7,25 @@ import Testing
 struct AppModelSplitRegressionTests {
     @Test func failedLibraryRefreshKeepsVisibleBooks() async throws {
         let model = AppModel()
-        model.apiClient = try APIClient(baseURL: #require(URL(string: "http://127.0.0.1:1")), token: "test")
-        model.library = [book(id: 21, title: "Already visible")]
-        model.libraryFetchedAt = nil
-        model.isOfflineLibrary = false
+        model.session.apiClient = try APIClient(baseURL: #require(URL(string: "http://127.0.0.1:1")), token: "test")
+        model.libraryStore.library = [book(id: 21, title: "Already visible")]
+        model.libraryStore.libraryFetchedAt = nil
+        model.libraryStore.isOfflineLibrary = false
 
-        try await model.reloadLibrary()
+        try await model.libraryStore.reloadLibrary()
 
-        #expect(model.library.map(\.bookId) == [21])
-        #expect(model.libraryFetchedAt == nil)
-        #expect(model.isOfflineLibrary == false)
+        #expect(model.libraryStore.library.map(\.bookId) == [21])
+        #expect(model.libraryStore.libraryFetchedAt == nil)
+        #expect(model.libraryStore.isOfflineLibrary == false)
     }
 
     @Test func cachedManifestIsReturnedWithoutAnAPIClient() async throws {
         let model = AppModel()
-        model.apiClient = nil
+        model.session.apiClient = nil
         let cached = manifest(editionId: 987_654_321, bookId: 21)
-        model.manifests[cached.editionId] = cached
+        model.downloads.manifests[cached.editionId] = cached
 
-        let result = try await model.manifest(cached.editionId)
+        let result = try await model.downloads.manifest(cached.editionId)
 
         #expect(result == cached)
     }
@@ -33,22 +33,22 @@ struct AppModelSplitRegressionTests {
     @Test func activeBookRequiresBothTheLibraryRowAndManifest() {
         let model = AppModel()
         let cached = manifest(editionId: 987_654_322, bookId: 22)
-        model.library = [book(id: 22, title: "Playing", editionId: cached.editionId)]
-        model.activeEditionId = cached.editionId
+        model.libraryStore.library = [book(id: 22, title: "Playing", editionId: cached.editionId)]
+        model.progress.activeEditionId = cached.editionId
         #expect(model.activeBook() == nil)
 
-        model.manifests[cached.editionId] = cached
+        model.downloads.manifests[cached.editionId] = cached
         #expect(model.activeBook()?.summary.title == "Playing")
         #expect(model.activeBook()?.manifest == cached)
 
-        model.library = []
+        model.libraryStore.library = []
         #expect(model.activeBook() == nil)
     }
 
     @Test func carPlayBrowseIncludesOnlyAudiobookEditions() async {
         let model = AppModel()
-        model.apiClient = nil
-        model.library = [
+        model.session.apiClient = nil
+        model.libraryStore.library = [
             book(id: 31, title: "Ebook only"),
             book(id: 32, title: "Audiobook", editionId: 987_654_323),
         ]
@@ -63,7 +63,7 @@ struct AppModelSplitRegressionTests {
         let model = AppModel()
         var finished = false
 
-        model.handleBackgroundEvents(identifier: "not-a-rawkoon-session") {
+        model.downloads.handleBackgroundEvents(identifier: "not-a-rawkoon-session") {
             finished = true
         }
 
@@ -72,7 +72,7 @@ struct AppModelSplitRegressionTests {
 
     @Test func artworkURLResolvesRelativePathsAgainstTheServer() {
         let model = AppModel()
-        model.serverURL = "https://rawkoon.example/base/"
+        model.session.serverURL = "https://rawkoon.example/base/"
 
         #expect(model.absoluteURL("/posters/21.jpg")?.absoluteString == "https://rawkoon.example/posters/21.jpg")
         #expect(model.absoluteURL("https://images.example/cover.jpg")?.absoluteString == "https://images.example/cover.jpg")

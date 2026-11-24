@@ -97,9 +97,9 @@ struct HomeView: View {
         .defaultScrollAnchor(debugScrollAnchor)
         .reportsTabBarScroll()
         .background(Theme.base)
-        .onChange(of: model.pendingMediaLink, initial: true) { _, link in
+        .onChange(of: model.router.pendingMediaLink, initial: true) { _, link in
             guard let link else { return }
-            model.pendingMediaLink = nil
+            model.router.pendingMediaLink = nil
             attentionTarget = AttentionRoute(id: link.libraryId, tmdbId: link.tmdbId, mediaType: link.mediaType,
                                              title: link.title, posterUrl: nil)
         }
@@ -212,7 +212,7 @@ struct HomeView: View {
     /// a placeholder.
     private func greetingLine(_ period: HomeGreeting.Period) -> Text {
         let greeting = Text(greetingKey(period))
-        guard let name = model.userFirstName, !name.isEmpty else { return greeting }
+        guard let name = model.session.userFirstName, !name.isEmpty else { return greeting }
         return greeting + Text(verbatim: ", ") + Text(verbatim: name)
     }
 
@@ -310,14 +310,14 @@ struct HomeView: View {
         }
         // Books refresh on their own; the rails below don't read them, so they
         // no longer wait on every page of the library.
-        if model.needsLibraryRefresh {
-            Task { await model.loadLibrary() }
+        if model.libraryStore.needsLibraryRefresh {
+            Task { await model.libraryStore.loadLibrary() }
         }
         async let recentR = client.recentlyAdded()
         async let upcomingR = client.upcoming()
         async let heroR = client.dashboardHero()
         async let npR = client.nowPlaying()
-        async let growthR: Void = model.refreshLibraryGrowth(force: true)
+        async let growthR: Void = model.libraryStore.refreshLibraryGrowth(force: true)
 
         // A failed refetch (a transient error on pull-to-refresh) must not blank
         // content already on screen: replace each section only when its request

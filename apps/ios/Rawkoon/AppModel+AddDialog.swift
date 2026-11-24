@@ -94,10 +94,10 @@ extension AppModel {
     /// with server defaults, as before) and throws `CancellationError` when the user backs out.
     func chooseAdd(_ subject: AddSubject, compact: Bool = false) async throws -> AddChoice? {
         guard let client = api() else { throw URLError(.notConnectedToInternet) }
-        guard askBeforeAdding else { return nil }
+        guard session.askBeforeAdding else { return nil }
         let kind = subject.kind
         // Cheap exits before any fetch: a requester only ever sees the sheet for a show.
-        if !isAdmin, !(kind == .show && requestersChooseSeasons) {
+        if !isAdmin, !(kind == .show && session.requestersChooseSeasons) {
             return nil
         }
 
@@ -114,8 +114,8 @@ extension AppModel {
             }
         }
         guard AddDialogPolicy.needsDialog(
-            kind, isAdmin: isAdmin, askBeforeAdding: askBeforeAdding,
-            requestersChooseSeasons: requestersChooseSeasons, movieProfileCount: profiles.count
+            kind, isAdmin: isAdmin, askBeforeAdding: session.askBeforeAdding,
+            requestersChooseSeasons: session.requestersChooseSeasons, movieProfileCount: profiles.count
         ) else { return nil }
 
         let seasons = kind == .show ? await Self.loadSeasons(client, tmdbId: subject.tmdbId) : []
@@ -124,15 +124,15 @@ extension AppModel {
             return nil
         }
 
-        addRequest?.finish(nil)
+        router.addRequest?.finish(nil)
         let admin = isAdmin
         let answer = await withCheckedContinuation { (continuation: CheckedContinuation<AddChoice?, Never>) in
-            addRequest = AddSheetRequest(
+            router.addRequest = AddSheetRequest(
                 subject: subject, isAdmin: admin, compact: compact, profiles: profiles,
                 seasons: seasons, defaults: defaults, continuation: continuation
             )
         }
-        addRequest = nil
+        router.addRequest = nil
         guard let answer else { throw CancellationError() }
         return answer
     }

@@ -57,7 +57,7 @@ struct ProfileView: View {
             let user = try await client.currentUser().user
             apply(user)
             if let user {
-                model.applyUser(user)
+                model.session.applyUser(user)
             }
         } catch {
             if !hasProfile {

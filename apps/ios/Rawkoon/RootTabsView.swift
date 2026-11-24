@@ -103,7 +103,7 @@ struct RootTabsView: View {
     /// The selection as shown: a tab absent at this width or role falls back instead of staying selected.
     private var shownTab: RootTab {
         RootTab.validated(
-            selection.rawValue, compact: compact, isAdmin: model.isAdmin, booksEnabled: model.booksEnabled
+            selection.rawValue, compact: compact, isAdmin: model.isAdmin, booksEnabled: model.session.booksEnabled
         )
     }
 
@@ -131,14 +131,14 @@ struct RootTabsView: View {
                     .offlineStrip(isOffline: model.isOffline)
             }
         }
-        .onChange(of: model.requestedRootTab) { _, tab in
+        .onChange(of: model.router.requestedRootTab) { _, tab in
             guard let tab else { return }
-            model.requestedRootTab = nil
+            model.router.requestedRootTab = nil
             selection = tab
             // Find consumes the focus request on mount; drop it if nothing did.
             Task {
                 try? await Task.sleep(for: .seconds(2))
-                model.exploreSearchFocusRequest = false
+                model.router.exploreSearchFocusRequest = false
             }
         }
         .task(id: [model.isAdmin ? 1 : 0, model.notificationChangeToken, model.reconnectToken]) {
@@ -150,7 +150,7 @@ struct RootTabsView: View {
         .onOpenURL { url in
             if url.host == "media", let link = MediaLink(url: url) {
                 selection = .home
-                model.pendingMediaLink = link
+                model.router.pendingMediaLink = link
             } else if let path = NotificationRoute.webPath(fromAppURL: url) {
                 model.navigate(toNotificationUrl: path)
             }
@@ -173,16 +173,16 @@ struct RootTabsView: View {
             }
         }
         .alert(
-            model.pendingConfirm?.title ?? "",
+            model.router.pendingConfirm?.title ?? "",
             isPresented: Binding(
-                get: { model.pendingConfirm != nil },
+                get: { model.router.pendingConfirm != nil },
                 set: {
                     if !$0 {
-                        model.pendingConfirm = nil
+                        model.router.pendingConfirm = nil
                     }
                 }
             ),
-            presenting: model.pendingConfirm
+            presenting: model.router.pendingConfirm
         ) { request in
             Button(request.confirmTitle, role: request.isDestructive ? .destructive : nil) {
                 request.action()
@@ -204,15 +204,15 @@ struct RootTabsView: View {
                     .environment(model)
             }
         }
-        .onChange(of: model.playerPresentationRequest) { _, _ in
+        .onChange(of: model.router.playerPresentationRequest) { _, _ in
             if model.activeBook() != nil {
                 showFullPlayer = true
             }
         }
-        .task { await model.refreshBooksEnabled() }
+        .task { await model.session.refreshBooksEnabled() }
         .task {
-            if model.needsLibraryRefresh {
-                await model.loadLibrary()
+            if model.libraryStore.needsLibraryRefresh {
+                await model.libraryStore.loadLibrary()
             }
         }
     }
@@ -229,7 +229,7 @@ struct RootTabsView: View {
             TabSection("Library") {
                 Tab("Movies & Shows", systemImage: "film.stack", value: RootTab.library) { sidebarRoot(.library) }
                     .customizationID("tab.library")
-                if model.booksEnabled {
+                if model.session.booksEnabled {
                     Tab("Books", systemImage: "books.vertical", value: RootTab.books) { sidebarRoot(.books) }
                         .customizationID("tab.books")
                 }

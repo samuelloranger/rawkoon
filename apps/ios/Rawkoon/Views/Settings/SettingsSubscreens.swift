@@ -86,7 +86,7 @@ struct SettingsAppView: View {
             isPresented: $confirmDeleteDownloads
         ) {
             Button("Delete Downloads", role: .destructive) {
-                model.deleteDownloads()
+                model.downloads.deleteDownloads()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -115,7 +115,7 @@ struct SettingsAppView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Theme.faint)
             }
-            if let synced = model.libraryFetchedAt {
+            if let synced = model.libraryStore.libraryFetchedAt {
                 LabeledContent("Last synced") {
                     Text(synced, style: .relative)
                         .font(.caption)
@@ -154,8 +154,10 @@ struct SettingsAccountView: View {
         Form {
             Section {
                 VStack(spacing: 6) {
-                    SettingsAvatar(initials: model.userInitials, imageURL: model.userAvatarURL, size: 76)
-                        .padding(.bottom, 6)
+                    SettingsAvatar(
+                        initials: model.session.userInitials, imageURL: model.session.userAvatarURL, size: 76
+                    )
+                    .padding(.bottom, 6)
                     if let name, !name.isEmpty {
                         Text(verbatim: name)
                             .font(.title3.weight(.semibold))
@@ -184,7 +186,7 @@ struct SettingsAccountView: View {
 
             Section("Server") {
                 LabeledContent("Server URL") {
-                    Text(verbatim: model.serverURL)
+                    Text(verbatim: model.session.serverURL)
                         .foregroundStyle(Theme.muted)
                         .textSelection(.enabled)
                         .lineLimit(1)

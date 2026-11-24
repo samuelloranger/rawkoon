@@ -13,12 +13,12 @@
         var body: some View {
             content()
                 .task {
-                    if model.library.isEmpty {
-                        await model.loadLibrary()
+                    if model.libraryStore.library.isEmpty {
+                        await model.libraryStore.loadLibrary()
                     }
                     guard
-                        model.activeEditionId == nil,
-                        let editionId = model.library.first(where: { $0.hasAudiobook })?.audiobookEditionId
+                        model.progress.activeEditionId == nil,
+                        let editionId = model.libraryStore.library.first(where: { $0.hasAudiobook })?.audiobookEditionId
                     else { return }
                     await model.openPlayer(editionId: editionId)
                 }
@@ -174,15 +174,15 @@
             let env = ProcessInfo.processInfo.environment
             let resumeAt = Double(env["RAWKOON_RESUME"] ?? "") ?? 15120
 
-            if model.library.isEmpty {
-                await model.loadLibrary()
+            if model.libraryStore.library.isEmpty {
+                await model.libraryStore.loadLibrary()
             }
 
             let requested = Int(env["RAWKOON_EDITION"] ?? "")
             let book: BookListItem? = if let requested {
-                model.library.first { $0.audiobookEditionId == requested }
+                model.libraryStore.library.first { $0.audiobookEditionId == requested }
             } else {
-                model.library.first { $0.hasAudiobook }
+                model.libraryStore.library.first { $0.hasAudiobook }
             }
 
             guard let book, let summary = book.audiobookSummary else {
@@ -190,12 +190,12 @@
                 return
             }
 
-            guard let manifest = try? await model.manifest(summary.editionId) else {
+            guard let manifest = try? await model.downloads.manifest(summary.editionId) else {
                 failure = "Edition \(summary.editionId) has no manifest — it is not offline-ready"
                 return
             }
 
-            guard let baseURL = URL(string: model.serverURL) else {
+            guard let baseURL = URL(string: model.session.serverURL) else {
                 failure = "Server URL is not usable"
                 return
             }

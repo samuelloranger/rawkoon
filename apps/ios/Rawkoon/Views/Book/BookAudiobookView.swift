@@ -149,11 +149,11 @@ struct BookAudiobookView: View {
                 // "Play" has to mean from the start — but only once the
                 // preview has loaded. Before that the label is a placeholder,
                 // so the player resolves the position itself.
-                let previewed = model.resumePreview[editionId] != nil
+                let previewed = model.progress.resumePreview[editionId] != nil
                 let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
                 await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
                 audioState.loadingPlayer = false
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     audioState.audiobookActionError = error
                 } else {
                     showingPlayer = true
@@ -180,7 +180,7 @@ struct BookAudiobookView: View {
     var audiobookDownloadState: AudiobookDownloadState {
         let state = computeAudiobookDownloadState()
         if let editionId = audiobookEditionId {
-            let plan = model.downloadPlans[editionId]
+            let plan = model.downloads.downloadPlans[editionId]
             let verified = plan.map { p in p.files.filter { p.states[$0.id] == .verified }.count } ?? -1
             stateProbe.note(editionId: editionId, summary: "kind=\(state.kind) verified=\(verified) complete=\(plan?.isComplete == true) tick=\(downloadRefreshTick)")
         }
@@ -189,14 +189,15 @@ struct BookAudiobookView: View {
 
     private func computeAudiobookDownloadState() -> AudiobookDownloadState {
         _ = downloadRefreshTick
-        let plan = audiobookEditionId.flatMap { model.downloadPlans[$0] }
+        let plan = audiobookEditionId.flatMap { model.downloads.downloadPlans[$0] }
         // The downloader exists a moment before its first snapshot: stay on the spinner.
-        let hasDownloader = audiobookEditionId.map { model.downloaders[$0] != nil } == true
+        let hasDownloader = audiobookEditionId.map { model.downloads.downloaders[$0] != nil } == true
         if plan == nil, audioState.preparingAudiobookDownload || hasDownloader {
             return .preparing
         }
         if let plan, !plan.isComplete {
-            let overall = audiobookEditionId.flatMap { model.downloadFractions[$0] } ?? plan.progressFraction()
+            let overall = audiobookEditionId.flatMap { model.downloads.downloadFractions[$0] }
+                ?? plan.progressFraction()
             let done = plan.files.filter { plan.states[$0.id] == .verified }.count
             return plan.hasGivenUp
                 ? .failed(done: done, total: plan.files.count)
@@ -244,9 +245,9 @@ struct BookAudiobookView: View {
             Task {
                 audioState.audiobookActionError = nil
                 audioState.preparingAudiobookDownload = true
-                await model.startDownload(editionId: editionId)
+                await model.downloads.startDownload(editionId: editionId)
                 audioState.preparingAudiobookDownload = false
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     audioState.audiobookActionError = error
                 }
             }
@@ -255,14 +256,14 @@ struct BookAudiobookView: View {
         case .downloading:
             audioState.audiobookActionError = nil
             audioState.preparingAudiobookDownload = false
-            model.cancelDownload(editionId: editionId)
+            model.downloads.cancelDownload(editionId: editionId)
         case .downloaded:
-            model.pendingConfirm = ConfirmRequest(
+            model.router.pendingConfirm = ConfirmRequest(
                 title: String(localized: "Remove downloaded audiobook?"),
                 message: String(localized: "Deletes the offline chapters from this iPhone. Playback will need the network until you download them again."),
                 confirmTitle: String(localized: "Remove Download")
             ) { [model] in
-                model.removeDownload(editionId: editionId)
+                model.downloads.removeDownload(editionId: editionId)
             }
         }
     }
@@ -310,7 +311,7 @@ struct BookAudiobookView: View {
                                         resumeAt: page.resumePosition(in: chapter) ?? chapter.startSecs
                                     )
                                     audioState.loadingPlayer = false
-                                    if model.errorMessage == nil {
+                                    if model.session.errorMessage == nil {
                                         showingPlayer = true
                                     }
                                 }
@@ -321,7 +322,7 @@ struct BookAudiobookView: View {
                                     downloaded: page.isChapterDownloaded(chapter),
                                     current: page.isCurrentChapter(chapter),
                                     downloadFraction: audiobookEditionId.flatMap {
-                                        model.chapterFractions[$0]?[chapter.fileId]
+                                        model.downloads.chapterFractions[$0]?[chapter.fileId]
                                     },
                                     resumeText: page.resumePosition(in: chapter).map {
                                         String(localized: "Resume from \(Formatters.durationTimestamp($0))")

@@ -120,7 +120,7 @@ private struct OidcProviderEditorView: View {
     }
 
     private var redirectURI: String {
-        "\(model.serverURL)/api/auth/oauth2/callback/\(slug)"
+        "\(model.session.serverURL)/api/auth/oauth2/callback/\(slug)"
     }
 
     var body: some View {

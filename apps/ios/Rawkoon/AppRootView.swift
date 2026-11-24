@@ -33,22 +33,22 @@ struct AppRootView: View {
         .preferredColorScheme(.dark)
         .environment(\.locale, AppLanguage.locale(for: AppLanguage(rawValue: appLanguage) ?? .system))
         .overlay {
-            ToastOverlay(toast: model.currentToast, bottomInset: toastBottomInset)
+            ToastOverlay(toast: model.router.currentToast, bottomInset: toastBottomInset)
         }
         .alert(
             "Login not saved",
             isPresented: Binding(
-                get: { model.authWarning != nil },
+                get: { model.session.authWarning != nil },
                 set: {
                     if !$0 {
-                        model.authWarning = nil
+                        model.session.authWarning = nil
                     }
                 }
             )
         ) {
-            Button("OK", role: .cancel) { model.authWarning = nil }
+            Button("OK", role: .cancel) { model.session.authWarning = nil }
         } message: {
-            if let warning = model.authWarning {
+            if let warning = model.session.authWarning {
                 Text(warning)
             }
         }
@@ -69,21 +69,21 @@ struct AppRootView: View {
         // from the app root so a banner tap works no matter which tab is
         // active; the list itself also navigates here for the same reason.
         .sheet(item: Binding(
-            get: { model.deepLinkTarget },
-            set: { model.deepLinkTarget = $0 }
+            get: { model.router.deepLinkTarget },
+            set: { model.router.deepLinkTarget = $0 }
         )) { destination in
             NavigationStack {
                 NotificationDestinationView(destination: destination)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { model.deepLinkTarget = nil }
+                            Button("Done") { model.router.deepLinkTarget = nil }
                         }
                     }
             }
             // The root cannot present over this sheet, so it hosts the add sheet while it is open.
             .addSheetHost()
         }
-        .addSheetHost(enabled: model.deepLinkTarget == nil)
+        .addSheetHost(enabled: model.router.deepLinkTarget == nil)
         .task {
             #if DEBUG
                 await model.debugAutologinIfNeeded()
@@ -107,7 +107,7 @@ struct AppRootView: View {
         // titles in the new locale.
         .onChange(of: appLanguage) {
             guard model.isLoggedIn else { return }
-            Task { await model.loadLibrary() }
+            Task { await model.libraryStore.loadLibrary() }
         }
         // Login lingers over the new tabs for its success moment, then the root fades it away.
         // `initial` covers a root first rendered after the session already opened, which would strand Login.
@@ -138,12 +138,12 @@ struct AppRootView: View {
             case .active:
                 Self.configureCatalystTitlebar()
                 model.startLiveStreams()
-                model.resyncDownloads()
+                model.downloads.resyncDownloads()
                 Task { await model.refreshUnreadNotificationCount() }
                 Task { await model.refreshPendingRequestCount() }
-                Task { await model.refreshBooksEnabled() }
+                Task { await model.session.refreshBooksEnabled() }
             case .background:
-                model.persistPlaybackProgress(force: true)
+                model.progress.persistPlaybackProgress(force: true)
                 model.stopLiveStreams()
                 model.scheduleBackgroundRefresh()
             case .inactive:
@@ -168,7 +168,7 @@ struct AppRootView: View {
                     .transition(.opacity)
             }
             if showsLogin {
-                LoginView(hasSavedServer: !model.serverURL.isEmpty)
+                LoginView(hasSavedServer: !model.session.serverURL.isEmpty)
                     .transition(.opacity)
                     // Keeps the leaving Login above the tabs for its whole fade.
                     .zIndex(1)

@@ -87,7 +87,7 @@ struct InviteUserSheet: View {
                 CreateInvitationBody(email: email.trimmingCharacters(in: .whitespaces), locale: locale, isAdmin: makeAdmin)
             )
             if let token = response.token {
-                link = UsersAdminStore.inviteLink(server: model.serverURL, token: token)
+                link = UsersAdminStore.inviteLink(server: model.session.serverURL, token: token)
             }
             await store.loadInvitations(model)
         } catch {

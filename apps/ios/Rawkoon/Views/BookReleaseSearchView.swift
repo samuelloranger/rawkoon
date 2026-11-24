@@ -204,7 +204,7 @@ struct BookReleaseSearchView: View {
             ))
             grabbed.insert(release.guid)
             grabError = nil
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
         } catch {
             grabError = String(localized: "Grab refused (already downloading?).")
         }

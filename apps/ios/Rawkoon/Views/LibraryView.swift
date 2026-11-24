@@ -34,7 +34,7 @@ struct LibraryView: View {
                 .padding(.vertical, 8)
             }
 
-            if model.isOfflineLibrary {
+            if model.libraryStore.isOfflineLibrary {
                 offlineBanner
                     .transition(.rawkoonReveal)
             }
@@ -46,7 +46,7 @@ struct LibraryView: View {
             }
         }
         .rawkoonMotion(RawkoonMotion.snappy, value: section)
-        .rawkoonMotion(RawkoonMotion.spring, value: model.isOfflineLibrary)
+        .rawkoonMotion(RawkoonMotion.spring, value: model.libraryStore.isOfflineLibrary)
         .background(Theme.base)
         .navigationTitle(navigationTitleKey)
         .navigationBarTitleDisplayMode(.inline)
@@ -62,7 +62,7 @@ struct LibraryView: View {
             }
         }
         .task {
-            if model.needsLibraryRefresh {
+            if model.libraryStore.needsLibraryRefresh {
                 await booksState.loadBooks(model: model)
             }
             await booksState.loadBookProgress(model: model)

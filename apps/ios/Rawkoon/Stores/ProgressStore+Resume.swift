@@ -22,7 +22,7 @@ func withDeadline<T: Sendable>(
     }
 }
 
-extension AppModel {
+extension ProgressStore {
     /// The write a reconciled resume point implies, held rather than performed so
     /// the decision can also be read without side effects.
     private enum ResumeEffect {
@@ -50,7 +50,7 @@ extension AppModel {
         // Same deadline as the ebook path: a downloaded book must not wait on an
         // unreachable server before it plays.
         var remoteProgress: [RemoteProgress]?
-        if isOnline, let apiClient {
+        if isOnline(), let apiClient = session.apiClient {
             remoteProgress = await withDeadline(seconds: 5) {
                 try? await apiClient.getProgress()
             }
@@ -102,7 +102,7 @@ extension AppModel {
     /// True when the book was marked read at or after the journal entry, so a server with
     /// no progress row means "read", not "never listened".
     func markedReadSince(editionId: Int, journalAtMillis: Int64) -> Bool {
-        guard let readAt = library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
+        guard let readAt = libraryStore.library.first(where: { $0.audiobookEditionId == editionId })?.readAt,
               let readDate = APIClient.iso8601WithFractionalSeconds.date(from: readAt)
               ?? ISO8601DateFormatter().date(from: readAt)
         else { return false }
@@ -144,38 +144,6 @@ extension AppModel {
         resumePreview[editionId] = positionSecs
     }
 
-    func persistPlaybackProgress(force: Bool) {
-        guard let editionId = activeEditionId, let manifest = manifests[editionId] else {
-            return
-        }
-
-        let nowMillis = Self.nowMillis()
-        if !force {
-            let elapsed = nowMillis - (lastProgressWriteMillis[editionId] ?? 0)
-            if elapsed < 5000 {
-                return
-            }
-            if let last = lastProgressPosition[editionId], abs(last - player.positionSecs) < 1 {
-                return
-            }
-        }
-
-        let timeline = BookTimeline(chapters: manifest.chapters)
-        let clamped = timeline.clamp(player.positionSecs)
-        let entry = PositionEntry(editionId: editionId, positionSecs: clamped, atMillis: nowMillis)
-        appendJournal(entry)
-
-        lastProgressWriteMillis[editionId] = nowMillis
-        lastProgressPosition[editionId] = clamped
-
-        sendProgress(
-            editionId: editionId,
-            positionSecs: clamped,
-            totalDurationSecs: manifest.totalDurationSecs,
-            updatedAtMillis: nowMillis
-        )
-    }
-
     // MARK: Reading progress (ebooks)
 
     /// Where to open an ebook edition, reconciled across this device and the
@@ -195,7 +163,7 @@ extension AppModel {
         // URLSession's full 60-second timeout, and the reader sat on
         // "Opening book…" that whole time for a book already on disk. So it is
         // also given a short deadline, after which the local position wins.
-        if isOnline, let apiClient {
+        if isOnline(), let apiClient = session.apiClient {
             remote = await withDeadline(seconds: 5) {
                 await (try? apiClient.readingProgress())?
                     .first { $0.editionId == editionId }
@@ -228,83 +196,65 @@ extension AppModel {
     /// position survive a crash or an offline session; the push is best-effort.
     func saveReadingPosition(_ position: ReadingPosition) {
         try? readingProgressStore.save(position)
-        guard let apiClient else { return }
-        Task { try? await apiClient.putReadingProgress(position, deviceId: deviceID) }
+        guard let apiClient = session.apiClient else { return }
+        Task { try? await apiClient.putReadingProgress(position, deviceId: session.deviceID) }
     }
 
-    private func sendProgress(
-        editionId: Int,
-        positionSecs: Double,
-        totalDurationSecs: Double,
-        updatedAtMillis: Int64
-    ) {
-        guard let apiClient else { return }
-        let finished = isListeningFinished(positionSecs: positionSecs, totalDurationSecs: totalDurationSecs)
-        let updatedAt = Date(timeIntervalSince1970: Double(updatedAtMillis) / 1000)
+    /// Sends positions recorded while the server was out of reach. The push at
+    /// play time is fire-and-forget, so a drive through a dead zone otherwise
+    /// leaves the server behind until that book is opened again.
+    ///
+    /// With no server row the book may have been marked read; push only when this pass
+    /// fetched the library and the journal line is newer than any read mark.
+    func pushOfflineProgress(libraryFreshSince passStart: Date) async {
+        guard let apiClient = session.apiClient, let remote = try? await apiClient.getProgress() else { return }
+        let remoteByEdition = Dictionary(remote.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first })
 
-        Task {
+        for (editionId, entry) in await journalEntries() {
+            let server = remoteByEdition[editionId]
+            let total = server?.totalDurationSecs ?? DownloadedStore.readManifest(editionId: editionId)?.totalDurationSecs ?? 0
+            guard total > 0 else { continue }
+            if server == nil {
+                // A cached library can hold a stale readAt; only a fetch from this pass can rule out "marked read".
+                guard let fetched = libraryStore.libraryFetchedAt, fetched >= passStart,
+                      libraryStore.library.contains(where: { $0.audiobookEditionId == editionId }),
+                      !markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis)
+                else { continue }
+            }
+            let local = ProgressRecord(
+                positionSecs: entry.positionSecs,
+                totalDurationSecs: total,
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
+                updatedAtMillis: entry.atMillis
+            )
+            let remoteRecord = server.map {
+                ProgressRecord(
+                    positionSecs: $0.positionSecs,
+                    totalDurationSecs: $0.totalDurationSecs,
+                    finished: $0.finished,
+                    updatedAtMillis: Int64($0.updatedAt.timeIntervalSince1970 * 1000)
+                )
+            }
+            guard SyncReconciler.reconcile(local: local, remote: remoteRecord) == .push else { continue }
             try? await apiClient.putProgress(
                 editionId: editionId,
-                positionSecs: positionSecs,
-                totalDurationSecs: totalDurationSecs,
-                finished: finished,
-                updatedAt: updatedAt,
-                deviceId: deviceID
+                positionSecs: entry.positionSecs,
+                totalDurationSecs: total,
+                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
+                updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
+                deviceId: session.deviceID
             )
         }
-    }
 
-    /// Rewrites the journal to one line per edition. Run once at launch, before
-    /// anything appends, since every open reads and parses the whole file.
-    func compactJournal() {
-        let text = readJournal()
-        guard !text.isEmpty else { return }
-        let compacted = PositionJournal.compacted(text)
-        guard compacted.utf8.count < text.utf8.count else { return }
-        try? compacted.write(to: journalURL, atomically: true, encoding: .utf8)
-    }
-
-    /// Newest journal entry per edition, parsed off the main actor: the file is
-    /// read on every book open, CarPlay refresh and resume lookup.
-    func journalEntries() async -> [Int: PositionEntry] {
-        let url = journalURL
-        let serverKey = ActiveServerKey.shared.value
-        return await Task.detached(priority: .userInitiated) {
-            PositionJournal.latestByEdition((try? String(contentsOf: url, encoding: .utf8)) ?? "", serverKey: serverKey)
-        }.value
-    }
-
-    func readJournal() -> String {
-        (try? String(contentsOf: journalURL, encoding: .utf8)) ?? ""
-    }
-
-    private func appendJournal(_ unstamped: PositionEntry) {
-        let entry = unstamped.with(serverKey: ActiveServerKey.shared.value)
-        if !FileManager.default.fileExists(atPath: journalURL.path) {
-            FileManager.default.createFile(atPath: journalURL.path, contents: nil)
-        }
-
-        guard let handle = try? FileHandle(forUpdating: journalURL) else {
-            return
-        }
-
-        do {
-            let end = try handle.seekToEnd()
-            var partial = false
-            if end > 0 {
-                try handle.seek(toOffset: end - 1)
-                partial = try handle.read(upToCount: 1)?.first != UInt8(ascii: "\n")
-            }
-            let line = PositionJournal.appendText(for: entry, afterPartialLine: partial)
-            guard let data = line.data(using: .utf8), !data.isEmpty else {
-                try handle.close()
-                return
-            }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.close()
-        } catch {
-            try? handle.close()
+        guard let remoteReading = try? await apiClient.readingProgress() else { return }
+        let readingByEdition = Dictionary(
+            remoteReading.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
+        )
+        for (editionId, local) in readingProgressStore.all() {
+            guard let server = readingByEdition[editionId],
+                  ReadingProgressReconciler.reconcile(local: local, remote: server) == .push
+            else { continue }
+            try? await apiClient.putReadingProgress(local, deviceId: session.deviceID)
         }
     }
 }

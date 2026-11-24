@@ -49,20 +49,20 @@ struct RawkoonAudiobookQuery: EntityQuery {
     func entities(for identifiers: [Int]) async -> [RawkoonAudiobookEntity] {
         let model = AppModel.shared
         await ensureLibrary(model)
-        return AudiobookCatalog.entities(for: identifiers, in: model.library, isLoggedIn: model.isLoggedIn)
+        return AudiobookCatalog.entities(for: identifiers, in: model.libraryStore.library, isLoggedIn: model.isLoggedIn)
     }
 
     @MainActor
     func suggestedEntities() async -> [RawkoonAudiobookEntity] {
         let model = AppModel.shared
         await ensureLibrary(model)
-        return AudiobookCatalog.all(in: model.library, isLoggedIn: model.isLoggedIn)
+        return AudiobookCatalog.all(in: model.libraryStore.library, isLoggedIn: model.isLoggedIn)
     }
 
     @MainActor
     private func ensureLibrary(_ model: AppModel) async {
-        if model.isLoggedIn, model.library.isEmpty {
-            await model.loadLibrary()
+        if model.isLoggedIn, model.libraryStore.library.isEmpty {
+            await model.libraryStore.loadLibrary()
         }
     }
 }

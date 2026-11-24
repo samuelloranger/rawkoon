@@ -86,12 +86,12 @@ extension AppModel {
             destructive = true
             run = { [self] in
                 if let editionId = book.audiobookEditionId {
-                    removeDownload(editionId: editionId)
+                    downloads.removeDownload(editionId: editionId)
                 }
                 Task { await onDone() }
             }
         }
-        pendingConfirm = ConfirmRequest(
+        router.pendingConfirm = ConfirmRequest(
             title: pending.title,
             message: pending.message,
             confirmTitle: pending.confirmLabel,

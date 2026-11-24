@@ -22,7 +22,7 @@ struct LoginSignInStep: View {
     }
 
     private var hasOtherMethods: Bool {
-        !model.ssoProviders.isEmpty || model.jellyfinSignInEnabled
+        !model.session.ssoProviders.isEmpty || model.session.jellyfinSignInEnabled
     }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct LoginSignInStep: View {
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
                 // The server you are joining is the title: it is the one thing this screen is about.
-                Text(verbatim: ServerAddress.displayName(model.serverURL))
+                Text(verbatim: ServerAddress.displayName(model.session.serverURL))
                     .font(.display(30, weight: .semibold))
                     .foregroundStyle(Theme.textStrong)
                     .lineLimit(2)
@@ -84,7 +84,7 @@ struct LoginSignInStep: View {
 
             LoginPrimaryButton(
                 title: "Sign In",
-                face: SignInFace.face(loading: model.loading, signedIn: model.isLoggedIn),
+                face: SignInFace.face(loading: model.session.loading, signedIn: model.isLoggedIn),
                 enabled: fieldsReady,
                 action: submit
             )
@@ -113,10 +113,10 @@ struct LoginSignInStep: View {
                         .labelStyle(.titleAndIcon)
                         .font(.subheadline.weight(.medium))
                 }
-                .disabled(model.loading)
+                .disabled(model.session.loading)
             }
         }
-        .task { await model.loadSsoProviders() }
+        .task { await model.session.loadSsoProviders() }
         .onChange(of: model.isLoggedIn) { _, signedIn in
             if signedIn {
                 focus = nil
@@ -129,8 +129,8 @@ struct LoginSignInStep: View {
             Text("Or sign in with")
                 .font(.footnote)
                 .foregroundStyle(Theme.muted)
-            ForEach(model.ssoProviders) { provider in
-                LoginMethodRow(Text(verbatim: provider.name), busy: model.loading) {
+            ForEach(model.session.ssoProviders) { provider in
+                LoginMethodRow(Text(verbatim: provider.name), busy: model.session.loading) {
                     signIn(with: provider)
                 } icon: {
                     AsyncImage(url: providerIconURL(provider)) { image in
@@ -140,26 +140,26 @@ struct LoginSignInStep: View {
                     }
                 }
             }
-            if model.jellyfinSignInEnabled {
+            if model.session.jellyfinSignInEnabled {
                 LoginMethodRow(Text(verbatim: "Jellyfin"), busy: false, action: onJellyfin) {
                     Image("JellyfinLogo").resizable().scaledToFit()
                 }
-                .disabled(model.loading)
+                .disabled(model.session.loading)
             }
         }
     }
 
     private func submit() {
         // A lingering Login after the session opened must not start a second sign-in.
-        guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
+        guard fieldsReady, !model.session.loading, !model.isLoggedIn else { return }
         signInAttempted = true
-        Task { await model.login(server: model.serverURL, email: email, password: password) }
+        Task { await model.session.login(server: model.session.serverURL, email: email, password: password) }
     }
 
     private func signIn(with provider: SsoProvider) {
         guard !model.isLoggedIn else { return }
         signInAttempted = true
-        Task { await model.signInWithProvider(provider.slug) }
+        Task { await model.session.signInWithProvider(provider.slug) }
     }
 
     /// The provider's configured icon, or the same slug-based dashboard-icons CDN

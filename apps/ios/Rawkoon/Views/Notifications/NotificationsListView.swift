@@ -219,7 +219,7 @@ struct NotificationsListView: View {
             Button("Review") {
                 Task {
                     await markRead(notification)
-                    model.requestedActivityLane = .requests
+                    model.router.requestedActivityLane = .requests
                 }
             }
             .buttonStyle(.bordered)

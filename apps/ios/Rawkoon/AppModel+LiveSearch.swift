@@ -192,10 +192,10 @@ final class LiveSearchCoordinator {
             override()
             return
         }
-        model.releaseSheetRequest = mediaId
+        model.router.releaseSheetRequest = mediaId
         // A detail already showing this item opens the sheet itself; otherwise open one.
         if !onScreenDetails.contains(mediaId) {
-            model.deepLinkTarget = .media(libraryId: mediaId, season: nil, episode: nil, focusManagement: true)
+            model.router.deepLinkTarget = .media(libraryId: mediaId, season: nil, episode: nil, focusManagement: true)
         }
     }
 

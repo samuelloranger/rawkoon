@@ -18,12 +18,12 @@ extension BookView {
 
     func loadResumePreview() async {
         guard let editionId = audiobookEditionId else { return }
-        await model.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
+        await model.progress.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
     }
 
     func loadReadingResumePreview() async {
         guard let editionId = ebookEditionId else { return }
-        await model.loadReadingResumePreview(editionId: editionId)
+        await model.progress.loadReadingResumePreview(editionId: editionId)
     }
 
     func refreshAll(forceManifestRefresh: Bool) async {
@@ -95,7 +95,7 @@ extension BookView {
         defer { addingEditionKind = nil }
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
             if kind == "audiobook" {
                 activeLane = .audiobook
@@ -121,7 +121,7 @@ extension BookView {
 
     func seedManifestFromCache() {
         guard manifest == nil, let editionId = audiobookEditionId else { return }
-        let cached = model.cachedManifest(editionId)
+        let cached = model.downloads.cachedManifest(editionId)
             ?? DownloadedStore.readManifest(editionId: editionId)
         guard let cached, !cached.chapters.isEmpty else { return }
         manifest = cached
@@ -148,7 +148,7 @@ extension BookView {
         manifestError = nil
         defer { loadingManifest = false }
         do {
-            manifest = try await model.manifest(editionId, forceRefresh: forceRefresh)
+            manifest = try await model.downloads.manifest(editionId, forceRefresh: forceRefresh)
             attemptedAutomaticRecovery = false
         } catch let apiError as APIError {
             if manifest == nil {
@@ -177,9 +177,9 @@ extension BookView {
 
         do {
             _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "audiobook")
-            manifest = try await model.manifest(editionId, forceRefresh: true)
+            manifest = try await model.downloads.manifest(editionId, forceRefresh: true)
             manifestError = nil
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
         } catch let apiError as APIError {
             manifest = nil
@@ -201,7 +201,7 @@ extension BookView {
             // Offline / server unreachable: fall back to the persisted file list
             // so a downloaded ebook can still be opened. Only when there is no
             // cached list do we surface an error.
-            if let cached = model.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
+            if let cached = model.downloads.offlineEbookFiles(editionId: ebookStorageEditionId), !cached.isEmpty {
                 ebookFiles = cached
                 ebookFilesError = nil
             } else {
@@ -217,7 +217,7 @@ extension BookView {
         defer { rescanningEbook = false }
         do {
             _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             await loadBookDetail()
             await loadEbookFiles()
         } catch let apiError as APIError {
@@ -285,7 +285,7 @@ extension BookView {
         do {
             _ = try await ensureLocalEbookFile(file)
             // Persist enough to list and open this ebook offline.
-            model.recordEbookDownloaded(
+            model.downloads.recordEbookDownloaded(
                 editionId: ebookStorageEditionId,
                 bookId: book.bookId,
                 title: titleText,
@@ -309,7 +309,7 @@ extension BookView {
     func removeEbookDownload(_ file: BookEditionFile) {
         FileStore.delete(url: localEbookURL(for: file))
         if !ebookFiles.contains(where: isEbookDownloaded) {
-            model.forgetDownloadedEdition(editionId: ebookStorageEditionId)
+            model.downloads.forgetDownloadedEdition(editionId: ebookStorageEditionId)
         }
     }
 

@@ -39,7 +39,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in
-            appModel.handleApnsToken(token)
+            appModel.session.handleApnsToken(token)
         }
     }
 
@@ -55,7 +55,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                      completionHandler: @escaping () -> Void)
     {
         Task { @MainActor in
-            appModel.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
+            appModel.downloads.handleBackgroundEvents(identifier: identifier, completionHandler: completionHandler)
         }
     }
 }

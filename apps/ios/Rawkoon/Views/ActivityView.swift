@@ -110,10 +110,10 @@ struct ActivityView: View {
         .task { await loadSpeed() }
         .task(id: lane) { await loadCurrentLane() }
         // A deep link or an inbox action opens a lane from outside.
-        .onChange(of: model.requestedActivityLane, initial: true) { _, requested in
+        .onChange(of: model.router.requestedActivityLane, initial: true) { _, requested in
             // Only the tab answers; a pushed queue screen must not swallow the request.
             guard let requested, !isQueueScreen else { return }
-            model.requestedActivityLane = nil
+            model.router.requestedActivityLane = nil
             select(requested)
         }
         .onChange(of: model.isOffline) { _, offline in

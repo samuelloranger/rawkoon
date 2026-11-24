@@ -71,9 +71,9 @@
             guard interfaceController != nil, generation == observationGeneration else { return }
             withObservationTracking {
                 _ = AppModel.shared.isLoggedIn
-                _ = AppModel.shared.library
+                _ = AppModel.shared.libraryStore.library
                 // Continue Listening order and resume labels move while listening.
-                _ = AppModel.shared.activeEditionId
+                _ = AppModel.shared.progress.activeEditionId
                 _ = AppModel.shared.player.isPlaying
             } onChange: { [weak self] in
                 Task { @MainActor in
@@ -100,8 +100,8 @@
             let model = AppModel.shared
             return RefreshKey(
                 isLoggedIn: model.isLoggedIn,
-                libraryIds: model.library.map(\.bookId),
-                activeEditionId: model.activeEditionId,
+                libraryIds: model.libraryStore.library.map(\.bookId),
+                activeEditionId: model.progress.activeEditionId,
                 isPlaying: model.player.isPlaying
             )
         }
@@ -114,10 +114,10 @@
                 showMessage(String(localized: "Open Rawkoon on your phone to sign in."))
                 return
             }
-            await model.ensureLibraryLoaded()
+            await model.libraryStore.ensureLibraryLoaded()
             let entries = await model.carPlayAudiobooks()
             guard !entries.isEmpty else {
-                showMessage(model.errorMessage ?? String(localized: "No audiobooks yet."))
+                showMessage(model.session.errorMessage ?? String(localized: "No audiobooks yet."))
                 return
             }
             showBrowse(entries: entries, model: model)
@@ -161,7 +161,7 @@
                     done()
                 }
                 await model.openPlayer(editionId: editionId)
-                if let error = model.errorMessage {
+                if let error = model.session.errorMessage {
                     showAlert(error)
                     return
                 }

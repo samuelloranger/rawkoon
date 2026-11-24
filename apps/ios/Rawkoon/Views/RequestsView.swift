@@ -206,7 +206,8 @@ struct RequestsView: View {
         .padding(.vertical, 4)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if let action = RequestDeleteAction.action(
-                status: req.status, requesterId: req.requestedBy?.id, userId: model.userId, isAdmin: model.isAdmin
+                status: req.status, requesterId: req.requestedBy?.id,
+                userId: model.session.userId, isAdmin: model.isAdmin
             ) {
                 Button(action.label, action: OfflineFeedback.gate(model.isOffline) {
                     Task { await delete(request: req) }
@@ -346,7 +347,7 @@ struct RequestsView: View {
             let response = try await client.requestsList()
             requests = response.requests
             if model.isAdmin {
-                model.pendingRequestCount = response.requests.count { $0.status == "pending" }
+                model.libraryStore.pendingRequestCount = response.requests.count { $0.status == "pending" }
             }
         } catch APIError.unauthorized {
             errorMessage = String(localized: "Sign in required.")

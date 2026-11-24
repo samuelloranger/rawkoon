@@ -32,19 +32,19 @@ extension AppModel {
 
     /// The Activity tab's badge: unread inbox items, plus pending requests for admins.
     var activityBadgeCount: Int {
-        NotificationBadge.activityCount(unread: unreadNotificationCount, pendingRequests: pendingRequestCount, isAdmin: isAdmin)
+        NotificationBadge.activityCount(unread: unreadNotificationCount, pendingRequests: libraryStore.pendingRequestCount, isAdmin: isAdmin)
     }
 
     /// Best-effort refresh of the admin's pending-request count from the requests list.
     func refreshPendingRequestCount() async {
         guard isAdmin else {
-            pendingRequestCount = 0
+            libraryStore.pendingRequestCount = 0
             return
         }
         // Offline keeps the last known count rather than blanking the badge.
         guard !isOffline, let client = api() else { return }
         if let response = try? await client.requestsList() {
-            pendingRequestCount = response.requests.count { $0.status == "pending" }
+            libraryStore.pendingRequestCount = response.requests.count { $0.status == "pending" }
         }
     }
 
@@ -139,25 +139,5 @@ extension AppModel {
                 UIApplication.shared.registerForRemoteNotifications()
             }
         }
-    }
-
-    /// Called from the app delegate with the hex device token.
-    func handleApnsToken(_ token: String) {
-        pendingApnsToken = token
-        Task { await registerApnsIfPossible() }
-    }
-
-    private func registerApnsIfPossible() async {
-        guard let token = pendingApnsToken, let apiClient else { return }
-        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-        try? await apiClient.registerApns(
-            deviceToken: token,
-            deviceName: UIDevice.current.name,
-            osVersion: UIDevice.current.systemVersion,
-            appVersion: appVersion,
-            bundleId: Bundle.main.bundleIdentifier
-        )
-        registeredApnsToken = token
-        pendingApnsToken = nil
     }
 }

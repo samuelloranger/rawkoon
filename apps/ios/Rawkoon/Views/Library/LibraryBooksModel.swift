@@ -16,7 +16,7 @@ final class LibraryBooksModel {
     var showingPlayer = false
 
     func filteredBooks(in model: AppModel) -> [BookListItem] {
-        let filtered = model.library.filter { book in
+        let filtered = model.libraryStore.library.filter { book in
             switch bookKind {
             case .all: true
             case .audiobook: book.hasAudiobook
@@ -52,8 +52,8 @@ final class LibraryBooksModel {
 
     func loadBooks(model: AppModel) async {
         booksError = nil
-        await model.loadLibrary()
-        booksError = model.errorMessage
+        await model.libraryStore.loadLibrary()
+        booksError = model.session.errorMessage
     }
 
     func loadBookProgress(model: AppModel) async {
@@ -82,7 +82,7 @@ final class LibraryBooksModel {
     }
 
     func isDownloaded(_ book: BookListItem, model: AppModel) -> Bool {
-        model.downloadedBookIds.contains(book.bookId)
+        model.downloads.downloadedBookIds.contains(book.bookId)
     }
 
     // Each menu case is a distinct user action; splitting this exhaustive switch obscures it.
@@ -106,7 +106,7 @@ final class LibraryBooksModel {
             model.confirmBookAction(.removeDownload(book))
         case .download:
             if let editionId = book.audiobookEditionId {
-                Task { await model.startDownload(editionId: editionId) }
+                Task { await model.downloads.startDownload(editionId: editionId) }
             }
         case .markUnread:
             busyBookIds.insert(book.bookId)
@@ -138,10 +138,10 @@ final class LibraryBooksModel {
     private func playAudiobook(_ book: BookListItem, model: AppModel) async {
         guard let editionId = book.audiobookEditionId else { return }
         await model.openPlayer(editionId: editionId)
-        if model.errorMessage == nil {
+        if model.session.errorMessage == nil {
             showingPlayer = true
         } else {
-            model.toast(model.errorMessage ?? String(localized: "Could not start playback."), style: .error)
+            model.toast(model.session.errorMessage ?? String(localized: "Could not start playback."), style: .error)
         }
     }
 
@@ -149,7 +149,7 @@ final class LibraryBooksModel {
         guard let client = model.api() else { return }
         do {
             try await client.addBookEdition(bookId: book.bookId, kind: kind)
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             let edition = kind == "audiobook" ? "audiobook" : "ebook"
             model.toast(String(localized: "Added \(edition) edition."), style: .success)
         } catch {
@@ -166,7 +166,7 @@ final class LibraryBooksModel {
             if book.hasEbook {
                 _ = try await client.rescanBookEdition(bookId: book.bookId, kind: "ebook")
             }
-            await model.loadLibrary()
+            await model.libraryStore.loadLibrary()
             model.toast(String(localized: "Rescan started."), style: .success)
         } catch {
             model.toast(libraryErrorMessage(for: error), style: .error)

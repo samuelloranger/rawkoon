@@ -31,7 +31,7 @@ struct LoginJellyfinStep: View {
                         .font(.display(30, weight: .semibold))
                         .foregroundStyle(Theme.textStrong)
                 }
-                Text("Sign in to \(ServerAddress.displayName(model.serverURL)) with the username and password you use in Jellyfin.")
+                Text("Sign in to \(ServerAddress.displayName(model.session.serverURL)) with the username and password you use in Jellyfin.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -63,7 +63,7 @@ struct LoginJellyfinStep: View {
 
             LoginPrimaryButton(
                 title: "Sign In",
-                face: SignInFace.face(loading: model.loading, signedIn: model.isLoggedIn),
+                face: SignInFace.face(loading: model.session.loading, signedIn: model.isLoggedIn),
                 enabled: fieldsReady,
                 action: submit
             )
@@ -83,7 +83,7 @@ struct LoginJellyfinStep: View {
                 .padding(.top, 20)
                 .rawkoonEntrance(id: "note")
         }
-        .navigationBarBackButtonHidden(model.loading)
+        .navigationBarBackButtonHidden(model.session.loading)
         .onAppear { focus = .username }
         .onChange(of: model.isLoggedIn) { _, signedIn in
             if signedIn {
@@ -93,11 +93,13 @@ struct LoginJellyfinStep: View {
     }
 
     private func submit() {
-        guard fieldsReady, !model.loading, !model.isLoggedIn else { return }
+        guard fieldsReady, !model.session.loading, !model.isLoggedIn else { return }
         signInAttempted = true
         let attemptedPassword = password
         Task {
-            await model.loginWithJellyfin(server: model.serverURL, username: username, password: attemptedPassword)
+            await model.session.loginWithJellyfin(
+                server: model.session.serverURL, username: username, password: attemptedPassword
+            )
             // The password never outlives the attempt, whatever its outcome.
             password = ""
         }

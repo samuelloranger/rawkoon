@@ -201,7 +201,7 @@ struct PlayerView: View {
 
     /// Only for a book that also has an ebook, and only online: the match runs on the server.
     @ViewBuilder private var readFromHereButton: some View {
-        if model.isOnline, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true {
+        if model.isOnline, model.libraryStore.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true {
             Button(action: readFromHere) {
                 HStack(spacing: 8) {
                     if findingPlace {
@@ -232,7 +232,7 @@ struct PlayerView: View {
         model.player.pause()
         let positionSecs = model.player.positionSecs
         handoffTask = Task {
-            let document = await model.readFromHere(
+            let document = await model.progress.readFromHere(
                 bookId: summary.bookId,
                 title: summary.title,
                 positionSecs: positionSecs
@@ -273,11 +273,13 @@ struct PlayerView: View {
     /// Looks for a more recent reading position in the background; nothing shows
     /// unless it lands well away from where the audiobook is.
     private func startSuggestion() {
-        guard suggestion == nil, model.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true
+        guard
+            suggestion == nil,
+            model.libraryStore.library.first(where: { $0.bookId == summary.bookId })?.hasEbook == true
         else { return }
         suggestionTask?.cancel()
         suggestionTask = Task {
-            let banner = await model.suggestAudiobookSpot(
+            let banner = await model.progress.suggestAudiobookSpot(
                 bookId: summary.bookId, audiobookEditionId: summary.editionId
             )
             guard !Task.isCancelled else { return }
@@ -289,7 +291,7 @@ struct PlayerView: View {
         suggestion = nil
         guard case let .audiobook(positionSecs) = banner.target else { return }
         Task {
-            _ = await model.playHandoffPosition(
+            _ = await model.progress.playHandoffPosition(
                 bookId: summary.bookId, editionId: summary.editionId, positionSecs: positionSecs
             )
         }

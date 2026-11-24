@@ -45,7 +45,7 @@ final class WidgetSnapshotWriter {
             let data: Data? = if let key, let hit = cached[key] ?? nil {
                 hit
             } else {
-                await artwork(for: url, serverURL: model.serverURL)
+                await artwork(for: url, serverURL: model.session.serverURL)
             }
             media.append(WidgetMedia(title: item.title, detail: detail, artwork: data, artworkKey: key))
         }
@@ -69,7 +69,7 @@ final class WidgetSnapshotWriter {
                 media: WidgetMedia(
                     title: first.title,
                     detail: detail,
-                    artwork: artwork(for: model.absoluteURL(first.posterUrl), serverURL: model.serverURL),
+                    artwork: artwork(for: model.absoluteURL(first.posterUrl), serverURL: model.session.serverURL),
                     artworkKey: model.absoluteURL(first.posterUrl)?.absoluteString
                 ),
                 personalized: deck.source == .personalized
@@ -110,7 +110,7 @@ final class WidgetSnapshotWriter {
                     title: item.title,
                     detail: item.year.map { "\($0) · \(kind)" } ?? kind,
                     artwork: artwork(
-                        for: url, serverURL: model.serverURL,
+                        for: url, serverURL: model.session.serverURL,
                         size: CGSize(width: 364, height: 205), scale: 1.5, quality: 0.6
                     ),
                     artworkKey: url?.absoluteString
@@ -140,7 +140,7 @@ final class WidgetSnapshotWriter {
         var request = URLRequest(url: url)
         request.timeoutInterval = 7
         if url.host == URL(string: serverURL)?.host,
-           let token = Keychain.get(AppModel.authTokenKey)
+           let token = Keychain.get(SessionStore.authTokenKey)
         {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }

@@ -146,7 +146,7 @@ struct BooksSettingsView: View {
             togglingEnabled = true
             do {
                 try await model.api()?.updateBooksEnabled(value)
-                model.booksEnabled = value
+                model.session.booksEnabled = value
             } catch {
                 booksEnabled = previous
                 model.toast(String(localized: "Couldn't update books setting."), style: .error)

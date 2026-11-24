@@ -1,7 +1,7 @@
 import Foundation
 import RawkoonKit
 
-extension AppModel {
+extension ProgressStore {
     /// Resolves the ebook file to read (the preferred one, else the best format),
     /// downloading it when it is not on disk yet. `onlyFormat` limits the choice
     /// to one format, e.g. the epub a handoff position was matched against.
@@ -12,7 +12,7 @@ extension AppModel {
         preferredFileId: Int? = nil,
         onlyFormat: String? = nil
     ) async throws -> EbookPreviewDocument {
-        guard let client = api() else { throw APIError.unauthorized }
+        guard let client = session.apiClient else { throw APIError.unauthorized }
 
         let allFiles = try await client.bookEditionFiles(bookId: bookId, kind: "ebook")
         let files = onlyFormat.map { format in
@@ -47,7 +47,7 @@ extension AppModel {
             return localURL
         }
 
-        guard absoluteURL(file.contentUrl) != nil else {
+        guard session.absoluteURL(file.contentUrl) != nil else {
             throw EbookContinueError.missingRemoteURL
         }
 
@@ -56,7 +56,7 @@ extension AppModel {
             // NOTE: deliberately surfacing .transport for every failure here to preserve
             // the shipping copy ("Network error…"). The 401→"Sign in required." wording
             // improvement is deferred to the localization phase — see the milestone spec.
-            guard let client = api() else { throw APIError.unauthorized }
+            guard let client = session.apiClient else { throw APIError.unauthorized }
             temporaryURL = try await client.downloadFile(path: file.contentUrl ?? "")
         } catch {
             Log.network.error("openEbook download failed: \(String(describing: error), privacy: .public)")

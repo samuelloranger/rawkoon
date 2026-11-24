@@ -225,8 +225,8 @@ struct ContinueListeningView: View {
         async let listeningR = client.listeningStats()
         // Animated here: by now the card arrives after first paint, so Home's rails glide down instead of jumping.
         withRawkoonMotion(RawkoonMotion.spring) { paintFromCache() }
-        if model.library.isEmpty {
-            await model.loadLibrary()
+        if model.libraryStore.library.isEmpty {
+            await model.libraryStore.loadLibrary()
         }
         async let audiobookProgressR = client.getProgress()
         async let ebookProgressR = client.readingProgress()
@@ -274,6 +274,8 @@ struct ContinueListeningView: View {
         audiobookProgress: [RemoteProgress],
         ebookProgress: [ReadingPosition]
     ) -> [ContinueItem] {
-        ContinueItem.build(audiobookProgress: audiobookProgress, ebookProgress: ebookProgress, library: model.library)
+        ContinueItem.build(
+            audiobookProgress: audiobookProgress, ebookProgress: ebookProgress, library: model.libraryStore.library
+        )
     }
 }

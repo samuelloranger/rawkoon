@@ -52,12 +52,12 @@ struct AppModelPlaybackAdapter: AudiobookPlaybackAdapting {
     }
 
     var loadedEditionId: Int? {
-        model.activeEditionId
+        model.progress.activeEditionId
     }
 
     /// A play failure surfaces on the player; a load failure on the model.
     var lastError: String? {
-        model.player.playbackError ?? model.errorMessage
+        model.player.playbackError ?? model.session.errorMessage
     }
 
     func openPlayer(editionId: Int) async {

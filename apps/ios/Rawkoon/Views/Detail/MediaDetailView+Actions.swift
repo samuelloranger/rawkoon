@@ -29,8 +29,8 @@ extension MediaDetailView {
 
     /// A live-search toast's "Choose a release" for this item: open the sheet and clear the request.
     func openRequestedReleaseSheet() {
-        guard let libraryId, isOnScreen, model.releaseSheetRequest == libraryId else { return }
-        model.releaseSheetRequest = nil
+        guard let libraryId, isOnScreen, model.router.releaseSheetRequest == libraryId else { return }
+        model.router.releaseSheetRequest = nil
         openReleaseSearch()
     }
 
@@ -257,7 +257,7 @@ extension MediaDetailView {
         let profile = item.qualityProfile?.name
             ?? qualityProfiles.first { $0.id == item.qualityProfileId }?.name
             ?? String(localized: "this profile")
-        model.pendingConfirm = ConfirmRequest.upgradePrompt(
+        model.router.pendingConfirm = ConfirmRequest.upgradePrompt(
             isShow: item.type == "show",
             profileName: profile,
             affectedEpisodes: item.affectedEpisodes ?? 0,

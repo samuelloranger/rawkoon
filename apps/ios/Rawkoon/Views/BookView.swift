@@ -99,7 +99,7 @@ struct BookView: View {
     /// The shared library list wins: setBookRead refreshes it, whereas this screen's own
     /// `detail` copy was not reliably re-rendered after a toggle.
     var isRead: Bool {
-        if let listed = model.library.first(where: { $0.bookId == book.bookId }) {
+        if let listed = model.libraryStore.library.first(where: { $0.bookId == book.bookId }) {
             return listed.isRead
         }
         if let detail {
@@ -111,7 +111,7 @@ struct BookView: View {
     /// Same list as the card long-press; Read and Play are the page's own primary buttons.
     var menuItems: [BookCardMenuAction] {
         let hasProgress = [audiobookEditionId, ebookEditionId].compactMap(\.self).contains {
-            model.resumePreview[$0] != nil || model.readingResumePreview[$0] != nil
+            model.progress.resumePreview[$0] != nil || model.progress.readingResumePreview[$0] != nil
         }
         return bookCardMenuItems(
             hasAudiobook: hasAudiobookEdition,
@@ -119,7 +119,8 @@ struct BookView: View {
             isAdmin: model.isAdmin,
             isRead: isRead,
             hasProgress: hasProgress,
-            audiobookDownloaded: audiobookEditionId.map { model.downloadPlans[$0]?.isComplete == true } ?? false
+            audiobookDownloaded: audiobookEditionId
+                .map { model.downloads.downloadPlans[$0]?.isComplete == true } ?? false
         )
         .filter { $0 != .read && $0 != .play }
     }
@@ -137,7 +138,7 @@ struct BookView: View {
             model.confirmBookAction(.resetProgress(book)) { await loadBookDetail() }
         case .download:
             if let editionId = audiobookEditionId {
-                Task { await model.startDownload(editionId: editionId) }
+                Task { await model.downloads.startDownload(editionId: editionId) }
             }
         case .removeDownload:
             model.confirmBookAction(.removeDownload(book)) { await loadBookDetail() }
@@ -243,7 +244,7 @@ struct BookView: View {
         }
         .sheet(item: $releaseSearchLane, onDismiss: {
             Task {
-                await model.loadLibrary()
+                await model.libraryStore.loadLibrary()
                 await loadBookDetail()
                 if hasEbookEdition {
                     await loadEbookFiles()
@@ -349,14 +350,14 @@ struct BookView: View {
     var audiobookResume: AudiobookResumeLabel {
         guard let editionId = audiobookEditionId else { return .play }
         return AudiobookResume.label(
-            positionSecs: model.resumePreview[editionId],
+            positionSecs: model.progress.resumePreview[editionId],
             totalDurationSecs: audiobookTotalSecs
         )
     }
 
     var ebookResume: EbookResumeLabel {
         guard let editionId = ebookEditionId else { return .read }
-        return EbookResume.label(model.readingResumePreview[editionId])
+        return EbookResume.label(model.progress.readingResumePreview[editionId])
     }
 
     var canPlayAudiobook: Bool {

@@ -24,8 +24,8 @@ struct LoginScreen<Content: View>: View {
             .frame(maxWidth: .infinity)
             .rawkoonEntranceScope()
             // A failed sign-in shakes the form; an error after the session opened is the library load's.
-            .rawkoonShake(trigger: model.errorMessage, when: { _, new in new != nil && !signedIn })
-            .rawkoonMotion(RawkoonMotion.spring, value: model.errorMessage)
+            .rawkoonShake(trigger: model.session.errorMessage, when: { _, new in new != nil && !signedIn })
+            .rawkoonMotion(RawkoonMotion.spring, value: model.session.errorMessage)
         }
         .scrollDismissesKeyboard(.interactively)
         .background { LoginBackground() }
@@ -193,7 +193,7 @@ struct LoginErrorText: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let errorMessage = model.errorMessage {
+        if let errorMessage = model.session.errorMessage {
             Text(errorMessage)
                 .font(.footnote)
                 .foregroundStyle(Theme.danger)

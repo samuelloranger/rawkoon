@@ -3,7 +3,6 @@ import Network
 import Observation
 import RawkoonKit
 import UIKit
-import UserNotifications
 
 @MainActor
 @Observable
@@ -16,72 +15,26 @@ final class AppModel {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    var isLoggedIn = false
-    var serverURL: String
-    var library: [BookListItem] = []
-    var isAdmin = false
-    /// The signed-in user's id, to tell their own requests from others'.
-    var userId: String?
-    /// Mirrors the server's books feature flag; stays on until the server says otherwise.
-    var booksEnabled = true
-    /// The server's add-dialog switches; off until the server says otherwise, so a failed fetch keeps the instant add.
-    var askBeforeAdding = false
-    var requestersChooseSeasons = false
-    /// The add sheet currently waiting for an answer; presented by the app root.
-    var addRequest: AddSheetRequest?
-    var libraryGrowth: LibraryGrowth?
-    var libraryGrowthFetchedAt: Date?
-    /// True once a fetch failed with nothing cached, so the Library strip hides instead of waiting.
-    var libraryGrowthFailed = false
-    var userFirstName: String?
-    var userInitials: String?
-    var userAvatarURL: URL?
-    var ssoProviders: [SsoProvider] = []
-    var jellyfinSignInEnabled = false
-    var loading = false
-    var errorMessage: String?
-    /// Set when sign-in succeeded but the credential could not be written to the
-    /// Keychain — the session works now but will not survive a relaunch. Surfaced
-    /// as an alert at the app root, distinct from `errorMessage` (a login failure).
-    var authWarning: String?
-    var downloadPlans: [Int: DownloadPlan] = [:]
-    /// Books with any fully downloaded edition (audiobook or ebook), mirrored
-    /// from the on-disk index so the book list order can react to it.
-    private(set) var downloadedBookIds: Set<Int> = []
-    /// Last known resume point per audiobook edition, so a button can read
-    /// "Resume from …" before the player is opened. Filled by
-    /// `loadResumePreview(editionId:totalDurationSecs:)`.
-    var resumePreview: [Int: Double] = [:]
-    /// The ebook equivalent: the stored reading position per edition, so a button
-    /// can name the chapter before the reader is opened.
-    var readingResumePreview: [Int: ReadingPosition] = [:]
-    var activeEditionId: Int?
-    /// Bumped to ask the root to show the full player (e.g. after "Listen from here" closes the reader).
-    var playerPresentationRequest = 0
-    /// True when `library` was built from the on-device downloaded index because
-    /// the server was unreachable and no saved copy of the full library existed —
-    /// the UI shows an "Offline" hint instead of a network-error wall, and lists
-    /// only downloaded books.
-    var isOfflineLibrary = false
-    /// A title a widget tap asked to open; Home pushes its detail and clears it.
-    var pendingMediaLink: MediaLink?
-    /// Shown by the app root: an alert attached to a screen pushed with the zoom
-    /// transition stays hidden until the tab changes.
-    var pendingConfirm: ConfirmRequest?
-    /// The in-flight `/api/auth/me` fetch, so launch, Settings and a reconnect
-    /// share one request.
-    var profileTask: Task<Void, Never>?
-    /// When the server last confirmed `library`; nil while it is only the saved
-    /// copy painted at launch, so screens know to refresh it once.
-    var libraryFetchedAt: Date?
     /// Bumped whenever the server is reachable again (network back, or the live
     /// stream reconnecting after a drop), so screens painted from saved data refetch.
     var reconnectToken = 0
-    /// The in-flight library load — Home, Library and the root all ask for one on
-    /// launch, and every page of the library should be fetched once.
-    var libraryTask: Task<Void, Never>?
+
+    /// Toast and navigation/presentation requests; see `UIRouter`.
+    let router = UIRouter()
 
     let serverStateStore = ServerStateStore()
+
+    /// Credentials, API client, profile and server feature switches; see `SessionStore`.
+    let session: SessionStore
+
+    /// The book library, its load dedup and the growth card; see `LibraryStore`.
+    let libraryStore: LibraryStore
+
+    /// Audiobook downloads, manifests and the offline prefetch; see `DownloadsStore`.
+    let downloads: DownloadsStore
+
+    /// Playback and reading positions, the position journal and the audiobook/ebook handoff; see `ProgressStore`.
+    let progress: ProgressStore
 
     // MARK: Live updates (spec §T2/T4)
 
@@ -93,54 +46,9 @@ final class AppModel {
 
     /// The one live toast per added or searched title; see `AppModel+LiveSearch`.
     let liveSearch = LiveSearchCoordinator()
-    /// Library id whose release sheet a toast action asked to open; the detail screen consumes it.
-    var releaseSheetRequest: Int?
-    /// A tab another screen asked to open (Home's search button, a calendar link); the root consumes it.
-    var requestedRootTab: RootTab?
-    /// Set when Explore should put its search field in focus; Explore clears it.
-    var exploreSearchFocusRequest = false
-    /// Browse or Swipe, kept for the session so a rebuilt Find tab reopens where it was.
-    var findMode: FindMode = .browse
-    /// A Find shelf a deep link asked to open; Find consumes it.
-    var requestedFindShelf: FindShelf?
-    /// An Activity lane a deep link or an inbox action asked to open; Activity consumes it.
-    var requestedActivityLane: ActivityLane?
-    /// Open requests awaiting an admin, for the Activity badge; zero for everyone else.
-    var pendingRequestCount = 0
-
-    /// Set from a banner tap or a notification-list row tap (via
-    /// `navigate(toNotificationUrl:)`); `RawkoonApp` presents it as a sheet
-    /// from the app root, so it works regardless of which tab is active.
-    /// Bounded to the paths `NotificationDestination.resolve` understands —
-    /// see spec T6.
-    var deepLinkTarget: NotificationDestination?
-
-    /// Current toast banner, rendered once at the app root by `ToastOverlay`.
-    /// Any screen can call `toast(_:style:)` to surface a background action's
-    /// result without owning any presentation state itself.
-    var currentToast: Toast?
-    private var toastDismissTask: Task<Void, Never>?
 
     let player = AudiobookPlayer()
 
-    static let serverURLKey = "server_url"
-    static let authTokenKey = "auth_token"
-    private static let deviceIDKey = "device_id"
-
-    static let persistFailedWarning = String(localized: "Signed in, but this device couldn't save your login. You may need to sign in again after quitting the app.")
-
-    var apiClient: APIClient?
-    var manifests: [Int: BookManifest] = [:]
-    var downloaders: [Int: ChapterDownloader] = [:]
-    var pendingBackgroundCompletions: [String: () -> Void] = [:]
-    var verifiedCounts: [Int: Int] = [:]
-    /// The server key in force when each edition's download started; the index entry is stamped with it.
-    var downloadServerKeys: [Int: String] = [:]
-    /// Live in-flight chapter fractions per edition, for the chapter pills and the overall bar.
-    var chapterFractions: [Int: [Int: Double]] = [:]
-    /// Smooth, never-decreasing overall fraction per edition while it downloads.
-    var downloadFractions: [Int: Double] = [:]
-    var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
     /// Starts `true` so a launch never assumes offline before the monitor has
@@ -150,69 +58,93 @@ final class AppModel {
     private(set) var isOnline = true
     /// Cellular, a personal hotspot, or Low Data Mode: background prefetching waits.
     private(set) var isOnExpensiveNetwork = false
-    var prefetchTask: Task<Void, Never>?
     private let pathMonitor = NWPathMonitor()
 
-    let readingProgressStore = ReadingProgressStore(
-        directory: FileStore.booksDirectory()
-    )
-    var lastProgressPosition: [Int: Double] = [:]
-    /// Automatic handoff matches already answered or running, so reopening a book
-    /// without moving does not transcribe again. In memory: a launch may recheck.
-    var handoffMemo = HandoffSuggestion.Memo()
-    /// Per book, when its audiobook and ebook positions last agreed through a handoff.
-    var handoffAgreedAtMillis: [Int: Int64] = [:]
-
-    let journalURL: URL
-    /// Not `let`: before the first unlock the Keychain is unreadable, so the
-    /// launch value can be provisional until protected data becomes available.
-    private(set) var deviceID: String
-
     init() {
-        serverURL = Keychain.get(Self.serverURLKey) ?? ""
-        journalURL = Self.positionLogURL()
-        deviceID = Self.resolveDeviceID()
+        session = SessionStore(serverStateStore: serverStateStore)
+        libraryStore = LibraryStore(session: session)
+        downloads = DownloadsStore(session: session, libraryStore: libraryStore, router: router)
+        progress = ProgressStore(
+            session: session, libraryStore: libraryStore, downloads: downloads, router: router, player: player
+        )
         liveUpdates.appModel = self
         liveSearch.appModel = self
+        wireSession()
+        wireLibrary()
+        wireDownloads()
+        wireProgress()
 
         if
-            let token = Keychain.get(Self.authTokenKey),
-            let baseURL = URL(string: serverURL)
+            let token = Keychain.get(SessionStore.authTokenKey),
+            let baseURL = URL(string: session.serverURL)
         {
-            apiClient = makeAPIClient(baseURL: baseURL, token: token)
-            isLoggedIn = true
+            session.apiClient = session.makeAPIClient(baseURL: baseURL, token: token)
+            session.isLoggedIn = true
             hydrateFromCache()
         }
         #if DEBUG
             // A simulator has no keychain; signing in before the first frame matches a signed-in device launch.
             let env = ProcessInfo.processInfo.environment
             if
-                !isLoggedIn,
+                !session.isLoggedIn,
                 let server = env["RAWKOON_SERVER"],
                 let token = env["RAWKOON_TOKEN"],
                 let baseURL = URL(string: server)
             {
-                serverURL = server
-                apiClient = makeAPIClient(baseURL: baseURL, token: token)
-                isLoggedIn = true
+                session.serverURL = server
+                session.apiClient = session.makeAPIClient(baseURL: baseURL, token: token)
+                session.isLoggedIn = true
                 hydrateFromCache()
             }
         #endif
 
-        player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
-        player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
-        player.refreshManifest = { [weak self] editionId in await self?.refreshedManifest(editionId: editionId) }
+        player.onPositionTick = { [weak self] in self?.progress.persistPlaybackProgress(force: false) }
+        player.onPlaybackStopped = { [weak self] in self?.progress.persistPlaybackProgress(force: true) }
+        player.refreshManifest = { [weak self] editionId in
+            await self?.downloads.refreshedManifest(editionId: editionId)
+        }
         player.isNetworkAvailable = { [weak self] in self?.isOnline ?? true }
         startPathMonitor()
         observeProtectedData()
         restoreServerScope()
-        compactJournal()
-        restoreDownloadedAudiobooks()
-        refreshDownloadedBookIds()
+        progress.compactJournal()
+        downloads.restoreDownloadedAudiobooks()
+        downloads.refreshDownloadedBookIds()
     }
 
-    func refreshDownloadedBookIds() {
-        downloadedBookIds = Set(DownloadedStore.readIndex().map(\.bookId))
+    /// Hands the store the follow-ups that span other domains, so it holds no back-reference to the model.
+    private func wireSession() {
+        session.onSessionExpired = { [weak self] in self?.handleSessionExpired() }
+        session.reloadAfterSignIn = { [weak self] in try await self?.libraryStore.reloadLibrary() }
+        session.startAfterSignIn = { [weak self] in
+            guard let self else { return }
+            registerForPushIfAuthorized()
+            startLiveStreams()
+            ReencodeActivityCoordinator.shared.start(model: self)
+            await refreshUnreadNotificationCount()
+        }
+        session.didIdentifyUser = { [weak self] id in self?.updateServerScope(userId: id) }
+        session.describeError = { [weak self] error in self?.message(for: error) ?? error.localizedDescription }
+    }
+
+    private func wireLibrary() {
+        libraryStore.prefetchForOffline = { [weak self] in await self?.downloads.prefetchForOffline() }
+    }
+
+    /// Hands the store the network path and the playing edition, which stay with the model and player.
+    private func wireDownloads() {
+        downloads.isOnline = { [weak self] in self?.isOnline ?? true }
+        downloads.isOnExpensiveNetwork = { [weak self] in self?.isOnExpensiveNetwork ?? false }
+        downloads.activeEditionId = { [weak self] in self?.progress.activeEditionId }
+        downloads.rebuildPlayer = { [weak self] in self?.player.rebuild() }
+    }
+
+    /// Hands the store the network path and the player-opening flow, which spans downloads and the player.
+    private func wireProgress() {
+        progress.isOnline = { [weak self] in self?.isOnline ?? true }
+        progress.openPlayer = { [weak self] editionId, resumeAt in
+            await self?.openPlayer(editionId: editionId, resumeAt: resumeAt)
+        }
     }
 
     private func startPathMonitor() {
@@ -249,7 +181,7 @@ final class AppModel {
             let env = ProcessInfo.processInfo.environment
             // `init` already signed in from RAWKOON_TOKEN; the library still needs its first load.
             if isLoggedIn, env["RAWKOON_TOKEN"] != nil {
-                try? await reloadLibrary()
+                try? await libraryStore.reloadLibrary()
                 return
             }
             guard !isLoggedIn else { return }
@@ -259,7 +191,7 @@ final class AppModel {
                 let email = env["RAWKOON_EMAIL"],
                 let password = env["RAWKOON_PASSWORD"]
             else { return }
-            await login(server: server, email: email, password: password)
+            await session.login(server: server, email: email, password: password)
         }
 
         /// Simulator convenience: start an edition's chapter downloads straight from
@@ -277,16 +209,11 @@ final class AppModel {
                 let raw = ProcessInfo.processInfo.environment["RAWKOON_DOWNLOAD_EDITION"],
                 let editionId = Int(raw)
             else { return }
-            await startDownload(editionId: editionId)
+            await downloads.startDownload(editionId: editionId)
         }
     #endif
 
-    /// Surfaces a brief banner at the app root and auto-dismisses it. This is
-    /// the app-wide fix for actions that used to fail (or succeed) silently:
-    /// call this from anywhere instead of stashing an error string a screen
-    /// might not be showing.
-    /// `duration` overrides the default lifetime (`.infinity` stays until replaced);
-    /// `replacing` reuses a visible toast's identity so its content updates in place.
+    /// Forwards to `UIRouter.toast`; kept because every screen calls it.
     @discardableResult
     func toast(
         _ message: String,
@@ -296,54 +223,31 @@ final class AppModel {
         showsProgress: Bool = false,
         replacing id: UUID? = nil
     ) -> UUID {
-        var next = Toast(message: message, style: style, action: action, showsProgress: showsProgress)
-        if let id, currentToast?.id == id {
-            next.id = id
-        }
-        currentToast = next
-
-        switch style {
-        case .success: RawkoonHaptics.play(.success)
-        case .error: RawkoonHaptics.play(.error)
-        case .info: break
-        }
-
-        // An actionable toast (e.g. discover's "Undo") gets a longer window —
-        // the user needs time to read it and decide, not just glance at it.
-        let dismissDelay = duration ?? (action == nil ? 3 : 5)
-
-        toastDismissTask?.cancel()
-        toastDismissTask = nil
-        if dismissDelay.isFinite {
-            let shown = next.id
-            toastDismissTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(dismissDelay))
-                guard !Task.isCancelled, self?.currentToast?.id == shown else { return }
-                self?.currentToast = nil
-            }
-        }
-        return next.id
+        router.toast(
+            message, style: style, action: action, duration: duration,
+            showsProgress: showsProgress, replacing: id
+        )
     }
 
     /// The configured API client, or nil when logged out. Manage-lane screens
     /// call this directly (e.g. `try await model.api()?.explore()`).
     func api() -> APIClient? {
-        apiClient
+        session.apiClient
     }
 
-    // MARK: Notification and download coordination state
+    /// Read-only forwards to `SessionStore`; screens ask these hundreds of times.
+    var isLoggedIn: Bool {
+        session.isLoggedIn
+    }
 
-    var pendingApnsToken: String?
-    /// Retained after registration so sign-out can unregister it.
-    var registeredApnsToken: String?
-    /// Editions whose grants are being refetched, and how often — a server whose
-    /// secret rotated would otherwise refetch forever.
-    var grantRefreshAttempts: [Int: Int] = [:]
-    var startingDownloads: Set<Int> = []
-    var invalidatingSessions: Set<Int> = []
-    var grantRefreshInFlight: Set<Int> = []
+    var isAdmin: Bool {
+        session.isAdmin
+    }
 
-    var didRefreshAdminOnce = false
+    /// Forwards to `SessionStore.absoluteURL`.
+    func absoluteURL(_ raw: String?) -> URL? {
+        session.absoluteURL(raw)
+    }
 
     func message(for error: Error) -> String {
         guard let apiError = error as? APIError else {
@@ -366,82 +270,18 @@ final class AppModel {
     }
 
     private func reloadCredentialsAfterUnlock() {
-        deviceID = Self.resolveDeviceID()
+        session.refreshDeviceID()
         guard !isLoggedIn,
-              let token = Keychain.get(Self.authTokenKey),
-              let server = Keychain.get(Self.serverURLKey),
+              let token = Keychain.get(SessionStore.authTokenKey),
+              let server = Keychain.get(SessionStore.serverURLKey),
               let baseURL = URL(string: server)
         else { return }
-        serverURL = server
-        apiClient = makeAPIClient(baseURL: baseURL, token: token)
-        isLoggedIn = true
+        session.activate(server: server, baseURL: baseURL, token: token)
         restoreServerScope()
-        restoreDownloadedAudiobooks()
-        refreshDownloadedBookIds()
+        downloads.restoreDownloadedAudiobooks()
+        downloads.refreshDownloadedBookIds()
         hydrateFromCache()
     }
-
-    private static func resolveDeviceID() -> String {
-        if let existing = Keychain.get(deviceIDKey), !existing.isEmpty {
-            return existing
-        }
-        let newValue = UUID().uuidString
-        Keychain.set(newValue, for: deviceIDKey)
-        return newValue
-    }
-
-    private static func positionLogURL() -> URL {
-        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        var url = root.appendingPathComponent("positions.log", isDirectory: false)
-        FileStore.excludeFromBackup(&url)
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
-        return url
-    }
-
-    static func nowMillis() -> Int64 {
-        Int64(Date().timeIntervalSince1970 * 1000)
-    }
-}
-
-/// A library title to open from outside the app, such as a widget tap.
-struct MediaLink: Hashable {
-    let libraryId: Int
-    let tmdbId: Int
-    let mediaType: String
-    let title: String
-
-    init?(url: URL) {
-        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        func value(_ name: String) -> String? {
-            items.first { $0.name == name }?.value
-        }
-        guard url.host == "media",
-              let library = value("library").flatMap(Int.init),
-              let tmdb = value("tmdb").flatMap(Int.init),
-              let type = value("type"), type == "movie" || type == "tv"
-        else { return nil }
-        libraryId = library
-        tmdbId = tmdb
-        mediaType = type
-        title = value("title") ?? ""
-    }
-}
-
-struct ConfirmRequest: Identifiable {
-    let id = UUID()
-    let title: String
-    let message: String
-    let confirmTitle: String
-    var isDestructive = true
-    let action: @MainActor () -> Void
-    /// Optional middle choice (e.g. "Choose a release") between confirm and cancel.
-    var secondaryTitle: String?
-    var secondaryAction: (@MainActor () -> Void)?
-    /// Overrides the default "Cancel" label.
-    var cancelTitle: String?
 }
 
 extension Notification.Name {

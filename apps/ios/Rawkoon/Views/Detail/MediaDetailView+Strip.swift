@@ -253,7 +253,7 @@ extension MediaDetailView {
 
     private func confirmRemoveFromLibrary() {
         guard let targetId = libraryId else { return }
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: String(localized: "Remove from library?"),
             message: String(localized: "“\(title)” will leave your library. Deleting files also removes them from disk."),
             confirmTitle: String(localized: "Remove and delete files"),

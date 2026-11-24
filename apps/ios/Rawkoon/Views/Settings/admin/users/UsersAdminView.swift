@@ -88,7 +88,7 @@ struct UsersAdminView: View {
 
     private func rows(_ users: [AdminUser]) -> some View {
         ForEach(users) { user in
-            let isYou = user.id == model.userId
+            let isYou = user.id == model.session.userId
             NavigationLink {
                 UserAdminDetailView(store: store, userId: user.id)
             } label: {
@@ -136,7 +136,7 @@ struct UsersAdminView: View {
 
     private func confirmDelete(_ user: AdminUser) {
         let name = store.displayName(user)
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: String(localized: "Delete \(name)?"),
             message: String(localized: "They lose access right away. Their requests and history stay."),
             confirmTitle: String(localized: "Delete"),
@@ -146,7 +146,7 @@ struct UsersAdminView: View {
 
     private func confirmRole(_ user: AdminUser) {
         let name = store.displayName(user)
-        model.pendingConfirm = ConfirmRequest(
+        model.router.pendingConfirm = ConfirmRequest(
             title: user.isAdmin ? String(localized: "Make \(name) a user?") : String(localized: "Make \(name) an admin?"),
             message: user.isAdmin
                 ? String(localized: "They lose access to server settings.")

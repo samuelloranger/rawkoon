@@ -29,8 +29,8 @@
         @ViewBuilder private var content: some View {
             switch screen {
             case "userDetail":
-                if let user = store.users.first(where: { $0.id != model.userId && $0.jellyfinUserId != nil })
-                    ?? store.users.first(where: { $0.id != model.userId })
+                if let user = store.users.first(where: { $0.id != model.session.userId && $0.jellyfinUserId != nil })
+                    ?? store.users.first(where: { $0.id != model.session.userId })
                 {
                     UserAdminDetailView(store: store, userId: user.id)
                 } else {
