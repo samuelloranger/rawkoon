@@ -32,11 +32,7 @@ extension AppModel {
 
     private func adoptLegacyEntries(serverKey key: String) {
         DownloadedStore.adoptLegacy(serverKey: key)
-        let journal = readJournal()
-        let adopted = PositionJournal.adopting(journal, serverKey: key)
-        if adopted != journal {
-            try? adopted.write(to: journalURL, atomically: true, encoding: .utf8)
-        }
+        progress.adoptLegacyJournal(serverKey: key)
     }
 
     func clearServerScope() {

@@ -8,7 +8,7 @@ extension AppModel {
     /// `activeEditionId`).
     func activeBook() -> (summary: LibrarySummary, manifest: BookManifest)? {
         guard
-            let id = activeEditionId,
+            let id = progress.activeEditionId,
             let summary = libraryStore.library.first(where: { $0.audiobookEditionId == id })?.audiobookSummary,
             let manifest = downloads.manifests[id]
         else {
@@ -22,7 +22,7 @@ extension AppModel {
 
         // Reloading the book already playing would pause it and rewind it to a
         // stale snapshot, so only an explicitly chosen position moves it.
-        if editionId == activeEditionId, player.manifest?.editionId == editionId, player.playbackError == nil {
+        if editionId == progress.activeEditionId, player.manifest?.editionId == editionId, player.playbackError == nil {
             if let overridePosition {
                 player.seek(to: overridePosition)
             }
@@ -39,10 +39,10 @@ extension AppModel {
             let resumeAt: Double = if let overridePosition {
                 max(0, min(overridePosition, manifest.totalDurationSecs))
             } else {
-                await resolveResumePosition(editionId: editionId, manifest: manifest)
+                await progress.resolveResumePosition(editionId: editionId, manifest: manifest)
             }
-            persistPlaybackProgress(force: true)
-            activeEditionId = editionId
+            progress.persistPlaybackProgress(force: true)
+            progress.activeEditionId = editionId
             player.load(
                 manifest: manifest,
                 baseURL: baseURL,
@@ -64,8 +64,8 @@ extension AppModel {
 
     /// Closes the player: stops audio, drops Now Playing, hides the mini bar.
     func closePlayer() {
-        persistPlaybackProgress(force: true)
-        activeEditionId = nil
+        progress.persistPlaybackProgress(force: true)
+        progress.activeEditionId = nil
         player.unload()
     }
 }

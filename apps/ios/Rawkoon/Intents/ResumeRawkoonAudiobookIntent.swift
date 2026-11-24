@@ -24,7 +24,7 @@ struct ResumeRawkoonAudiobookIntent: AudioPlaybackIntent {
         }
         let entries = await model.carPlayAudiobooks()
         guard let editionId = AudiobookResume.editionId(
-            activeEditionId: model.activeEditionId,
+            activeEditionId: model.progress.activeEditionId,
             entries: entries
         ) else {
             return .result(dialog: "You don't have an audiobook in progress.")

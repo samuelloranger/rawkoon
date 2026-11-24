@@ -111,7 +111,7 @@ struct BookView: View {
     /// Same list as the card long-press; Read and Play are the page's own primary buttons.
     var menuItems: [BookCardMenuAction] {
         let hasProgress = [audiobookEditionId, ebookEditionId].compactMap(\.self).contains {
-            model.resumePreview[$0] != nil || model.readingResumePreview[$0] != nil
+            model.progress.resumePreview[$0] != nil || model.progress.readingResumePreview[$0] != nil
         }
         return bookCardMenuItems(
             hasAudiobook: hasAudiobookEdition,
@@ -350,14 +350,14 @@ struct BookView: View {
     var audiobookResume: AudiobookResumeLabel {
         guard let editionId = audiobookEditionId else { return .play }
         return AudiobookResume.label(
-            positionSecs: model.resumePreview[editionId],
+            positionSecs: model.progress.resumePreview[editionId],
             totalDurationSecs: audiobookTotalSecs
         )
     }
 
     var ebookResume: EbookResumeLabel {
         guard let editionId = ebookEditionId else { return .read }
-        return EbookResume.label(model.readingResumePreview[editionId])
+        return EbookResume.label(model.progress.readingResumePreview[editionId])
     }
 
     var canPlayAudiobook: Bool {

@@ -85,6 +85,14 @@ final class UIRouter {
         }
         return next.id
     }
+
+    /// Asks the root to show the full player once whatever sheet is closing has gone.
+    func presentPlayerAfterDismiss() {
+        Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            playerPresentationRequest += 1
+        }
+    }
 }
 
 /// A library title to open from outside the app, such as a widget tap.

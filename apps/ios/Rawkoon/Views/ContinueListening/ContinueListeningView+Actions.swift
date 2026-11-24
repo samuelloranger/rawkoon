@@ -9,7 +9,7 @@ extension ContinueListeningView {
         switch item {
         case let .audiobook(audiobook):
             // The card's position is a snapshot; the loaded book is already past it.
-            let resumeAt = model.activeEditionId == audiobook.editionId ? nil : audiobook.positionSecs
+            let resumeAt = model.progress.activeEditionId == audiobook.editionId ? nil : audiobook.positionSecs
             await model.openPlayer(editionId: audiobook.editionId, resumeAt: resumeAt)
             if let error = model.session.errorMessage {
                 model.toast(error, style: .error)

@@ -62,65 +62,7 @@ extension AppModel {
             await libraryStore.loadLibrary()
             await session.refreshAdmin()
             await refreshUnreadNotificationCount()
-            await pushOfflineProgress(libraryFreshSince: passStart)
-        }
-    }
-
-    /// Sends positions recorded while the server was out of reach. The push at
-    /// play time is fire-and-forget, so a drive through a dead zone otherwise
-    /// leaves the server behind until that book is opened again.
-    ///
-    /// With no server row the book may have been marked read; push only when this pass
-    /// fetched the library and the journal line is newer than any read mark.
-    func pushOfflineProgress(libraryFreshSince passStart: Date) async {
-        guard let apiClient = session.apiClient, let remote = try? await apiClient.getProgress() else { return }
-        let remoteByEdition = Dictionary(remote.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first })
-
-        for (editionId, entry) in await journalEntries() {
-            let server = remoteByEdition[editionId]
-            let total = server?.totalDurationSecs ?? DownloadedStore.readManifest(editionId: editionId)?.totalDurationSecs ?? 0
-            guard total > 0 else { continue }
-            if server == nil {
-                // A cached library can hold a stale readAt; only a fetch from this pass can rule out "marked read".
-                guard let fetched = libraryStore.libraryFetchedAt, fetched >= passStart,
-                      libraryStore.library.contains(where: { $0.audiobookEditionId == editionId }),
-                      !markedReadSince(editionId: editionId, journalAtMillis: entry.atMillis)
-                else { continue }
-            }
-            let local = ProgressRecord(
-                positionSecs: entry.positionSecs,
-                totalDurationSecs: total,
-                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
-                updatedAtMillis: entry.atMillis
-            )
-            let remoteRecord = server.map {
-                ProgressRecord(
-                    positionSecs: $0.positionSecs,
-                    totalDurationSecs: $0.totalDurationSecs,
-                    finished: $0.finished,
-                    updatedAtMillis: Int64($0.updatedAt.timeIntervalSince1970 * 1000)
-                )
-            }
-            guard SyncReconciler.reconcile(local: local, remote: remoteRecord) == .push else { continue }
-            try? await apiClient.putProgress(
-                editionId: editionId,
-                positionSecs: entry.positionSecs,
-                totalDurationSecs: total,
-                finished: isListeningFinished(positionSecs: entry.positionSecs, totalDurationSecs: total),
-                updatedAt: Date(timeIntervalSince1970: Double(entry.atMillis) / 1000),
-                deviceId: session.deviceID
-            )
-        }
-
-        guard let remoteReading = try? await apiClient.readingProgress() else { return }
-        let readingByEdition = Dictionary(
-            remoteReading.map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
-        )
-        for (editionId, local) in readingProgressStore.all() {
-            guard let server = readingByEdition[editionId],
-                  ReadingProgressReconciler.reconcile(local: local, remote: server) == .push
-            else { continue }
-            try? await apiClient.putReadingProgress(local, deviceId: session.deviceID)
+            await progress.pushOfflineProgress(libraryFreshSince: passStart)
         }
     }
 }

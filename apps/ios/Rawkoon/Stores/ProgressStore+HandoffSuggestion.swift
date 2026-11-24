@@ -19,7 +19,7 @@ struct HandoffSuggestionBanner: Equatable, Identifiable {
     let snippet: String?
 }
 
-extension AppModel {
+extension ProgressStore {
     /// The reader just opened for a book with an audiobook: when the audiobook is
     /// the more recent one, matches its position into the ebook. `stored` is the
     /// reading position the reader opened from, read before the reader's own
@@ -30,7 +30,7 @@ extension AppModel {
         openedSpinePath: String?,
         openedProgression: Double?
     ) async -> HandoffSuggestionBanner? {
-        guard isOnline, let client = api(),
+        guard isOnline(), let client = session.apiClient,
               let audiobookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.audiobookEditionId,
               let listen = await listeningPoint(editionId: audiobookEditionId),
               HandoffSuggestion.shouldCheckEbook(
@@ -72,7 +72,7 @@ extension AppModel {
     /// The player just opened for a book with an ebook: when the ebook is the more
     /// recent one, matches its position into the audiobook.
     func suggestAudiobookSpot(bookId: Int, audiobookEditionId: Int) async -> HandoffSuggestionBanner? {
-        guard isOnline, let client = api(),
+        guard isOnline(), let client = session.apiClient,
               let ebookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.ebookEditionId,
               let read = await readingPosition(editionId: ebookEditionId),
               !read.finished,

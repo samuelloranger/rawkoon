@@ -20,7 +20,7 @@
         var body: some View {
             // Rendered once the synthetic book is active, so the list anchors with the final inset.
             Group {
-                if !playing || model.activeEditionId != nil {
+                if !playing || model.progress.activeEditionId != nil {
                     container
                 } else {
                     Theme.base
@@ -81,7 +81,7 @@
         }
 
         private func loadPlayingBook() {
-            guard playing, model.activeEditionId == nil,
+            guard playing, model.progress.activeEditionId == nil,
                   let manifest = DebugPlayer.syntheticManifest(chapterCount: 12),
                   let baseURL = URL(string: "https://screenshot.invalid")
             else { return }
@@ -92,7 +92,7 @@
                 audiobookFileCount: manifest.files.count, hasEbook: false, readAt: nil
             )]
             model.downloads.manifests[manifest.editionId] = manifest
-            model.activeEditionId = manifest.editionId
+            model.progress.activeEditionId = manifest.editionId
             model.player.load(manifest: manifest, baseURL: baseURL, resumeAt: 1800)
         }
     }

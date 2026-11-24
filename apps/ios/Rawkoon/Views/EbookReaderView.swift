@@ -250,12 +250,12 @@ struct EbookReaderSheet: View {
         hideTask?.cancel()
         listenTask = Task {
             defer { findingPlace = false }
-            let started = await model.listenFromHere(
+            let started = await model.progress.listenFromHere(
                 bookId: bookId, spinePath: spot.spinePath, progression: spot.progression
             )
             if started, !Task.isCancelled {
                 persistAndDismiss()
-                model.presentPlayerAfterDismiss()
+                model.router.presentPlayerAfterDismiss()
             } else {
                 revealControls()
             }
@@ -301,7 +301,7 @@ struct EbookReaderSheet: View {
             .map { readingOrder[$0].href } ?? readingOrder.first?.href
         let openedProgression = initialLocation.map { $0.locations.progression ?? 0 } ?? 0
         suggestionTask = Task {
-            let banner = await model.suggestEbookSpot(
+            let banner = await model.progress.suggestEbookSpot(
                 bookId: bookId,
                 stored: stored,
                 openedSpinePath: openedPath,
@@ -351,7 +351,7 @@ struct EbookReaderSheet: View {
             model.player.pause()
             await session.navigator.go(to: locator, options: .animated)
             if let bookId = document.bookId {
-                model.noteHandoffAgreed(bookId: bookId)
+                model.progress.noteHandoffAgreed(bookId: bookId)
             }
         }
     }
@@ -385,7 +385,7 @@ struct EbookReaderSheet: View {
             let stored: ReadingPosition? = if let editionId = document.editionId,
                                               !document.startFromBeginning
             {
-                await model.readingPosition(editionId: editionId)
+                await model.progress.readingPosition(editionId: editionId)
             } else {
                 nil
             }
@@ -442,7 +442,7 @@ struct EbookReaderSheet: View {
                 tableOfContents: toc,
                 editionId: document.editionId,
                 fileId: document.id,
-                save: { model.saveReadingPosition($0) }
+                save: { model.progress.saveReadingPosition($0) }
             )
             let chrome = chrome
             host.onLocationChange = { [weak session] locator in

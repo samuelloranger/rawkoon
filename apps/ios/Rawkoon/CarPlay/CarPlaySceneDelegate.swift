@@ -73,7 +73,7 @@
                 _ = AppModel.shared.isLoggedIn
                 _ = AppModel.shared.libraryStore.library
                 // Continue Listening order and resume labels move while listening.
-                _ = AppModel.shared.activeEditionId
+                _ = AppModel.shared.progress.activeEditionId
                 _ = AppModel.shared.player.isPlaying
             } onChange: { [weak self] in
                 Task { @MainActor in
@@ -101,7 +101,7 @@
             return RefreshKey(
                 isLoggedIn: model.isLoggedIn,
                 libraryIds: model.libraryStore.library.map(\.bookId),
-                activeEditionId: model.activeEditionId,
+                activeEditionId: model.progress.activeEditionId,
                 isPlaying: model.player.isPlaying
             )
         }

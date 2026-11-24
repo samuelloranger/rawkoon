@@ -17,7 +17,7 @@
                         await model.libraryStore.loadLibrary()
                     }
                     guard
-                        model.activeEditionId == nil,
+                        model.progress.activeEditionId == nil,
                         let editionId = model.libraryStore.library.first(where: { $0.hasAudiobook })?.audiobookEditionId
                     else { return }
                     await model.openPlayer(editionId: editionId)

@@ -3,7 +3,7 @@ import SwiftUI
 
 extension ContinueListeningView {
     func ebookDocument(for item: ContinueEbookItem) async throws -> EbookPreviewDocument {
-        try await model.ebookDocument(
+        try await model.progress.ebookDocument(
             bookId: item.bookId,
             editionId: item.editionId,
             title: item.title,

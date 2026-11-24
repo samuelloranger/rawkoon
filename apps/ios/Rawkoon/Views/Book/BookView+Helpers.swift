@@ -75,7 +75,7 @@ extension BookView {
 
     func isCurrentChapter(_ chapter: ManifestChapter) -> Bool {
         guard let editionId = audiobookEditionId else { return false }
-        return model.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
+        return model.progress.activeEditionId == editionId && model.player.currentChapterIndex == chapter.index
     }
 
     func formattedPublishedDate(_ iso: String?, year: Int?) -> String? {

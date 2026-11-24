@@ -5,12 +5,12 @@ import RawkoonKit
 // ebook at the same sentence. The server matches the spot; this saves it and
 // opens the other format.
 
-extension AppModel {
+extension ProgressStore {
     /// The audiobook's current spot, opened in the ebook reader. Nil (after a
     /// toast) when the server cannot match it or the ebook cannot be opened, and
     /// nil without a toast when the calling task was cancelled.
     func readFromHere(bookId: Int, title: String, positionSecs: Double) async -> EbookPreviewDocument? {
-        guard let client = api(),
+        guard let client = session.apiClient,
               let ebookEditionId = libraryStore.library.first(where: { $0.bookId == bookId })?.ebookEditionId
         else { return nil }
 
@@ -61,7 +61,7 @@ extension AppModel {
     /// when it could not be matched or the player failed to load; false without
     /// a toast when the calling task was cancelled.
     func listenFromHere(bookId: Int, spinePath: String, progression: Double) async -> Bool {
-        guard let client = api(),
+        guard let client = session.apiClient,
               let editionId = libraryStore.library.first(where: { $0.bookId == bookId })?.audiobookEditionId
         else { return false }
         let positionSecs: Double
@@ -82,9 +82,9 @@ extension AppModel {
     /// Plays the audiobook from a matched spot. False (after a toast) when the
     /// player failed to load.
     func playHandoffPosition(bookId: Int, editionId: Int, positionSecs: Double) async -> Bool {
-        await openPlayer(editionId: editionId, resumeAt: positionSecs)
+        await openPlayer(editionId, positionSecs)
         if let error = session.errorMessage {
-            toast(error, style: .error)
+            router.toast(error, style: .error)
             return false
         }
         guard !Task.isCancelled else { return false }
@@ -93,27 +93,19 @@ extension AppModel {
         return true
     }
 
-    /// Asks the root to show the full player once whatever sheet is closing has gone.
-    func presentPlayerAfterDismiss() {
-        Task {
-            try? await Task.sleep(for: .milliseconds(600))
-            router.playerPresentationRequest += 1
-        }
-    }
-
     private func toastHandoffFailure(_ error: Error) {
         Log.network.error("book handoff failed: \(String(describing: error), privacy: .public)")
         let message = (error as? APIError)?.handoffMessage
             ?? String(localized: "Couldn't reach the transcription service.")
-        toast(message, style: .error)
+        router.toast(message, style: .error)
     }
 
     private func toastEbookOpenFailure(_ error: Error) {
         Log.network.error("book handoff ebook open failed: \(String(describing: error), privacy: .public)")
         if case EbookContinueError.missingRemoteURL = error {
-            toast(String(localized: "This server version cannot provide ebook download links yet."), style: .error)
+            router.toast(String(localized: "This server version cannot provide ebook download links yet."), style: .error)
         } else {
-            toast(String(localized: "Couldn't open the ebook."), style: .error)
+            router.toast(String(localized: "Couldn't open the ebook."), style: .error)
         }
     }
 }

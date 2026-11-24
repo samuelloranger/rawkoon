@@ -52,7 +52,7 @@ struct AppModelPlaybackAdapter: AudiobookPlaybackAdapting {
     }
 
     var loadedEditionId: Int? {
-        model.activeEditionId
+        model.progress.activeEditionId
     }
 
     /// A play failure surfaces on the player; a load failure on the model.

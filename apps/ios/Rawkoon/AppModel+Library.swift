@@ -14,7 +14,7 @@ extension AppModel {
             (remote ?? []).map { ($0.editionId, $0) }, uniquingKeysWith: { first, _ in first }
         )
         // Offline, the phone's own journal is the only record of what is in progress.
-        let journal = await journalEntries()
+        let journal = await progress.journalEntries()
 
         var entries: [CarPlayBrowseEntry] = []
         for book in libraryStore.library {
@@ -51,7 +51,7 @@ extension AppModel {
         do {
             try await apiClient.setBookRead(bookId: book.bookId, read: read)
             if read {
-                clearLocalProgress(for: book)
+                progress.clearLocalProgress(editionIds: editionIds(of: book))
             }
             await libraryStore.loadLibrary()
             liveUpdates.bumpBookChangeToken()
@@ -72,7 +72,7 @@ extension AppModel {
         session.errorMessage = nil
         do {
             try await apiClient.resetBookProgress(bookId: book.bookId)
-            clearLocalProgress(for: book)
+            progress.clearLocalProgress(editionIds: editionIds(of: book))
             await libraryStore.loadLibrary()
             liveUpdates.bumpBookChangeToken()
             toast(String(localized: "Progress reset."), style: .success)
@@ -81,22 +81,7 @@ extension AppModel {
         }
     }
 
-    private func clearLocalProgress(for book: BookListItem) {
-        let editionIds = [book.audiobookEditionId, book.ebookEditionId].compactMap(\.self)
-        for editionId in editionIds {
-            try? readingProgressStore.remove(editionId: editionId)
-            lastProgressPosition[editionId] = nil
-        }
-        let kept = PositionJournal.excluding(
-            readJournal(), editionIds: Set(editionIds), serverKey: ActiveServerKey.shared.value
-        )
-        try? kept.write(to: journalURL, atomically: true, encoding: .utf8)
-        // Closed, not rewound: a playing book would PUT a position within seconds
-        // and recreate the progress row the server just deleted. activeEditionId
-        // goes first so the unload's pause has nothing to save.
-        if let active = activeEditionId, editionIds.contains(active) {
-            activeEditionId = nil
-            player.unload()
-        }
+    private func editionIds(of book: BookListItem) -> [Int] {
+        [book.audiobookEditionId, book.ebookEditionId].compactMap(\.self)
     }
 }

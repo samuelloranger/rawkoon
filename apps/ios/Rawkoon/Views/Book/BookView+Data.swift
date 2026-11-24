@@ -18,12 +18,12 @@ extension BookView {
 
     func loadResumePreview() async {
         guard let editionId = audiobookEditionId else { return }
-        await model.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
+        await model.progress.loadResumePreview(editionId: editionId, totalDurationSecs: audiobookTotalSecs)
     }
 
     func loadReadingResumePreview() async {
         guard let editionId = ebookEditionId else { return }
-        await model.loadReadingResumePreview(editionId: editionId)
+        await model.progress.loadReadingResumePreview(editionId: editionId)
     }
 
     func refreshAll(forceManifestRefresh: Bool) async {

@@ -34,7 +34,7 @@ struct AppModelSplitRegressionTests {
         let model = AppModel()
         let cached = manifest(editionId: 987_654_322, bookId: 22)
         model.libraryStore.library = [book(id: 22, title: "Playing", editionId: cached.editionId)]
-        model.activeEditionId = cached.editionId
+        model.progress.activeEditionId = cached.editionId
         #expect(model.activeBook() == nil)
 
         model.downloads.manifests[cached.editionId] = cached

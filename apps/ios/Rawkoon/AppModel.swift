@@ -3,7 +3,6 @@ import Network
 import Observation
 import RawkoonKit
 import UIKit
-import UserNotifications
 
 @MainActor
 @Observable
@@ -16,14 +15,6 @@ final class AppModel {
     /// finished downloads are discarded.
     static let shared = AppModel()
 
-    /// Last known resume point per audiobook edition, so a button can read
-    /// "Resume from …" before the player is opened. Filled by
-    /// `loadResumePreview(editionId:totalDurationSecs:)`.
-    var resumePreview: [Int: Double] = [:]
-    /// The ebook equivalent: the stored reading position per edition, so a button
-    /// can name the chapter before the reader is opened.
-    var readingResumePreview: [Int: ReadingPosition] = [:]
-    var activeEditionId: Int?
     /// Bumped whenever the server is reachable again (network back, or the live
     /// stream reconnecting after a drop), so screens painted from saved data refetch.
     var reconnectToken = 0
@@ -42,6 +33,9 @@ final class AppModel {
     /// Audiobook downloads, manifests and the offline prefetch; see `DownloadsStore`.
     let downloads: DownloadsStore
 
+    /// Playback and reading positions, the position journal and the audiobook/ebook handoff; see `ProgressStore`.
+    let progress: ProgressStore
+
     // MARK: Live updates (spec §T2/T4)
 
     /// Owns the SSE consumers and the observable state they feed (change tokens,
@@ -55,7 +49,6 @@ final class AppModel {
 
     let player = AudiobookPlayer()
 
-    var lastProgressWriteMillis: [Int: Int64] = [:]
     /// Whether the device currently has a usable network path.
     ///
     /// Starts `true` so a launch never assumes offline before the monitor has
@@ -67,28 +60,19 @@ final class AppModel {
     private(set) var isOnExpensiveNetwork = false
     private let pathMonitor = NWPathMonitor()
 
-    let readingProgressStore = ReadingProgressStore(
-        directory: FileStore.booksDirectory()
-    )
-    var lastProgressPosition: [Int: Double] = [:]
-    /// Automatic handoff matches already answered or running, so reopening a book
-    /// without moving does not transcribe again. In memory: a launch may recheck.
-    var handoffMemo = HandoffSuggestion.Memo()
-    /// Per book, when its audiobook and ebook positions last agreed through a handoff.
-    var handoffAgreedAtMillis: [Int: Int64] = [:]
-
-    let journalURL: URL
-
     init() {
         session = SessionStore(serverStateStore: serverStateStore)
         libraryStore = LibraryStore(session: session)
         downloads = DownloadsStore(session: session, libraryStore: libraryStore, router: router)
-        journalURL = Self.positionLogURL()
+        progress = ProgressStore(
+            session: session, libraryStore: libraryStore, downloads: downloads, router: router, player: player
+        )
         liveUpdates.appModel = self
         liveSearch.appModel = self
         wireSession()
         wireLibrary()
         wireDownloads()
+        wireProgress()
 
         if
             let token = Keychain.get(SessionStore.authTokenKey),
@@ -114,8 +98,8 @@ final class AppModel {
             }
         #endif
 
-        player.onPositionTick = { [weak self] in self?.persistPlaybackProgress(force: false) }
-        player.onPlaybackStopped = { [weak self] in self?.persistPlaybackProgress(force: true) }
+        player.onPositionTick = { [weak self] in self?.progress.persistPlaybackProgress(force: false) }
+        player.onPlaybackStopped = { [weak self] in self?.progress.persistPlaybackProgress(force: true) }
         player.refreshManifest = { [weak self] editionId in
             await self?.downloads.refreshedManifest(editionId: editionId)
         }
@@ -123,7 +107,7 @@ final class AppModel {
         startPathMonitor()
         observeProtectedData()
         restoreServerScope()
-        compactJournal()
+        progress.compactJournal()
         downloads.restoreDownloadedAudiobooks()
         downloads.refreshDownloadedBookIds()
     }
@@ -151,8 +135,16 @@ final class AppModel {
     private func wireDownloads() {
         downloads.isOnline = { [weak self] in self?.isOnline ?? true }
         downloads.isOnExpensiveNetwork = { [weak self] in self?.isOnExpensiveNetwork ?? false }
-        downloads.activeEditionId = { [weak self] in self?.activeEditionId }
+        downloads.activeEditionId = { [weak self] in self?.progress.activeEditionId }
         downloads.rebuildPlayer = { [weak self] in self?.player.rebuild() }
+    }
+
+    /// Hands the store the network path and the player-opening flow, which spans downloads and the player.
+    private func wireProgress() {
+        progress.isOnline = { [weak self] in self?.isOnline ?? true }
+        progress.openPlayer = { [weak self] editionId, resumeAt in
+            await self?.openPlayer(editionId: editionId, resumeAt: resumeAt)
+        }
     }
 
     private func startPathMonitor() {
@@ -289,21 +281,6 @@ final class AppModel {
         downloads.restoreDownloadedAudiobooks()
         downloads.refreshDownloadedBookIds()
         hydrateFromCache()
-    }
-
-    private static func positionLogURL() -> URL {
-        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        var url = root.appendingPathComponent("positions.log", isDirectory: false)
-        FileStore.excludeFromBackup(&url)
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
-        return url
-    }
-
-    static func nowMillis() -> Int64 {
-        Int64(Date().timeIntervalSince1970 * 1000)
     }
 }
 

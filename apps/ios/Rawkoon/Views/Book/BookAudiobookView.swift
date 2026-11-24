@@ -149,7 +149,7 @@ struct BookAudiobookView: View {
                 // "Play" has to mean from the start — but only once the
                 // preview has loaded. Before that the label is a placeholder,
                 // so the player resolves the position itself.
-                let previewed = model.resumePreview[editionId] != nil
+                let previewed = model.progress.resumePreview[editionId] != nil
                 let resumeAt: Double? = (previewed && audiobookResume == .play) ? 0 : nil
                 await model.openPlayer(editionId: editionId, resumeAt: resumeAt)
                 audioState.loadingPlayer = false

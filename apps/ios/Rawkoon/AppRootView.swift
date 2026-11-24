@@ -143,7 +143,7 @@ struct AppRootView: View {
                 Task { await model.refreshPendingRequestCount() }
                 Task { await model.session.refreshBooksEnabled() }
             case .background:
-                model.persistPlaybackProgress(force: true)
+                model.progress.persistPlaybackProgress(force: true)
                 model.stopLiveStreams()
                 model.scheduleBackgroundRefresh()
             case .inactive:

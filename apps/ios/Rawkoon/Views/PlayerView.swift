@@ -232,7 +232,7 @@ struct PlayerView: View {
         model.player.pause()
         let positionSecs = model.player.positionSecs
         handoffTask = Task {
-            let document = await model.readFromHere(
+            let document = await model.progress.readFromHere(
                 bookId: summary.bookId,
                 title: summary.title,
                 positionSecs: positionSecs
@@ -279,7 +279,7 @@ struct PlayerView: View {
         else { return }
         suggestionTask?.cancel()
         suggestionTask = Task {
-            let banner = await model.suggestAudiobookSpot(
+            let banner = await model.progress.suggestAudiobookSpot(
                 bookId: summary.bookId, audiobookEditionId: summary.editionId
             )
             guard !Task.isCancelled else { return }
@@ -291,7 +291,7 @@ struct PlayerView: View {
         suggestion = nil
         guard case let .audiobook(positionSecs) = banner.target else { return }
         Task {
-            _ = await model.playHandoffPosition(
+            _ = await model.progress.playHandoffPosition(
                 bookId: summary.bookId, editionId: summary.editionId, positionSecs: positionSecs
             )
         }
